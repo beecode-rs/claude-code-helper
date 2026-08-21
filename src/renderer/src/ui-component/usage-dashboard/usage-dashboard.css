@@ -7,6 +7,7 @@
   --ink-muted: #898781;
   --hairline: rgba(255, 255, 255, 0.1);
   --meter-track: #2c2c2a;
+  --meter-good: #0ca30c;
   --meter-accent: #3987e5;
   --meter-warning: #fab219;
   --meter-serious: #ec835a;
@@ -172,7 +173,7 @@ body {
 
 .provider-card-status-ok {
   background: rgba(12, 163, 12, 0.14);
-  color: #0ca30c;
+  color: var(--meter-good);
 }
 
 .provider-card-status-error {
@@ -249,7 +250,9 @@ body {
 .usage-bar-fill {
   border-radius: 0 4px 4px 0;
   height: 100%;
-  transition: width 0.4s ease;
+  transition:
+    background-color 0.4s ease,
+    width 0.4s ease;
 }
 
 .settings-overlay {
@@ -379,7 +382,7 @@ body {
 }
 
 .settings-saved {
-  color: #0ca30c;
+  color: var(--meter-good);
   font-size: 13px;
 }
 

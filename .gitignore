@@ -1,0 +1,9 @@
+node_modules
+out
+dist
+coverage
+.DS_Store
+.env*
+*.local
+.history
+.tmp

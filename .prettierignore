@@ -1,0 +1,9 @@
+node_modules
+out
+dist
+coverage
+package-lock.json
+pnpm-lock.yaml
+.env*
+!.env*.example
+.history

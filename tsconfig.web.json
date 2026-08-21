@@ -1,0 +1,27 @@
+{
+	"compilerOptions": {
+		"composite": true,
+		"esModuleInterop": true,
+		"jsx": "react-jsx",
+		"lib": [
+			"ES2023",
+			"DOM",
+			"DOM.Iterable"
+		],
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"noUncheckedIndexedAccess": true,
+		"paths": {
+			"#src/*": [
+				"./src/*"
+			]
+		},
+		"skipLibCheck": true,
+		"strict": true,
+		"target": "ES2022"
+	},
+	"include": [
+		"src/renderer/**/*",
+		"src/shared/**/*"
+	]
+}

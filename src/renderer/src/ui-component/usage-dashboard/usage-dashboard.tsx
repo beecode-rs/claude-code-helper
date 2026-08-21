@@ -1,7 +1,6 @@
 import { type ReactElement, useEffect, useState } from 'react'
 
 import { usageClientService } from '#src/renderer/src/business/service/usage-client-service'
-import { SettingsPanel } from '#src/renderer/src/ui-component/settings/settings-panel'
 import { AddTrackerDialog } from '#src/renderer/src/ui-component/tracker/add-tracker-dialog'
 import { TrackerSettingsDialog } from '#src/renderer/src/ui-component/tracker/tracker-settings-dialog'
 import { DashboardFooter } from '#src/renderer/src/ui-component/usage-dashboard/dashboard-footer'
@@ -14,7 +13,6 @@ export const UsageDashboard = (): ReactElement => {
   const [snapshot, setSnapshot] = useState<IUsageSnapshot | undefined>(undefined)
   const [settings, setSettings] = useState<IAppSettings | undefined>(undefined)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [openTrackerId, setOpenTrackerId] = useState<string | undefined>(undefined)
 
@@ -58,7 +56,7 @@ export const UsageDashboard = (): ReactElement => {
     <div className="dashboard">
       <header className="dashboard-header">
         <div>
-          <h1 className="dashboard-title">Usage Pulse</h1>
+          <h1 className="dashboard-title">Usage</h1>
           <p className="dashboard-subtitle">Track usage limits for your coding plans</p>
         </div>
         <div className="dashboard-actions">
@@ -80,15 +78,6 @@ export const UsageDashboard = (): ReactElement => {
             type="button"
           >
             Refresh
-          </button>
-          <button
-            className="button"
-            onClick={() => {
-              setIsSettingsOpen(true)
-            }}
-            type="button"
-          >
-            Settings
           </button>
         </div>
       </header>
@@ -121,16 +110,6 @@ export const UsageDashboard = (): ReactElement => {
         )}
       </main>
       <DashboardFooter lastFetchedAt={snapshot?.fetchedAt} pollIntervalSeconds={settings?.pollIntervalSeconds} />
-      {isSettingsOpen && (
-        <SettingsPanel
-          onClose={() => {
-            setIsSettingsOpen(false)
-          }}
-          onSaved={() => {
-            void loadSettings()
-          }}
-        />
-      )}
       {isAddOpen && (
         <AddTrackerDialog
           onClose={() => {

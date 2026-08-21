@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
-import { UsageDashboard } from '#src/renderer/src/ui-component/usage-dashboard/usage-dashboard'
+import { AppShell } from '#src/renderer/src/ui-component/app-shell/app-shell'
 
 const rootElement = document.getElementById('root')
 
@@ -11,6 +11,6 @@ if (rootElement === null) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <UsageDashboard />
+    <AppShell />
   </StrictMode>,
 )

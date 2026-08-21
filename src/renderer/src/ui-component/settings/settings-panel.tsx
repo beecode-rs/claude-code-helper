@@ -4,10 +4,10 @@ import { usageClientService } from '#src/renderer/src/business/service/usage-cli
 import { errorUtil } from '#src/renderer/src/util/error-util'
 import { type IAppSettings, MAX_POLL_INTERVAL_SECONDS, MIN_POLL_INTERVAL_SECONDS } from '#src/shared/settings-model'
 
-export const SettingsPanel = (props: { onClose: () => void; onSaved: () => void }): ReactElement => {
-  const { onClose, onSaved } = props
+export const SettingsPanel = (): ReactElement => {
   const [settings, setSettings] = useState<IAppSettings | undefined>(undefined)
   const [isSaving, setIsSaving] = useState(false)
+  const [isSaved, setIsSaved] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
@@ -38,8 +38,7 @@ export const SettingsPanel = (props: { onClose: () => void; onSaved: () => void 
     }
 
     setIsSaving(false)
-    onSaved()
-    onClose()
+    setIsSaved(true)
   }
 
   const handleEditIntervalSeconds = (value: string): void => {
@@ -54,27 +53,24 @@ export const SettingsPanel = (props: { onClose: () => void; onSaved: () => void 
     }
 
     setSettings({ ...settings, pollIntervalSeconds: parsedInterval })
+    setIsSaved(false)
   }
 
   if (settings === undefined) {
     return (
-      <div className="settings-overlay">
-        <section className="settings-panel">
-          <p className="provider-card-message">Loading settings…</p>
-        </section>
+      <div className="settings-page">
+        <p className="provider-card-message">Loading settings…</p>
       </div>
     )
   }
 
   return (
-    <div className="settings-overlay">
-      <section className="settings-panel">
-        <header className="settings-panel-header">
-          <h2 className="settings-panel-title">Settings</h2>
-          <button className="button" onClick={onClose} type="button">
-            Close
-          </button>
-        </header>
+    <div className="settings-page">
+      <header>
+        <h1 className="settings-page-title">Settings</h1>
+        <p className="settings-page-subtitle">Application-wide preferences for usage polling.</p>
+      </header>
+      <section className="settings-panel settings-page-panel">
         <label className="settings-field">
           <span className="settings-field-label">Poll interval (seconds)</span>
           <input
@@ -93,16 +89,19 @@ export const SettingsPanel = (props: { onClose: () => void; onSaved: () => void 
           Every tracker is polled at this interval. Provider tokens live in each tracker&apos;s own settings — use the
           gear button on its card.
         </p>
-        <button
-          className="button button-primary"
-          disabled={isSaving}
-          onClick={() => {
-            void handleSave()
-          }}
-          type="button"
-        >
-          Save
-        </button>
+        <div className="settings-page-save">
+          <button
+            className="button button-primary"
+            disabled={isSaving}
+            onClick={() => {
+              void handleSave()
+            }}
+            type="button"
+          >
+            Save
+          </button>
+          {isSaved && <span className="settings-saved">Saved</span>}
+        </div>
       </section>
     </div>
   )

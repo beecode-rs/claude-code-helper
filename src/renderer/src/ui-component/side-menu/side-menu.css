@@ -1,0 +1,134 @@
+.side-menu {
+  background: var(--surface);
+  border-right: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  padding: 16px 12px 12px;
+  transition: width 0.18s ease;
+  white-space: nowrap;
+  width: 200px;
+}
+
+.side-menu-collapsed {
+  width: 60px;
+}
+
+.side-menu-brand {
+  align-items: center;
+  color: var(--ink-primary);
+  display: flex;
+  font-size: 14px;
+  font-weight: 650;
+  gap: 10px;
+  padding: 2px 8px 18px;
+}
+
+.side-menu-collapsed .side-menu-brand {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.side-menu-brand-dot {
+  animation: side-menu-brand-pulse 2.6s ease-in-out infinite;
+  background: var(--meter-accent);
+  border-radius: 999px;
+  flex-shrink: 0;
+  height: 9px;
+  width: 9px;
+}
+
+@keyframes side-menu-brand-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(57, 135, 229, 0.45);
+  }
+
+  70% {
+    box-shadow: 0 0 0 7px rgba(57, 135, 229, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(57, 135, 229, 0);
+  }
+}
+
+.side-menu-brand-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.side-menu-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.side-menu-item,
+.side-menu-collapse-toggle {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  gap: 12px;
+  padding: 9px 10px;
+  text-align: left;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+  width: 100%;
+}
+
+.side-menu-item:hover,
+.side-menu-collapse-toggle:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink-primary);
+}
+
+.side-menu-item-active {
+  background: rgba(57, 135, 229, 0.16);
+  color: var(--ink-primary);
+}
+
+.side-menu-item-icon {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  justify-content: center;
+  width: 20px;
+}
+
+.side-menu-item-icon svg {
+  display: block;
+  height: 18px;
+  width: 18px;
+}
+
+.side-menu-item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.side-menu-collapse-toggle {
+  color: var(--ink-muted);
+  margin-top: auto;
+}
+
+.side-menu-collapse-toggle svg {
+  display: block;
+  height: 16px;
+  width: 16px;
+}
+
+.side-menu-collapsed .side-menu-item,
+.side-menu-collapsed .side-menu-collapse-toggle {
+  gap: 0;
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}

@@ -187,12 +187,21 @@ body {
   gap: 20px;
 }
 
-.provider-card-rings {
-  align-items: center;
+.five-hour-box {
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  width: 100%;
+}
+
+.five-hour-box-title {
+  color: var(--ink-muted);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .provider-card-windows {
@@ -211,58 +220,6 @@ body {
 .provider-card-message-error {
   color: var(--meter-critical);
   word-break: break-word;
-}
-
-.usage-ring {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  width: 160px;
-}
-
-.usage-ring-svg {
-  display: block;
-  height: 160px;
-  width: 160px;
-}
-
-.usage-ring-track {
-  stroke: var(--meter-track);
-}
-
-.usage-ring-center {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  inset: 0;
-  justify-content: center;
-  position: absolute;
-}
-
-.usage-ring-percent {
-  font-size: 34px;
-  font-weight: 650;
-  line-height: 1.1;
-}
-
-.usage-ring-caption {
-  color: var(--ink-muted);
-  font-size: 12px;
-}
-
-.usage-ring-severity {
-  color: var(--ink-secondary);
-  font-size: 11px;
-  margin-top: 4px;
-}
-
-.reset-ring-time {
-  font-size: 24px;
-  font-weight: 650;
-  line-height: 1.1;
-  white-space: nowrap;
 }
 
 .usage-bar-header {
@@ -385,6 +342,45 @@ body {
   font-size: 12px;
   line-height: 1.5;
   margin: 0;
+}
+
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin: 0 auto;
+  max-width: 640px;
+  min-height: 100vh;
+  padding: 40px 28px;
+  width: 100%;
+}
+
+.settings-page-title {
+  font-size: 20px;
+  font-weight: 650;
+  margin: 0;
+}
+
+.settings-page-subtitle {
+  color: var(--ink-muted);
+  font-size: 13px;
+  margin: 2px 0 0;
+}
+
+.settings-page-panel {
+  max-width: 520px;
+  width: 100%;
+}
+
+.settings-page-save {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.settings-saved {
+  color: #0ca30c;
+  font-size: 13px;
 }
 
 .provider-card-actions {

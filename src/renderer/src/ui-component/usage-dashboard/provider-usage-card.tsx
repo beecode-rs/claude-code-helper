@@ -1,8 +1,7 @@
 import type { ReactElement } from 'react'
 
+import { FiveHourWindowBox } from '#src/renderer/src/ui-component/usage-dashboard/five-hour-window-box'
 import { UsageBar } from '#src/renderer/src/ui-component/usage-dashboard/usage-bar'
-import { UsageResetRing } from '#src/renderer/src/ui-component/usage-dashboard/usage-reset-ring'
-import { UsageRing } from '#src/renderer/src/ui-component/usage-dashboard/usage-ring'
 import { dateUtil } from '#src/renderer/src/util/date-util'
 import { usageResetUtil } from '#src/renderer/src/util/usage-reset-util'
 import { usageStatusUtil } from '#src/renderer/src/util/usage-status-util'
@@ -50,10 +49,11 @@ export const ProviderUsageCard = (props: {
       </header>
       {providerSnapshot.status === UsageStatus.OK && primaryWindow !== undefined && (
         <div className="provider-card-body">
-          <div className="provider-card-rings">
-            <UsageRing caption={primaryWindow.label} percent={primaryWindow.usedPercent} />
-            {primaryWindow.resetAt !== undefined && <UsageResetRing resetAt={primaryWindow.resetAt} />}
-          </div>
+          <FiveHourWindowBox
+            resetAt={primaryWindow.resetAt}
+            title={primaryWindow.label}
+            usedPercent={primaryWindow.usedPercent}
+          />
           <div className="provider-card-windows">
             {secondaryWindows.map((usageWindow) => {
               return <UsageBar key={usageWindow.label} label={usageWindow.label} percent={usageWindow.usedPercent} />

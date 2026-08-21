@@ -1,0 +1,10 @@
+.app-shell {
+  display: flex;
+  height: 100vh;
+}
+
+.app-shell-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}

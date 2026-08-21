@@ -2,14 +2,22 @@ import type { ReactElement } from 'react'
 
 import { usageSeverityUtil } from '#src/renderer/src/util/usage-severity-util'
 
-export const UsageBar = (props: { label: string; percent: number }): ReactElement => {
-  const { label, percent } = props
+export const UsageBar = (props: {
+  ariaLabel?: string
+  fillColor?: string
+  label: string
+  percent: number
+  valueText?: string
+}): ReactElement => {
+  const { ariaLabel, fillColor, label, percent, valueText } = props
   const clampedPercent = Math.min(Math.max(percent, 0), 100)
-  const severityColor = usageSeverityUtil.resolveSeverityColorVar(clampedPercent)
+  const resolvedAriaLabel = ariaLabel ?? `${label} usage`
+  const resolvedFillColor = fillColor ?? usageSeverityUtil.resolveSeverityColorVar(clampedPercent)
+  const resolvedValueText = valueText ?? `${String(Math.round(clampedPercent))}%`
 
   return (
     <div
-      aria-label={`${label} usage`}
+      aria-label={resolvedAriaLabel}
       aria-valuemax={100}
       aria-valuemin={0}
       aria-valuenow={Math.round(clampedPercent)}
@@ -18,12 +26,12 @@ export const UsageBar = (props: { label: string; percent: number }): ReactElemen
     >
       <div className="usage-bar-header">
         <span className="usage-bar-label">{label}</span>
-        <span className="usage-bar-value">{Math.round(clampedPercent)}%</span>
+        <span className="usage-bar-value">{resolvedValueText}</span>
       </div>
       <div className="usage-bar-track">
         <div
           className="usage-bar-fill"
-          style={{ backgroundColor: severityColor, width: `${String(clampedPercent)}%` }}
+          style={{ backgroundColor: resolvedFillColor, width: `${String(clampedPercent)}%` }}
         />
       </div>
     </div>

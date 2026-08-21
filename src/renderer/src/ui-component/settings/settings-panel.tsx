@@ -42,14 +42,6 @@ export const SettingsPanel = (props: { onClose: () => void; onSaved: () => void 
     onClose()
   }
 
-  const handleEditToken = (fieldName: 'claudeAccessToken' | 'zaiAccessToken', value: string): void => {
-    if (settings === undefined) {
-      return
-    }
-
-    setSettings({ ...settings, [fieldName]: value })
-  }
-
   const handleEditIntervalSeconds = (value: string): void => {
     if (settings === undefined) {
       return
@@ -84,30 +76,6 @@ export const SettingsPanel = (props: { onClose: () => void; onSaved: () => void 
           </button>
         </header>
         <label className="settings-field">
-          <span className="settings-field-label">Claude access token</span>
-          <input
-            className="settings-field-input"
-            onChange={(event) => {
-              handleEditToken('claudeAccessToken', event.target.value)
-            }}
-            placeholder="OAuth access token from claude.ai"
-            type="password"
-            value={settings.claudeAccessToken}
-          />
-        </label>
-        <label className="settings-field">
-          <span className="settings-field-label">z.ai access token</span>
-          <input
-            className="settings-field-input"
-            onChange={(event) => {
-              handleEditToken('zaiAccessToken', event.target.value)
-            }}
-            placeholder="ANTHROPIC_AUTH_TOKEN from your GLM coding plan"
-            type="password"
-            value={settings.zaiAccessToken}
-          />
-        </label>
-        <label className="settings-field">
           <span className="settings-field-label">Poll interval (seconds)</span>
           <input
             className="settings-field-input"
@@ -122,7 +90,8 @@ export const SettingsPanel = (props: { onClose: () => void; onSaved: () => void 
         </label>
         {errorMessage !== '' && <p className="settings-error">{errorMessage}</p>}
         <p className="settings-hint">
-          Tokens are stored locally in your user data folder and sent only to the provider they belong to.
+          Every tracker is polled at this interval. Provider tokens live in each tracker&apos;s own settings — use the
+          gear button on its card.
         </p>
         <button
           className="button button-primary"

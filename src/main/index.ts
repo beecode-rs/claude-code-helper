@@ -15,8 +15,9 @@ const bootstrapApp = async (): Promise<void> => {
   const settingsRepo = new SettingsRepo({
     settingsFilePath: join(app.getPath('userData'), 'usage-pulse-settings.json'),
   })
-  const pollService = new UsagePollService()
+  const pollService = new UsagePollService({ isDevelopment: !app.isPackaged })
   const settings = await settingsRepo.load()
+  await settingsRepo.save({ settings })
   const browserWindow = appWindow.create()
 
   ipcController.register({

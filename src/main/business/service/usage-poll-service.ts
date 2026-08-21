@@ -1,11 +1,13 @@
+import { ClaudeSystemTokenService } from '#src/main/business/service/claude-system-token-service'
 import { UsageProviderClaude } from '#src/main/business/service/usage-provider/claude'
 import { type IUsageProvider } from '#src/main/business/service/usage-provider/usage-provider'
 import { UsageProviderZai } from '#src/main/business/service/usage-provider/zai'
 import { errorUtil } from '#src/main/util/error-util'
-import { type IAppSettings } from '#src/shared/settings-model'
+import { ClaudeTokenSource, type IAppSettings, type ITrackerConfig } from '#src/shared/settings-model'
 import {
   type IProviderSnapshot,
   type IUsageSnapshot,
+  type ProviderId,
   UsageStatus,
   type UsageUpdateListener,
 } from '#src/shared/usage-model'
@@ -13,19 +15,36 @@ import {
 export class UsagePollService {
   protected _intervalId: NodeJS.Timeout | undefined
   protected _listeners: UsageUpdateListener[] = []
-  protected readonly _providers: IUsageProvider[]
+  protected _pollGeneration = 0
   protected _settings: IAppSettings | undefined
   protected _snapshot: IUsageSnapshot = { fetchedAt: 0, providers: [] }
+  protected readonly _isDevelopment: boolean
+  protected readonly _claudeSystemTokenService: ClaudeSystemTokenService
+  protected readonly _providers: Record<ProviderId, IUsageProvider>
 
-  constructor(params?: { providers?: IUsageProvider[] }) {
-    const { providers = [new UsageProviderClaude(), new UsageProviderZai()] } = params ?? {}
+  constructor(params?: {
+    claudeSystemTokenService?: ClaudeSystemTokenService
+    isDevelopment?: boolean
+    providers?: Record<ProviderId, IUsageProvider>
+  }) {
+    const {
+      claudeSystemTokenService = new ClaudeSystemTokenService(),
+      isDevelopment = false,
+      providers = this._createDefaultProviders(),
+    } = params ?? {}
 
+    this._claudeSystemTokenService = claudeSystemTokenService
+    this._isDevelopment = isDevelopment
     this._providers = providers
   }
 
   async start(params: { settings: IAppSettings }): Promise<void> {
     this._settings = params.settings
-    await this.pollNow()
+
+    if (!this._isDevelopment) {
+      await this.pollNow()
+    }
+
     this._scheduleNextPoll()
   }
 
@@ -48,14 +67,26 @@ export class UsagePollService {
       return
     }
 
+    const generation = ++this._pollGeneration
+    this._notifyListeners({ snapshot: this._buildPendingSnapshot({ settings }) })
+
     const providerSnapshots = await Promise.all(
-      this._providers.map((provider) => {
-        return this._pollProvider({ provider, settings })
+      settings.trackers.map((tracker) => {
+        return this._pollTracker({ tracker })
       }),
     )
 
+    if (generation !== this._pollGeneration) {
+      return
+    }
+
     this._snapshot = { fetchedAt: Date.now(), providers: providerSnapshots }
     this._notifyListeners({ snapshot: this._snapshot })
+  }
+
+  async refreshNow(): Promise<void> {
+    await this.pollNow()
+    this._scheduleNextPoll()
   }
 
   onUpdate(params: { listener: UsageUpdateListener }): () => void {
@@ -68,52 +99,79 @@ export class UsagePollService {
     }
   }
 
-  protected async _pollProvider(params: {
-    provider: IUsageProvider
-    settings: IAppSettings
-  }): Promise<IProviderSnapshot> {
-    const providerId = params.provider.getProviderId()
-    const providerName = params.provider.getProviderName()
-    const accessToken = this._resolveAccessToken({ providerId, settings: params.settings })
+  protected _createDefaultProviders(): Record<ProviderId, IUsageProvider> {
+    return { claude: new UsageProviderClaude(), zai: new UsageProviderZai() }
+  }
 
-    if (accessToken === '') {
-      return { providerId, providerName, status: UsageStatus.UNCONFIGURED }
+  protected _buildPendingSnapshot(params: { settings: IAppSettings }): IUsageSnapshot {
+    return {
+      fetchedAt: this._snapshot.fetchedAt,
+      providers: params.settings.trackers.map((tracker) => {
+        return this._resolvePendingSnapshot({ tracker })
+      }),
+    }
+  }
+
+  protected _resolvePendingSnapshot(params: { tracker: ITrackerConfig }): IProviderSnapshot {
+    const previousSnapshot = this._snapshot.providers.find((providerSnapshot) => {
+      return providerSnapshot.trackerId === params.tracker.id
+    })
+
+    if (previousSnapshot !== undefined) {
+      return previousSnapshot
     }
 
+    return {
+      providerId: params.tracker.providerId,
+      status: UsageStatus.PENDING,
+      trackerId: params.tracker.id,
+      trackerName: params.tracker.name,
+    }
+  }
+
+  protected async _pollTracker(params: { tracker: ITrackerConfig }): Promise<IProviderSnapshot> {
+    const tracker = params.tracker
+    const provider = this._providers[tracker.providerId]
+
     try {
-      const usage = await params.provider.fetchUsage({ accessToken })
+      const accessToken = await this._resolveAccessToken({ tracker })
+
+      if (accessToken === '') {
+        return {
+          providerId: tracker.providerId,
+          status: UsageStatus.UNCONFIGURED,
+          trackerId: tracker.id,
+          trackerName: tracker.name,
+        }
+      }
+
+      const usage = await provider.fetchUsage({ accessToken })
 
       return {
         fetchedAt: Date.now(),
-        providerId,
-        providerName,
+        providerId: tracker.providerId,
         status: UsageStatus.OK,
+        trackerId: tracker.id,
+        trackerName: tracker.name,
         usage,
       }
     } catch (error) {
       return {
         errorMessage: errorUtil.resolveMessage(error),
-        providerId,
-        providerName,
+        providerId: tracker.providerId,
         status: UsageStatus.ERROR,
+        trackerId: tracker.id,
+        trackerName: tracker.name,
       }
     }
   }
 
-  protected _resolveAccessToken(params: { providerId: string; settings: IAppSettings }): string {
-    switch (params.providerId) {
-      case 'claude': {
-        return params.settings.claudeAccessToken
-      }
-
-      case 'zai': {
-        return params.settings.zaiAccessToken
-      }
-
-      default: {
-        throw new Error(`unsupported provider: ${params.providerId}`)
-      }
+  protected async _resolveAccessToken(params: { tracker: ITrackerConfig }): Promise<string> {
+    if (params.tracker.providerId === 'claude' && params.tracker.tokenSource === ClaudeTokenSource.SYSTEM) {
+      return await this._claudeSystemTokenService.resolveAccessToken()
     }
+
+    return params.tracker.accessToken
   }
 
   protected _scheduleNextPoll(): void {

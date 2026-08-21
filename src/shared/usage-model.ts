@@ -10,24 +10,19 @@ export enum UsageStatus {
 }
 
 export interface IUsageWindow {
-  estimatedResetAt?: number
   label: string
+  resetAt?: number
   usedPercent: number
-}
-
-export interface IProviderUsage {
-  providerId: ProviderId
-  providerName: string
-  windows: IUsageWindow[]
 }
 
 export interface IProviderSnapshot {
   errorMessage?: string
   fetchedAt?: number
   providerId: ProviderId
-  providerName: string
   status: UsageStatus
-  usage?: IProviderUsage
+  trackerId: string
+  trackerName: string
+  usage?: IUsageWindow[]
 }
 
 export interface IUsageSnapshot {
@@ -41,5 +36,5 @@ export interface IUsageApiClient {
   getSettings: () => Promise<IAppSettings>
   onUsageUpdate: (listener: UsageUpdateListener) => () => void
   refreshNow: () => Promise<void>
-  saveSettings: (settings: IAppSettings) => Promise<void>
+  saveSettings: (settings: IAppSettings) => Promise<IAppSettings>
 }

@@ -1,7 +1,6 @@
-import type { IProviderUsage, ProviderId } from '#src/shared/usage-model'
+import type { IUsageWindow, ProviderId } from '#src/shared/usage-model'
 
 export interface IUsageProvider {
-  fetchUsage: (params: { accessToken: string }) => Promise<IProviderUsage>
+  fetchUsage: (params: { accessToken: string }) => Promise<IUsageWindow[]>
   getProviderId: () => ProviderId
-  getProviderName: () => string
 }

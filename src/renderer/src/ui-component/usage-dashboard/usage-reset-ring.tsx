@@ -1,15 +1,13 @@
 import { type ReactElement, useEffect, useState } from 'react'
 
-import { dateUtil } from '#src/renderer/src/util/date-util'
 import { usageResetUtil } from '#src/renderer/src/util/usage-reset-util'
 
-const RING_RADIUS = 46
+const RING_RADIUS = 60
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS
 const TICK_INTERVAL_MS = 30_000
-const WINDOW_DURATION_MS = 5 * 60 * 60 * 1000
 
-export const UsageResetRing = (props: { estimatedResetAt: number }): ReactElement => {
-  const { estimatedResetAt } = props
+export const UsageResetRing = (props: { resetAt: number }): ReactElement => {
+  const { resetAt } = props
   const [now, setNow] = useState(() => {
     return Date.now()
   })
@@ -24,39 +22,39 @@ export const UsageResetRing = (props: { estimatedResetAt: number }): ReactElemen
     }
   }, [])
 
-  const remainingMs = Math.max(0, estimatedResetAt - now)
-  const elapsedFraction = Math.min(Math.max(1 - remainingMs / WINDOW_DURATION_MS, 0), 1)
+  const remainingMs = Math.max(0, resetAt - now)
+  const elapsedFraction = Math.min(Math.max(1 - remainingMs / usageResetUtil.fiveHourWindowMs, 0), 1)
   const roundedElapsedPercent = Math.round(elapsedFraction * 100)
   const dashOffset = RING_CIRCUMFERENCE * (1 - elapsedFraction)
 
   return (
     <div
-      aria-label="time until window reset"
+      aria-label="time until five hour window reset"
       aria-valuemax={100}
       aria-valuemin={0}
       aria-valuenow={roundedElapsedPercent}
-      className="reset-ring"
+      className="usage-ring"
       role="meter"
     >
-      <svg className="reset-ring-svg" viewBox="0 0 112 112">
-        <circle className="reset-ring-track" cx="56" cy="56" fill="none" r={RING_RADIUS} strokeWidth="10" />
+      <svg className="usage-ring-svg" viewBox="0 0 160 160">
+        <circle className="usage-ring-track" cx="80" cy="80" fill="none" r={RING_RADIUS} strokeWidth="12" />
         <circle
-          className="reset-ring-fill"
-          cx="56"
-          cy="56"
+          className="usage-ring-fill"
+          cx="80"
+          cy="80"
           fill="none"
           r={RING_RADIUS}
+          stroke="var(--meter-accent)"
           strokeDasharray={RING_CIRCUMFERENCE}
           strokeDashoffset={dashOffset}
           strokeLinecap="round"
-          strokeWidth="10"
-          transform="rotate(-90 56 56)"
+          strokeWidth="12"
+          transform="rotate(-90 80 80)"
         />
       </svg>
-      <div className="reset-ring-center">
-        <span className="reset-ring-caption">5-hour reset in</span>
-        <span className="reset-ring-remaining">{usageResetUtil.resolveRemainingText({ remainingMs })}</span>
-        <span className="reset-ring-caption">resets ~{dateUtil.formatHourMinute(estimatedResetAt)}</span>
+      <div className="usage-ring-center">
+        <span className="reset-ring-time">{usageResetUtil.resolveRemainingText({ remainingMs })}</span>
+        <span className="usage-ring-caption">5-hour reset in</span>
       </div>
     </div>
   )

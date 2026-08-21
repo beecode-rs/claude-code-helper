@@ -2,21 +2,26 @@ import { type ReactElement, useEffect, useState } from 'react'
 
 import { usageClientService } from '#src/renderer/src/business/service/usage-client-service'
 import { SettingsPanel } from '#src/renderer/src/ui-component/settings/settings-panel'
+import { AddTrackerDialog } from '#src/renderer/src/ui-component/tracker/add-tracker-dialog'
+import { TrackerSettingsDialog } from '#src/renderer/src/ui-component/tracker/tracker-settings-dialog'
 import { DashboardFooter } from '#src/renderer/src/ui-component/usage-dashboard/dashboard-footer'
 import { ProviderUsageCard } from '#src/renderer/src/ui-component/usage-dashboard/provider-usage-card'
 import '#src/renderer/src/ui-component/usage-dashboard/usage-dashboard.css'
+import type { IAppSettings } from '#src/shared/settings-model'
 import type { IUsageSnapshot } from '#src/shared/usage-model'
 
 export const UsageDashboard = (): ReactElement => {
   const [snapshot, setSnapshot] = useState<IUsageSnapshot | undefined>(undefined)
+  const [settings, setSettings] = useState<IAppSettings | undefined>(undefined)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const [pollIntervalSeconds, setPollIntervalSeconds] = useState<number | undefined>(undefined)
+  const [isAddOpen, setIsAddOpen] = useState(false)
+  const [openTrackerId, setOpenTrackerId] = useState<string | undefined>(undefined)
 
   const loadSettings = async (): Promise<void> => {
-    const settings = await usageClientService.getSettings()
+    const loadedSettings = await usageClientService.getSettings()
 
-    setPollIntervalSeconds(settings.pollIntervalSeconds)
+    setSettings(loadedSettings)
   }
 
   const refreshUsage = async (): Promise<void> => {
@@ -32,7 +37,9 @@ export const UsageDashboard = (): ReactElement => {
       },
     })
 
-    void usageClientService.refreshNow()
+    if (!import.meta.env.DEV) {
+      void usageClientService.refreshNow()
+    }
 
     return () => {
       unsubscribe()
@@ -44,6 +51,7 @@ export const UsageDashboard = (): ReactElement => {
   }, [])
 
   const hasSnapshot = snapshot !== undefined
+  const isEmpty = settings?.trackers.length === 0
   const providerSnapshots = snapshot?.providers ?? []
 
   return (
@@ -51,9 +59,18 @@ export const UsageDashboard = (): ReactElement => {
       <header className="dashboard-header">
         <div>
           <h1 className="dashboard-title">Usage Pulse</h1>
-          <p className="dashboard-subtitle">Claude and z.ai plan limits</p>
+          <p className="dashboard-subtitle">Track usage limits for your coding plans</p>
         </div>
         <div className="dashboard-actions">
+          <button
+            className="button"
+            onClick={() => {
+              setIsAddOpen(true)
+            }}
+            type="button"
+          >
+            + Add
+          </button>
           <button
             className="button"
             disabled={isRefreshing}
@@ -77,11 +94,33 @@ export const UsageDashboard = (): ReactElement => {
       </header>
       <main className="dashboard-grid">
         {providerSnapshots.map((providerSnapshot) => {
-          return <ProviderUsageCard key={providerSnapshot.providerId} providerSnapshot={providerSnapshot} />
+          return (
+            <ProviderUsageCard
+              key={providerSnapshot.trackerId}
+              onOpenSettings={() => {
+                setOpenTrackerId(providerSnapshot.trackerId)
+              }}
+              providerSnapshot={providerSnapshot}
+            />
+          )
         })}
-        {!hasSnapshot && <p className="dashboard-empty">Loading usage…</p>}
+        {!hasSnapshot && !isEmpty && <p className="dashboard-empty">Loading usage…</p>}
+        {isEmpty && (
+          <div className="dashboard-empty-state">
+            <p className="dashboard-empty">No trackers yet. Add one to start monitoring usage.</p>
+            <button
+              className="button button-primary"
+              onClick={() => {
+                setIsAddOpen(true)
+              }}
+              type="button"
+            >
+              Add tracker
+            </button>
+          </div>
+        )}
       </main>
-      <DashboardFooter lastFetchedAt={snapshot?.fetchedAt} pollIntervalSeconds={pollIntervalSeconds} />
+      <DashboardFooter lastFetchedAt={snapshot?.fetchedAt} pollIntervalSeconds={settings?.pollIntervalSeconds} />
       {isSettingsOpen && (
         <SettingsPanel
           onClose={() => {
@@ -89,8 +128,28 @@ export const UsageDashboard = (): ReactElement => {
           }}
           onSaved={() => {
             void loadSettings()
-            void refreshUsage()
           }}
+        />
+      )}
+      {isAddOpen && (
+        <AddTrackerDialog
+          onClose={() => {
+            setIsAddOpen(false)
+          }}
+          onSaved={() => {
+            void loadSettings()
+          }}
+        />
+      )}
+      {openTrackerId !== undefined && (
+        <TrackerSettingsDialog
+          onClose={() => {
+            setOpenTrackerId(undefined)
+          }}
+          onSaved={() => {
+            void loadSettings()
+          }}
+          trackerId={openTrackerId}
         />
       )}
     </div>

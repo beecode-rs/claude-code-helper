@@ -22,7 +22,7 @@ const usageApi: IUsageApiClient = {
   refreshNow: (): Promise<void> => {
     return ipcRenderer.invoke(IpcChannelMapper.USAGE_REFRESH)
   },
-  saveSettings: (settings: IAppSettings): Promise<void> => {
+  saveSettings: (settings: IAppSettings): Promise<IAppSettings> => {
     return ipcRenderer.invoke(IpcChannelMapper.SETTINGS_SAVE, settings)
   },
 }

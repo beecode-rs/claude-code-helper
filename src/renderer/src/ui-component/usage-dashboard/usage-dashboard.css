@@ -146,10 +146,21 @@ body {
   margin-bottom: 16px;
 }
 
+.provider-card-heading {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+}
+
 .provider-card-title {
   font-size: 16px;
   font-weight: 600;
   margin: 0;
+}
+
+.provider-card-window-start {
+  color: var(--ink-muted);
+  font-size: 12px;
 }
 
 .provider-card-status {
@@ -179,7 +190,9 @@ body {
 .provider-card-rings {
   align-items: center;
   display: flex;
-  gap: 24px;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
 }
 
 .provider-card-windows {
@@ -245,49 +258,10 @@ body {
   margin-top: 4px;
 }
 
-.reset-ring {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  width: 112px;
-}
-
-.reset-ring-svg {
-  display: block;
-  height: 112px;
-  width: 112px;
-}
-
-.reset-ring-track {
-  stroke: var(--meter-track);
-}
-
-.reset-ring-fill {
-  stroke: var(--meter-accent);
-  transition: stroke-dashoffset 1s linear;
-}
-
-.reset-ring-center {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  inset: 0;
-  justify-content: center;
-  position: absolute;
-}
-
-.reset-ring-remaining {
-  font-size: 17px;
-  font-weight: 600;
+.reset-ring-time {
+  font-size: 24px;
+  font-weight: 650;
   line-height: 1.1;
-  white-space: nowrap;
-}
-
-.reset-ring-caption {
-  color: var(--ink-muted);
-  font-size: 10px;
   white-space: nowrap;
 }
 
@@ -380,6 +354,25 @@ body {
   outline: none;
 }
 
+.settings-token-source-row {
+  display: flex;
+  gap: 16px;
+}
+
+.settings-token-source-option {
+  align-items: center;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  gap: 6px;
+}
+
+.settings-token-source-option input {
+  accent-color: var(--meter-accent);
+  margin: 0;
+}
+
 .settings-error {
   color: var(--meter-critical);
   font-size: 13px;
@@ -392,4 +385,93 @@ body {
   font-size: 12px;
   line-height: 1.5;
   margin: 0;
+}
+
+.provider-card-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.provider-card-gear {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  display: inline-flex;
+  padding: 4px;
+}
+
+.provider-card-gear:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink-primary);
+}
+
+.provider-card-status-pending {
+  background: rgba(250, 178, 25, 0.12);
+  color: var(--meter-warning);
+}
+
+.dashboard-empty-state {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  grid-column: 1 / -1;
+  justify-content: center;
+  padding: 56px 0;
+}
+
+.provider-choice {
+  align-items: flex-start;
+  background: var(--page);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  color: var(--ink-primary);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  text-align: left;
+}
+
+.provider-choice:hover {
+  border-color: var(--meter-accent);
+}
+
+.provider-choice-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.provider-choice-description {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.settings-dialog-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.button-danger {
+  border-color: rgba(208, 59, 59, 0.4);
+  color: var(--meter-critical);
+}
+
+.button-danger:hover:not(:disabled) {
+  background: rgba(208, 59, 59, 0.1);
+  color: var(--meter-critical);
+}
+
+.settings-danger-zone {
+  border-top: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 16px;
 }

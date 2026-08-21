@@ -26,7 +26,7 @@ export const ipcController = {
     })
 
     ipcMain.handle(IpcChannelMapper.USAGE_REFRESH, async (): Promise<void> => {
-      await params.pollService.pollNow()
+      await params.pollService.refreshNow()
     })
 
     params.pollService.onUpdate({

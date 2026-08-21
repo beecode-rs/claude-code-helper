@@ -8,7 +8,7 @@ export const usageClientService = {
   refreshNow: (): Promise<void> => {
     return window.usageApi.refreshNow()
   },
-  saveSettings: (params: { settings: IAppSettings }): Promise<void> => {
+  saveSettings: (params: { settings: IAppSettings }): Promise<IAppSettings> => {
     return window.usageApi.saveSettings(params.settings)
   },
   subscribeToUsageUpdates: (params: { onUpdate: UsageUpdateListener }): (() => void) => {

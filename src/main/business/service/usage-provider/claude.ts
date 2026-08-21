@@ -2,38 +2,16 @@ import { type IUsageProvider } from '#src/main/business/service/usage-provider/u
 import { httpUtil } from '#src/main/util/http-util'
 import { objectUtil } from '#src/main/util/object-util'
 import { percentUtil } from '#src/main/util/percent-util'
-import { type IProviderUsage, type IUsageWindow, type ProviderId } from '#src/shared/usage-model'
+import { type IUsageWindow, type ProviderId } from '#src/shared/usage-model'
 
 export class UsageProviderClaude implements IUsageProvider {
-  protected readonly _fiveHourFieldNames = [
-    'five_hour_slot_usage_percentage',
-    'fiveHourSlotUsagePercentage',
-    'five_hour_usage_percentage',
-    'fiveHourUsagePercentage',
-    'session_usage_percentage',
-    'sessionUsagePercentage',
-  ]
-
-  protected readonly _sevenDayFieldNames = [
-    'seven_day_window_usage_percentage',
-    'sevenDayWindowUsagePercentage',
-    'weekly_usage_percentage',
-    'weeklyUsagePercentage',
-    'seven_day_usage_percentage',
-    'sevenDayUsagePercentage',
-  ]
-
-  protected readonly _usageUrl = 'https://api.claude.com/api/usage'
+  protected readonly _usageUrl = 'https://api.anthropic.com/api/oauth/usage'
 
   getProviderId(): ProviderId {
     return 'claude'
   }
 
-  getProviderName(): string {
-    return 'Claude'
-  }
-
-  async fetchUsage(params: { accessToken: string }): Promise<IProviderUsage> {
+  async fetchUsage(params: { accessToken: string }): Promise<IUsageWindow[]> {
     const rawUsage = await httpUtil.fetchJson({
       headers: {
         accept: 'application/json',
@@ -41,80 +19,87 @@ export class UsageProviderClaude implements IUsageProvider {
       },
       url: this._usageUrl,
     })
-    const fiveHourPercent = this._findPercentByFieldNames({
-      fieldNames: this._fiveHourFieldNames,
-      raw: rawUsage,
-    })
+    const usageRecord = this._extractUsageRecord({ raw: rawUsage })
 
-    const windows: IUsageWindow[] = [{ label: '5-hour window', usedPercent: fiveHourPercent }]
-    const sevenDayPercent = this._findOptionalPercentByFieldNames({
-      fieldNames: this._sevenDayFieldNames,
-      raw: rawUsage,
-    })
-
-    if (sevenDayPercent !== undefined) {
-      windows.push({ label: 'Weekly', usedPercent: sevenDayPercent })
-    }
-
-    return { providerId: 'claude', providerName: this.getProviderName(), windows }
+    return this._buildWindows({ usageRecord })
   }
 
-  protected _findPercentByFieldNames(params: { fieldNames: string[]; raw: unknown }): number {
-    const percent = this._findOptionalPercentByFieldNames(params)
+  protected _extractUsageRecord(params: { raw: unknown }): Record<string, unknown> {
+    const rootRecord = objectUtil.asRecord(params.raw)
 
-    if (percent === undefined) {
-      throw new Error(`Claude usage response is missing any of the expected fields: ${params.fieldNames.join(', ')}`)
+    if (rootRecord === undefined) {
+      throw new Error('Claude usage response is not a JSON object')
     }
 
-    return percent
+    return rootRecord
   }
 
-  protected _findOptionalPercentByFieldNames(params: { fieldNames: string[]; raw: unknown }): number | undefined {
-    const searchableRecords = this._collectSearchableRecords(params.raw)
-    const foundPercent = params.fieldNames
-      .map((fieldName) => {
-        return this._findNumericField({ fieldName, records: searchableRecords })
-      })
-      .find((percent) => {
-        return percent !== undefined
-      })
+  protected _buildWindows(params: { usageRecord: Record<string, unknown> }): IUsageWindow[] {
+    const fiveHourWindow = this._buildWindow({
+      label: '5-hour window',
+      sectionRecord: objectUtil.asRecord(params.usageRecord['five_hour']),
+    })
 
-    if (foundPercent === undefined) {
+    if (fiveHourWindow === undefined) {
+      throw new Error("Claude usage response is missing the 'five_hour' section")
+    }
+
+    const windows: IUsageWindow[] = [fiveHourWindow]
+    const sevenDayWindow = this._buildWindow({
+      label: 'Weekly',
+      sectionRecord: objectUtil.asRecord(params.usageRecord['seven_day']),
+    })
+
+    if (sevenDayWindow !== undefined) {
+      windows.push(sevenDayWindow)
+    }
+
+    return windows
+  }
+
+  protected _buildWindow(params: { label: string; sectionRecord?: Record<string, unknown> }): IUsageWindow | undefined {
+    if (params.sectionRecord === undefined) {
       return undefined
     }
 
-    return percentUtil.roundPercentToOneDecimal(percentUtil.clampPercent(foundPercent))
-  }
+    const percent = this._resolvePercent({ sectionRecord: params.sectionRecord })
 
-  protected _collectSearchableRecords(raw: unknown): Record<string, unknown>[] {
-    const rootRecord = objectUtil.asRecord(raw)
-
-    if (rootRecord === undefined) {
-      return []
+    if (percent === undefined) {
+      return undefined
     }
 
-    const nestedRecords = Object.values(rootRecord).flatMap((value) => {
-      const nestedRecord = objectUtil.asRecord(value)
+    const resetAt = this._resolveResetAt({ sectionRecord: params.sectionRecord })
 
-      if (nestedRecord === undefined) {
-        return []
-      }
+    if (resetAt === undefined) {
+      return { label: params.label, usedPercent: percent }
+    }
 
-      return [nestedRecord]
-    })
-
-    return [rootRecord, ...nestedRecords]
+    return { label: params.label, resetAt, usedPercent: percent }
   }
 
-  protected _findNumericField(params: { fieldName: string; records: Record<string, unknown>[] }): number | undefined {
-    const numericValue = params.records
-      .map((record) => {
-        return record[params.fieldName]
-      })
-      .find((value): value is number => {
-        return typeof value === 'number' && Number.isFinite(value)
-      })
+  protected _resolvePercent(params: { sectionRecord: Record<string, unknown> }): number | undefined {
+    const utilization = params.sectionRecord['utilization']
 
-    return numericValue
+    if (typeof utilization !== 'number' || !Number.isFinite(utilization)) {
+      return undefined
+    }
+
+    return percentUtil.roundPercentToOneDecimal(percentUtil.clampPercent(utilization))
+  }
+
+  protected _resolveResetAt(params: { sectionRecord: Record<string, unknown> }): number | undefined {
+    const resetsAt = params.sectionRecord['resets_at']
+
+    if (typeof resetsAt !== 'string' && typeof resetsAt !== 'number') {
+      return undefined
+    }
+
+    const resetDate = new Date(resetsAt)
+
+    if (Number.isNaN(resetDate.getTime())) {
+      return undefined
+    }
+
+    return resetDate.getTime()
   }
 }

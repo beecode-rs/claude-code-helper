@@ -105,7 +105,10 @@ export const TrackerConfigFields = (props: {
               return
             }
 
-            const clampedMinutes = Math.min(Math.max(minutes, MIN_REFRESH_INTERVAL_MINUTES), MAX_REFRESH_INTERVAL_MINUTES)
+            const clampedMinutes = Math.min(
+              Math.max(minutes, MIN_REFRESH_INTERVAL_MINUTES),
+              MAX_REFRESH_INTERVAL_MINUTES,
+            )
 
             onChange({ ...config, refreshIntervalSeconds: clampedMinutes * 60 })
           }}

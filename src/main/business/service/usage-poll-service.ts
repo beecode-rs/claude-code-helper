@@ -13,12 +13,12 @@ import {
 } from '#src/shared/usage-model'
 
 export class UsagePollService {
-  protected _generationByTrackerId: Map<string, number> = new Map()
+  protected _generationByTrackerId = new Map<string, number>()
   protected _listeners: UsageUpdateListener[] = []
-  protected _nextPollAtByTrackerId: Map<string, number> = new Map()
+  protected _nextPollAtByTrackerId = new Map<string, number>()
   protected _settings: IAppSettings | undefined
-  protected _snapshotByTrackerId: Map<string, IProviderSnapshot> = new Map()
-  protected _timerByTrackerId: Map<string, NodeJS.Timeout> = new Map()
+  protected _snapshotByTrackerId = new Map<string, IProviderSnapshot>()
+  protected _timerByTrackerId = new Map<string, NodeJS.Timeout>()
   protected readonly _isDevelopment: boolean
   protected readonly _claudeSystemTokenService: ClaudeSystemTokenService
   protected readonly _providers: Record<ProviderId, IUsageProvider>
@@ -44,6 +44,7 @@ export class UsagePollService {
 
     if (this._isDevelopment) {
       this._scheduleAllTrackers()
+
       return
     }
 

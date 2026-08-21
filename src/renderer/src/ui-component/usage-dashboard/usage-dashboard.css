@@ -62,35 +62,6 @@ body {
   gap: 12px;
 }
 
-.dashboard-footer {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-  margin: auto -28px -24px;
-  padding: 16px 28px 14px;
-  position: relative;
-}
-
-.dashboard-footer-text {
-  color: var(--ink-muted);
-  font-size: 12px;
-}
-
-.dashboard-footer-track {
-  background: var(--meter-track);
-  bottom: 0;
-  height: 2px;
-  left: 0;
-  position: absolute;
-  right: 0;
-}
-
-.dashboard-footer-fill {
-  background: var(--meter-accent);
-  height: 100%;
-  transition: width 1s linear;
-}
-
 .dashboard-grid {
   display: grid;
   gap: 20px;
@@ -347,45 +318,6 @@ body {
   margin: 0;
 }
 
-.settings-page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  margin: 0 auto;
-  max-width: 640px;
-  min-height: 100vh;
-  padding: 40px 28px;
-  width: 100%;
-}
-
-.settings-page-title {
-  font-size: 20px;
-  font-weight: 650;
-  margin: 0;
-}
-
-.settings-page-subtitle {
-  color: var(--ink-muted);
-  font-size: 13px;
-  margin: 2px 0 0;
-}
-
-.settings-page-panel {
-  max-width: 520px;
-  width: 100%;
-}
-
-.settings-page-save {
-  align-items: center;
-  display: flex;
-  gap: 12px;
-}
-
-.settings-saved {
-  color: var(--meter-good);
-  font-size: 13px;
-}
-
 .provider-card-actions {
   align-items: center;
   display: flex;
@@ -406,6 +338,47 @@ body {
 .provider-card-gear:hover {
   background: rgba(255, 255, 255, 0.06);
   color: var(--ink-primary);
+}
+
+.provider-card-refresh {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  display: inline-flex;
+  padding: 4px;
+}
+
+.provider-card-refresh:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink-primary);
+}
+
+.provider-card-refresh:disabled {
+  color: var(--meter-accent);
+  cursor: default;
+}
+
+.provider-card-refresh.is-refreshing svg {
+  animation: provider-card-refresh-spin 1s linear infinite;
+}
+
+@keyframes provider-card-refresh-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.provider-card-meta {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin: 14px 0 0;
 }
 
 .provider-card-status-pending {

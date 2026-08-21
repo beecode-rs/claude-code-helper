@@ -33,7 +33,7 @@ export const FiveHourWindowBox = (props: { resetAt?: number; title: string; used
       {resetAt !== undefined && (
         <UsageBar
           ariaLabel={`time until ${title} reset`}
-          fillColor="var(--meter-accent)"
+          fillColor={paceFillColor}
           label="Reset"
           percent={elapsedPercent}
           valueText={usageResetUtil.resolveRemainingText({ remainingMs })}

@@ -2,20 +2,18 @@ import { objectUtil } from '#src/main/util/object-util'
 import { PROVIDER_CATALOG } from '#src/shared/provider-catalog'
 import {
   ClaudeTokenSource,
-  DEFAULT_POLL_INTERVAL_SECONDS,
   type IAppSettings,
   type IClaudeTrackerConfig,
   type ITrackerConfig,
   type IZaiTrackerConfig,
-  MAX_POLL_INTERVAL_SECONDS,
-  MIN_POLL_INTERVAL_SECONDS,
+  MAX_REFRESH_INTERVAL_SECONDS,
+  MIN_REFRESH_INTERVAL_SECONDS,
 } from '#src/shared/settings-model'
 import type { ProviderId } from '#src/shared/usage-model'
 
 export class SettingsService {
   createDefaultSettings(): IAppSettings {
     return {
-      pollIntervalSeconds: DEFAULT_POLL_INTERVAL_SECONDS,
       trackers: [],
     }
   }
@@ -30,7 +28,6 @@ export class SettingsService {
     const rawTrackers = rawRecord['trackers']
 
     return {
-      pollIntervalSeconds: this._resolveIntervalSeconds({ value: rawRecord['pollIntervalSeconds'] }),
       trackers: this._resolveTrackers({ rawRecord, rawTrackers }),
     }
   }
@@ -72,6 +69,10 @@ export class SettingsService {
           id: this._resolveTrackerId({ value: params.rawTracker['id'] }),
           name: this._resolveTrackerName({ providerId: 'claude', value: params.rawTracker['name'] }),
           providerId: 'claude',
+          refreshIntervalSeconds: this._resolveRefreshIntervalSeconds({
+            providerId: 'claude',
+            value: params.rawTracker['refreshIntervalSeconds'],
+          }),
           tokenSource: this._resolveTokenSource({ value: params.rawTracker['tokenSource'] }),
         }
       }
@@ -82,6 +83,10 @@ export class SettingsService {
           id: this._resolveTrackerId({ value: params.rawTracker['id'] }),
           name: this._resolveTrackerName({ providerId: 'zai', value: params.rawTracker['name'] }),
           providerId: 'zai',
+          refreshIntervalSeconds: this._resolveRefreshIntervalSeconds({
+            providerId: 'zai',
+            value: params.rawTracker['refreshIntervalSeconds'],
+          }),
         }
       }
 
@@ -115,6 +120,7 @@ export class SettingsService {
       id: crypto.randomUUID(),
       name: 'Claude',
       providerId: 'claude',
+      refreshIntervalSeconds: this._resolveRefreshIntervalSeconds({ providerId: 'claude', value: undefined }),
       tokenSource,
     }
   }
@@ -131,6 +137,7 @@ export class SettingsService {
       id: crypto.randomUUID(),
       name: 'z.ai',
       providerId: 'zai',
+      refreshIntervalSeconds: this._resolveRefreshIntervalSeconds({ providerId: 'zai', value: undefined }),
     }
   }
 
@@ -188,13 +195,28 @@ export class SettingsService {
     return ClaudeTokenSource.MANUAL
   }
 
-  protected _resolveIntervalSeconds(params: { value: unknown }): number {
+  protected _resolveRefreshIntervalSeconds(params: { providerId: ProviderId; value: unknown }): number {
     if (typeof params.value !== 'number' || !Number.isFinite(params.value)) {
-      return DEFAULT_POLL_INTERVAL_SECONDS
+      return this._resolveDefaultRefreshIntervalSeconds({ providerId: params.providerId })
     }
 
-    const clampedInterval = Math.min(Math.max(params.value, MIN_POLL_INTERVAL_SECONDS), MAX_POLL_INTERVAL_SECONDS)
+    const clampedIntervalSeconds = Math.min(
+      Math.max(params.value, MIN_REFRESH_INTERVAL_SECONDS),
+      MAX_REFRESH_INTERVAL_SECONDS,
+    )
 
-    return Math.round(clampedInterval)
+    return Math.round(clampedIntervalSeconds)
+  }
+
+  protected _resolveDefaultRefreshIntervalSeconds(params: { providerId: ProviderId }): number {
+    const catalogEntry = PROVIDER_CATALOG.find((entry) => {
+      return entry.id === params.providerId
+    })
+
+    if (catalogEntry === undefined) {
+      return MIN_REFRESH_INTERVAL_SECONDS
+    }
+
+    return catalogEntry.defaultRefreshIntervalSeconds
   }
 }

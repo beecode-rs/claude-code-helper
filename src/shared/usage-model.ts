@@ -18,6 +18,7 @@ export interface IUsageWindow {
 export interface IProviderSnapshot {
   errorMessage?: string
   fetchedAt?: number
+  nextRefreshAt?: number
   providerId: ProviderId
   status: UsageStatus
   trackerId: string
@@ -26,7 +27,6 @@ export interface IProviderSnapshot {
 }
 
 export interface IUsageSnapshot {
-  fetchedAt: number
   providers: IProviderSnapshot[]
 }
 
@@ -36,5 +36,6 @@ export interface IUsageApiClient {
   getSettings: () => Promise<IAppSettings>
   onUsageUpdate: (listener: UsageUpdateListener) => () => void
   refreshNow: () => Promise<void>
+  refreshTracker: (params: { trackerId: string }) => Promise<void>
   saveSettings: (settings: IAppSettings) => Promise<IAppSettings>
 }

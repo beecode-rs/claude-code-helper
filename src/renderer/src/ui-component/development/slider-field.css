@@ -1,0 +1,27 @@
+.slider-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.slider-field-header {
+  display: flex;
+  justify-content: space-between;
+}
+
+.slider-field-label {
+  color: var(--ink-secondary);
+  font-size: 13px;
+}
+
+.slider-field-value {
+  color: var(--ink-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.slider-field-input {
+  accent-color: var(--meter-accent);
+  margin: 0;
+  width: 100%;
+}

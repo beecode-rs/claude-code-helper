@@ -22,6 +22,9 @@ const usageApi: IUsageApiClient = {
   refreshNow: (): Promise<void> => {
     return ipcRenderer.invoke(IpcChannelMapper.USAGE_REFRESH)
   },
+  refreshTracker: (params: { trackerId: string }): Promise<void> => {
+    return ipcRenderer.invoke(IpcChannelMapper.USAGE_REFRESH_TRACKER, params.trackerId)
+  },
   saveSettings: (settings: IAppSettings): Promise<IAppSettings> => {
     return ipcRenderer.invoke(IpcChannelMapper.SETTINGS_SAVE, settings)
   },

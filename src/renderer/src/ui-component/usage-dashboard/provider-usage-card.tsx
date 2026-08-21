@@ -8,14 +8,56 @@ import { usageStatusUtil } from '#src/renderer/src/util/usage-status-util'
 import { type IProviderSnapshot, UsageStatus } from '#src/shared/usage-model'
 
 export const ProviderUsageCard = (props: {
+  isRefreshing: boolean
+  nowMs: number
   onOpenSettings: () => void
+  onRefresh: () => void
   providerSnapshot: IProviderSnapshot
+  refreshIntervalSeconds?: number
 }): ReactElement => {
-  const { onOpenSettings, providerSnapshot } = props
+  const { isRefreshing, nowMs, onOpenSettings, onRefresh, providerSnapshot, refreshIntervalSeconds } = props
   const usageWindows = providerSnapshot.usage ?? []
   const primaryWindow = usageWindows[0]
   const secondaryWindows = usageWindows.slice(1)
   const windowStartedAt = usageResetUtil.resolveWindowStartedAt({ resetAt: primaryWindow?.resetAt })
+
+  const resolveRefreshButtonClassName = (): string => {
+    if (isRefreshing) {
+      return 'provider-card-refresh is-refreshing'
+    }
+
+    return 'provider-card-refresh'
+  }
+
+  const resolveUpdatedLabel = (): string | undefined => {
+    if (providerSnapshot.fetchedAt === undefined) {
+      return undefined
+    }
+
+    return `Updated ${dateUtil.formatDuration(nowMs - providerSnapshot.fetchedAt)} ago`
+  }
+
+  const resolveNextRefreshLabel = (): string | undefined => {
+    if (providerSnapshot.nextRefreshAt === undefined) {
+      return undefined
+    }
+
+    return `next refresh in ${dateUtil.formatCountdown(providerSnapshot.nextRefreshAt - nowMs)}`
+  }
+
+  const resolveIntervalLabel = (): string | undefined => {
+    if (refreshIntervalSeconds === undefined) {
+      return undefined
+    }
+
+    return `every ${dateUtil.formatDuration(refreshIntervalSeconds * 1000)}`
+  }
+
+  const metaParts = [resolveUpdatedLabel(), resolveNextRefreshLabel(), resolveIntervalLabel()].filter(
+    (part): part is string => {
+      return part !== undefined
+    },
+  )
 
   return (
     <section className="provider-card">
@@ -30,6 +72,27 @@ export const ProviderUsageCard = (props: {
           <span className={`provider-card-status provider-card-status-${providerSnapshot.status.toLowerCase()}`}>
             {usageStatusUtil.resolveStatusText(providerSnapshot.status)}
           </span>
+          <button
+            aria-label="Refresh tracker"
+            className={resolveRefreshButtonClassName()}
+            disabled={isRefreshing}
+            onClick={onRefresh}
+            type="button"
+          >
+            <svg
+              fill="none"
+              height="15"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              width="15"
+            >
+              <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+              <polyline points="21 3 21 9 15 9" />
+            </svg>
+          </button>
           <button aria-label="Tracker settings" className="provider-card-gear" onClick={onOpenSettings} type="button">
             <svg
               fill="none"
@@ -71,6 +134,7 @@ export const ProviderUsageCard = (props: {
       {providerSnapshot.status === UsageStatus.OK && primaryWindow === undefined && (
         <p className="provider-card-message">No usage windows returned.</p>
       )}
+      {metaParts.length > 0 && <p className="provider-card-meta">{metaParts.join(' · ')}</p>}
     </section>
   )
 }

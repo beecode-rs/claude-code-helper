@@ -1,7 +1,12 @@
 import type { ReactElement } from 'react'
 
 import { PROVIDER_CATALOG } from '#src/shared/provider-catalog'
-import { ClaudeTokenSource, type ITrackerConfig } from '#src/shared/settings-model'
+import {
+  ClaudeTokenSource,
+  type ITrackerConfig,
+  MAX_REFRESH_INTERVAL_MINUTES,
+  MIN_REFRESH_INTERVAL_MINUTES,
+} from '#src/shared/settings-model'
 
 export const TrackerConfigFields = (props: {
   config: ITrackerConfig
@@ -87,6 +92,28 @@ export const TrackerConfigFields = (props: {
           />
         </label>
       )}
+      <label className="settings-field">
+        <span className="settings-field-label">Refresh interval (minutes)</span>
+        <input
+          className="settings-field-input"
+          max={MAX_REFRESH_INTERVAL_MINUTES}
+          min={MIN_REFRESH_INTERVAL_MINUTES}
+          onChange={(event) => {
+            const minutes = Number.parseInt(event.target.value, 10)
+
+            if (!Number.isFinite(minutes)) {
+              return
+            }
+
+            const clampedMinutes = Math.min(Math.max(minutes, MIN_REFRESH_INTERVAL_MINUTES), MAX_REFRESH_INTERVAL_MINUTES)
+
+            onChange({ ...config, refreshIntervalSeconds: clampedMinutes * 60 })
+          }}
+          type="number"
+          value={Math.round(config.refreshIntervalSeconds / 60)}
+        />
+        <span className="settings-hint">How often this tracker refreshes automatically.</span>
+      </label>
     </>
   )
 }

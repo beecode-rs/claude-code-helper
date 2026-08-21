@@ -7,6 +7,7 @@ export interface ITrackerConfigBase {
   accessToken: string
   id: string
   name: string
+  refreshIntervalSeconds: number
 }
 
 export interface IClaudeTrackerConfig extends ITrackerConfigBase {
@@ -21,12 +22,13 @@ export interface IZaiTrackerConfig extends ITrackerConfigBase {
 export type ITrackerConfig = IClaudeTrackerConfig | IZaiTrackerConfig
 
 export interface IAppSettings {
-  pollIntervalSeconds: number
   trackers: ITrackerConfig[]
 }
 
-export const DEFAULT_POLL_INTERVAL_SECONDS = 300
+export const MIN_REFRESH_INTERVAL_SECONDS = 60
 
-export const MIN_POLL_INTERVAL_SECONDS = 15
+export const MAX_REFRESH_INTERVAL_SECONDS = 3600
 
-export const MAX_POLL_INTERVAL_SECONDS = 3600
+export const MIN_REFRESH_INTERVAL_MINUTES = MIN_REFRESH_INTERVAL_SECONDS / 60
+
+export const MAX_REFRESH_INTERVAL_MINUTES = MAX_REFRESH_INTERVAL_SECONDS / 60

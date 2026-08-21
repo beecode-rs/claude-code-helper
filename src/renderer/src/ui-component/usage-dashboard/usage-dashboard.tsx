@@ -3,18 +3,22 @@ import { type ReactElement, useEffect, useState } from 'react'
 import { usageClientService } from '#src/renderer/src/business/service/usage-client-service'
 import { AddTrackerDialog } from '#src/renderer/src/ui-component/tracker/add-tracker-dialog'
 import { TrackerSettingsDialog } from '#src/renderer/src/ui-component/tracker/tracker-settings-dialog'
-import { DashboardFooter } from '#src/renderer/src/ui-component/usage-dashboard/dashboard-footer'
 import { ProviderUsageCard } from '#src/renderer/src/ui-component/usage-dashboard/provider-usage-card'
 import '#src/renderer/src/ui-component/usage-dashboard/usage-dashboard.css'
 import type { IAppSettings } from '#src/shared/settings-model'
 import type { IUsageSnapshot } from '#src/shared/usage-model'
 
+const NOW_TICK_INTERVAL_MS = 1000
+
 export const UsageDashboard = (): ReactElement => {
   const [snapshot, setSnapshot] = useState<IUsageSnapshot | undefined>(undefined)
   const [settings, setSettings] = useState<IAppSettings | undefined>(undefined)
-  const [isRefreshing, setIsRefreshing] = useState(false)
   const [isAddOpen, setIsAddOpen] = useState(false)
+  const [nowMs, setNowMs] = useState((): number => {
+    return Date.now()
+  })
   const [openTrackerId, setOpenTrackerId] = useState<string | undefined>(undefined)
+  const [refreshingTrackerIds, setRefreshingTrackerIds] = useState<string[]>([])
 
   const loadSettings = async (): Promise<void> => {
     const loadedSettings = await usageClientService.getSettings()
@@ -22,10 +26,18 @@ export const UsageDashboard = (): ReactElement => {
     setSettings(loadedSettings)
   }
 
-  const refreshUsage = async (): Promise<void> => {
-    setIsRefreshing(true)
-    await usageClientService.refreshNow()
-    setIsRefreshing(false)
+  const refreshTracker = async (trackerId: string): Promise<void> => {
+    setRefreshingTrackerIds((currentIds) => {
+      return [...currentIds, trackerId]
+    })
+
+    await usageClientService.refreshTracker({ trackerId })
+
+    setRefreshingTrackerIds((currentIds) => {
+      return currentIds.filter((currentId) => {
+        return currentId !== trackerId
+      })
+    })
   }
 
   useEffect(() => {
@@ -35,7 +47,7 @@ export const UsageDashboard = (): ReactElement => {
       },
     })
 
-    if (!import.meta.env.DEV) {
+    if (import.meta.env.DEV) {
       void usageClientService.refreshNow()
     }
 
@@ -46,6 +58,16 @@ export const UsageDashboard = (): ReactElement => {
 
   useEffect(() => {
     void loadSettings()
+  }, [])
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setNowMs(Date.now())
+    }, NOW_TICK_INTERVAL_MS)
+
+    return () => {
+      clearInterval(intervalId)
+    }
   }, [])
 
   const hasSnapshot = snapshot !== undefined
@@ -69,27 +91,27 @@ export const UsageDashboard = (): ReactElement => {
           >
             + Add
           </button>
-          <button
-            className="button"
-            disabled={isRefreshing}
-            onClick={() => {
-              void refreshUsage()
-            }}
-            type="button"
-          >
-            Refresh
-          </button>
         </div>
       </header>
       <main className="dashboard-grid">
         {providerSnapshots.map((providerSnapshot) => {
+          const trackerConfig = settings?.trackers.find((tracker) => {
+            return tracker.id === providerSnapshot.trackerId
+          })
+
           return (
             <ProviderUsageCard
               key={providerSnapshot.trackerId}
+              nowMs={nowMs}
               onOpenSettings={() => {
                 setOpenTrackerId(providerSnapshot.trackerId)
               }}
+              onRefresh={() => {
+                void refreshTracker(providerSnapshot.trackerId)
+              }}
               providerSnapshot={providerSnapshot}
+              refreshIntervalSeconds={trackerConfig?.refreshIntervalSeconds}
+              isRefreshing={refreshingTrackerIds.includes(providerSnapshot.trackerId)}
             />
           )
         })}
@@ -109,7 +131,6 @@ export const UsageDashboard = (): ReactElement => {
           </div>
         )}
       </main>
-      <DashboardFooter lastFetchedAt={snapshot?.fetchedAt} pollIntervalSeconds={settings?.pollIntervalSeconds} />
       {isAddOpen && (
         <AddTrackerDialog
           onClose={() => {

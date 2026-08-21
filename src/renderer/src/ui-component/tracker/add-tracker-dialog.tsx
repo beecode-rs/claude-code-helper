@@ -4,7 +4,12 @@ import { usageClientService } from '#src/renderer/src/business/service/usage-cli
 import { TrackerConfigFields } from '#src/renderer/src/ui-component/tracker/tracker-config-fields'
 import { errorUtil } from '#src/renderer/src/util/error-util'
 import { PROVIDER_CATALOG } from '#src/shared/provider-catalog'
-import { ClaudeTokenSource, type IAppSettings, type ITrackerConfig } from '#src/shared/settings-model'
+import {
+  ClaudeTokenSource,
+  type IAppSettings,
+  type ITrackerConfig,
+  MIN_REFRESH_INTERVAL_SECONDS,
+} from '#src/shared/settings-model'
 import type { ProviderId } from '#src/shared/usage-model'
 
 export const AddTrackerDialog = (props: { onClose: () => void; onSaved: () => void }): ReactElement => {
@@ -24,6 +29,18 @@ export const AddTrackerDialog = (props: { onClose: () => void; onSaved: () => vo
     void loadSettings()
   }, [])
 
+  const resolveDefaultRefreshIntervalSeconds = (providerId: ProviderId): number => {
+    const catalogEntry = PROVIDER_CATALOG.find((entry) => {
+      return entry.id === providerId
+    })
+
+    if (catalogEntry === undefined) {
+      return MIN_REFRESH_INTERVAL_SECONDS
+    }
+
+    return catalogEntry.defaultRefreshIntervalSeconds
+  }
+
   const createBlankTracker = (providerId: ProviderId): ITrackerConfig => {
     switch (providerId) {
       case 'claude': {
@@ -32,6 +49,7 @@ export const AddTrackerDialog = (props: { onClose: () => void; onSaved: () => vo
           id: crypto.randomUUID(),
           name: '',
           providerId: 'claude',
+          refreshIntervalSeconds: resolveDefaultRefreshIntervalSeconds('claude'),
           tokenSource: ClaudeTokenSource.MANUAL,
         }
       }
@@ -42,6 +60,7 @@ export const AddTrackerDialog = (props: { onClose: () => void; onSaved: () => vo
           id: crypto.randomUUID(),
           name: '',
           providerId: 'zai',
+          refreshIntervalSeconds: resolveDefaultRefreshIntervalSeconds('zai'),
         }
       }
 

@@ -8,6 +8,9 @@ export const usageClientService = {
   refreshNow: (): Promise<void> => {
     return window.usageApi.refreshNow()
   },
+  refreshTracker: (params: { trackerId: string }): Promise<void> => {
+    return window.usageApi.refreshTracker({ trackerId: params.trackerId })
+  },
   saveSettings: (params: { settings: IAppSettings }): Promise<IAppSettings> => {
     return window.usageApi.saveSettings(params.settings)
   },

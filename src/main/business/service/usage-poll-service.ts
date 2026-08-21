@@ -13,11 +13,12 @@ import {
 } from '#src/shared/usage-model'
 
 export class UsagePollService {
-  protected _intervalId: NodeJS.Timeout | undefined
+  protected _generationByTrackerId: Map<string, number> = new Map()
   protected _listeners: UsageUpdateListener[] = []
-  protected _pollGeneration = 0
+  protected _nextPollAtByTrackerId: Map<string, number> = new Map()
   protected _settings: IAppSettings | undefined
-  protected _snapshot: IUsageSnapshot = { fetchedAt: 0, providers: [] }
+  protected _snapshotByTrackerId: Map<string, IProviderSnapshot> = new Map()
+  protected _timerByTrackerId: Map<string, NodeJS.Timeout> = new Map()
   protected readonly _isDevelopment: boolean
   protected readonly _claudeSystemTokenService: ClaudeSystemTokenService
   protected readonly _providers: Record<ProviderId, IUsageProvider>
@@ -41,52 +42,55 @@ export class UsagePollService {
   async start(params: { settings: IAppSettings }): Promise<void> {
     this._settings = params.settings
 
-    if (!this._isDevelopment) {
-      await this.pollNow()
+    if (this._isDevelopment) {
+      this._scheduleAllTrackers()
+      return
     }
 
-    this._scheduleNextPoll()
+    await this.refreshNow()
   }
 
   async restart(params: { settings: IAppSettings }): Promise<void> {
     this.stop()
-    await this.start({ settings: params.settings })
+    this._settings = params.settings
+    await this.refreshNow()
   }
 
   stop(): void {
-    if (this._intervalId !== undefined) {
-      clearInterval(this._intervalId)
-      this._intervalId = undefined
-    }
+    this._timerByTrackerId.forEach((timer) => {
+      clearTimeout(timer)
+    })
+    this._timerByTrackerId.clear()
   }
 
-  async pollNow(): Promise<void> {
+  async refreshNow(): Promise<void> {
     const settings = this._settings
 
     if (settings === undefined) {
       return
     }
 
-    const generation = ++this._pollGeneration
-    this._notifyListeners({ snapshot: this._buildPendingSnapshot({ settings }) })
-
-    const providerSnapshots = await Promise.all(
+    await Promise.all(
       settings.trackers.map((tracker) => {
-        return this._pollTracker({ tracker })
+        return this.refreshTracker({ trackerId: tracker.id })
       }),
     )
+  }
 
-    if (generation !== this._pollGeneration) {
+  async refreshTracker(params: { trackerId: string }): Promise<void> {
+    const tracker = this._resolveTracker({ trackerId: params.trackerId })
+
+    if (tracker === undefined) {
       return
     }
 
-    this._snapshot = { fetchedAt: Date.now(), providers: providerSnapshots }
-    this._notifyListeners({ snapshot: this._snapshot })
-  }
+    this._cancelTrackerTimer({ trackerId: tracker.id })
 
-  async refreshNow(): Promise<void> {
-    await this.pollNow()
-    this._scheduleNextPoll()
+    const isPollApplied = await this._pollTrackerOnce({ tracker })
+
+    if (isPollApplied) {
+      this._scheduleTracker({ tracker })
+    }
   }
 
   onUpdate(params: { listener: UsageUpdateListener }): () => void {
@@ -103,25 +107,67 @@ export class UsagePollService {
     return { claude: new UsageProviderClaude(), zai: new UsageProviderZai() }
   }
 
-  protected _buildPendingSnapshot(params: { settings: IAppSettings }): IUsageSnapshot {
+  protected _resolveTracker(params: { trackerId: string }): ITrackerConfig | undefined {
+    const settings = this._settings
+
+    if (settings === undefined) {
+      return undefined
+    }
+
+    return settings.trackers.find((tracker) => {
+      return tracker.id === params.trackerId
+    })
+  }
+
+  protected async _pollTrackerOnce(params: { tracker: ITrackerConfig }): Promise<boolean> {
+    const generation = this._beginTrackerPoll({ trackerId: params.tracker.id })
+    this._notifyListeners({ snapshot: this._buildSnapshot() })
+
+    const providerSnapshot = await this._pollTracker({ tracker: params.tracker })
+
+    if (generation !== this._generationByTrackerId.get(params.tracker.id)) {
+      return false
+    }
+
+    this._snapshotByTrackerId.set(params.tracker.id, providerSnapshot)
+    this._notifyListeners({ snapshot: this._buildSnapshot() })
+
+    return true
+  }
+
+  protected _beginTrackerPoll(params: { trackerId: string }): number {
+    const nextGeneration = (this._generationByTrackerId.get(params.trackerId) ?? 0) + 1
+    this._generationByTrackerId.set(params.trackerId, nextGeneration)
+
+    return nextGeneration
+  }
+
+  protected _buildSnapshot(): IUsageSnapshot {
+    const settings = this._settings
+
+    if (settings === undefined) {
+      return { providers: [] }
+    }
+
     return {
-      fetchedAt: this._snapshot.fetchedAt,
-      providers: params.settings.trackers.map((tracker) => {
-        return this._resolvePendingSnapshot({ tracker })
+      providers: settings.trackers.map((tracker) => {
+        return this._resolveTrackerSnapshot({ tracker })
       }),
     }
   }
 
-  protected _resolvePendingSnapshot(params: { tracker: ITrackerConfig }): IProviderSnapshot {
-    const previousSnapshot = this._snapshot.providers.find((providerSnapshot) => {
-      return providerSnapshot.trackerId === params.tracker.id
-    })
+  protected _resolveTrackerSnapshot(params: { tracker: ITrackerConfig }): IProviderSnapshot {
+    const existingSnapshot = this._snapshotByTrackerId.get(params.tracker.id)
 
-    if (previousSnapshot !== undefined) {
-      return previousSnapshot
+    if (existingSnapshot !== undefined) {
+      return {
+        ...existingSnapshot,
+        nextRefreshAt: this._nextPollAtByTrackerId.get(params.tracker.id),
+      }
     }
 
     return {
+      nextRefreshAt: this._nextPollAtByTrackerId.get(params.tracker.id),
       providerId: params.tracker.providerId,
       status: UsageStatus.PENDING,
       trackerId: params.tracker.id,
@@ -174,18 +220,48 @@ export class UsagePollService {
     return params.tracker.accessToken
   }
 
-  protected _scheduleNextPoll(): void {
-    this.stop()
-
+  protected _scheduleAllTrackers(): void {
     const settings = this._settings
 
     if (settings === undefined) {
       return
     }
 
-    this._intervalId = setInterval(() => {
-      void this.pollNow()
-    }, settings.pollIntervalSeconds * 1000)
+    settings.trackers.forEach((tracker) => {
+      this._scheduleTracker({ tracker })
+    })
+  }
+
+  protected _scheduleTracker(params: { tracker: ITrackerConfig }): void {
+    this._cancelTrackerTimer({ trackerId: params.tracker.id })
+
+    const nextPollAt = Date.now() + params.tracker.refreshIntervalSeconds * 1000
+    this._nextPollAtByTrackerId.set(params.tracker.id, nextPollAt)
+
+    const timer = setTimeout(() => {
+      void this._onTrackerTimer({ tracker: params.tracker })
+    }, params.tracker.refreshIntervalSeconds * 1000)
+
+    this._timerByTrackerId.set(params.tracker.id, timer)
+  }
+
+  protected async _onTrackerTimer(params: { tracker: ITrackerConfig }): Promise<void> {
+    const isPollApplied = await this._pollTrackerOnce({ tracker: params.tracker })
+
+    if (isPollApplied) {
+      this._scheduleTracker({ tracker: params.tracker })
+    }
+  }
+
+  protected _cancelTrackerTimer(params: { trackerId: string }): void {
+    const timer = this._timerByTrackerId.get(params.trackerId)
+
+    if (timer === undefined) {
+      return
+    }
+
+    clearTimeout(timer)
+    this._timerByTrackerId.delete(params.trackerId)
   }
 
   protected _notifyListeners(params: { snapshot: IUsageSnapshot }): void {

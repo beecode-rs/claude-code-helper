@@ -2,12 +2,13 @@ import { type ReactElement, useState } from 'react'
 
 import { AboutPage } from '#src/renderer/src/ui-component/about/about-page'
 import '#src/renderer/src/ui-component/app-shell/app-shell.css'
-import { SettingsPanel } from '#src/renderer/src/ui-component/settings/settings-panel'
+import { DevelopmentPage } from '#src/renderer/src/ui-component/development/development-page'
 import { type ISideMenuItem, SideMenu } from '#src/renderer/src/ui-component/side-menu/side-menu'
 import { UsageDashboard } from '#src/renderer/src/ui-component/usage-dashboard/usage-dashboard'
+import { envUtil } from '#src/renderer/src/util/env-util'
 import { sideMenuPrefsUtil } from '#src/renderer/src/util/side-menu-prefs-util'
 
-type AppViewId = 'about' | 'settings' | 'usage'
+type AppViewId = 'about' | 'development' | 'usage'
 
 const MENU_ICONS: Record<AppViewId, ReactElement> = {
   about: (
@@ -24,7 +25,7 @@ const MENU_ICONS: Record<AppViewId, ReactElement> = {
       <line x1="12" x2="12.01" y1="8" y2="8" />
     </svg>
   ),
-  settings: (
+  development: (
     <svg
       fill="none"
       stroke="currentColor"
@@ -33,8 +34,8 @@ const MENU_ICONS: Record<AppViewId, ReactElement> = {
       strokeWidth={1.8}
       viewBox="0 0 24 24"
     >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      <polyline points="4 17 10 11 4 5" />
+      <line x1="12" x2="20" y1="19" y2="19" />
     </svg>
   ),
   usage: (
@@ -51,11 +52,20 @@ const MENU_ICONS: Record<AppViewId, ReactElement> = {
   ),
 }
 
-const MENU_ITEMS: ISideMenuItem<AppViewId>[] = [
+const BASE_MENU_ITEMS: ISideMenuItem<AppViewId>[] = [
   { icon: MENU_ICONS.usage, id: 'usage', label: 'Usage' },
-  { icon: MENU_ICONS.settings, id: 'settings', label: 'Settings' },
   { icon: MENU_ICONS.about, id: 'about', label: 'About' },
 ]
+
+const resolveMenuItems = (): ISideMenuItem<AppViewId>[] => {
+  if (!envUtil.isDevelopment) {
+    return BASE_MENU_ITEMS
+  }
+
+  return [...BASE_MENU_ITEMS, { icon: MENU_ICONS.development, id: 'development', label: 'Development' }]
+}
+
+const MENU_ITEMS = resolveMenuItems()
 
 export const AppShell = (): ReactElement => {
   const [activeViewId, setActiveViewId] = useState<AppViewId>('usage')
@@ -78,8 +88,8 @@ export const AppShell = (): ReactElement => {
         return <AboutPage />
       }
 
-      case 'settings': {
-        return <SettingsPanel />
+      case 'development': {
+        return <DevelopmentPage />
       }
 
       case 'usage': {

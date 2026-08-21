@@ -29,6 +29,14 @@ export const ipcController = {
       await params.pollService.refreshNow()
     })
 
+    ipcMain.handle(IpcChannelMapper.USAGE_REFRESH_TRACKER, async (_event, trackerId: unknown): Promise<void> => {
+      if (typeof trackerId !== 'string') {
+        return
+      }
+
+      await params.pollService.refreshTracker({ trackerId })
+    })
+
     params.pollService.onUpdate({
       listener: (snapshot) => {
         const browserWindow = params.getWindow()

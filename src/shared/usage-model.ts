@@ -16,6 +16,8 @@ export enum UsageStatus {
 export interface IUsageWindow {
   label: string
   resetAt?: number
+  totalAmount?: number
+  usedAmount?: number
   usedPercent: number
   windowMs?: number
 }

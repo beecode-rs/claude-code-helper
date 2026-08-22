@@ -210,6 +210,27 @@ body {
   font-weight: 600;
 }
 
+.usage-bar-value[data-tooltip] {
+  cursor: default;
+  position: relative;
+}
+
+.usage-bar-value[data-tooltip]:hover::after {
+  background: var(--page);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  bottom: calc(100% + 8px);
+  color: var(--ink-primary);
+  content: attr(data-tooltip);
+  font-size: 12px;
+  font-weight: 400;
+  padding: 4px 8px;
+  position: absolute;
+  right: 0;
+  white-space: nowrap;
+  z-index: 2;
+}
+
 .usage-bar-track {
   background: var(--meter-track);
   border-radius: 0 4px 4px 0;

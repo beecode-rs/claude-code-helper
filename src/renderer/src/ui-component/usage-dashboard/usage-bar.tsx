@@ -8,8 +8,9 @@ export const UsageBar = (props: {
   label: string
   percent: number
   valueText?: string
+  valueTooltip?: string
 }): ReactElement => {
-  const { ariaLabel, fillColor, label, percent, valueText } = props
+  const { ariaLabel, fillColor, label, percent, valueText, valueTooltip } = props
   const clampedPercent = Math.min(Math.max(percent, 0), 100)
   const resolvedAriaLabel = ariaLabel ?? `${label} usage`
   const resolvedFillColor = fillColor ?? usageSeverityUtil.resolveSeverityColorVar(clampedPercent)
@@ -26,7 +27,9 @@ export const UsageBar = (props: {
     >
       <div className="usage-bar-header">
         <span className="usage-bar-label">{label}</span>
-        <span className="usage-bar-value">{resolvedValueText}</span>
+        <span className="usage-bar-value" data-tooltip={valueTooltip}>
+          {resolvedValueText}
+        </span>
       </div>
       <div className="usage-bar-track">
         <div

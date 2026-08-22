@@ -176,6 +176,8 @@ export class UsageSnapshotRepo {
     return {
       label,
       resetAt: this._sanitizeOptionalNumber({ value: rawRecord['resetAt'] }),
+      totalAmount: this._sanitizeOptionalNumber({ value: rawRecord['totalAmount'] }),
+      usedAmount: this._sanitizeOptionalNumber({ value: rawRecord['usedAmount'] }),
       usedPercent,
       windowMs: this._sanitizeOptionalNumber({ value: rawRecord['windowMs'] }),
     }

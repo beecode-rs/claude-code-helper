@@ -327,6 +327,8 @@ export const ProviderUsageCard = (props: {
           <UsageWindowBox
             resetAt={primaryWindow.resetAt}
             title={primaryWindow.label}
+            totalAmount={primaryWindow.totalAmount}
+            usedAmount={primaryWindow.usedAmount}
             usedPercent={primaryWindow.usedPercent}
             windowMs={primaryWindow.windowMs ?? usageResetUtil.fiveHourWindowMs}
           />
@@ -338,6 +340,8 @@ export const ProviderUsageCard = (props: {
                     key={usageWindow.label}
                     resetAt={usageWindow.resetAt}
                     title={usageWindow.label}
+                    totalAmount={usageWindow.totalAmount}
+                    usedAmount={usageWindow.usedAmount}
                     usedPercent={usageWindow.usedPercent}
                     windowMs={usageWindow.windowMs}
                   />

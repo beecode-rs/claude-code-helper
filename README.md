@@ -13,7 +13,7 @@ The app uses the **strategy pattern** (`src/main/business/service/usage-provider
 | Provider | Endpoint | 5-hour window | Long window |
 | --- | --- | --- | --- |
 | Claude | `GET https://api.anthropic.com/api/oauth/usage` (undocumented, OAuth bearer) | `five_hour.utilization` + `resets_at` | `seven_day.utilization` (weekly) |
-| z.ai | `GET https://api.z.ai/api/monitor/usage/quota/limit` | `limits[].type === 'TOKENS_LIMIT'` → `percentage` | `limits[].type === 'TIME_LIMIT'` → `percentage` (monthly) |
+| z.ai | `GET https://api.z.ai/api/monitor/usage/quota/limit` | `limits[].type === 'TOKENS_LIMIT'` → `percentage` | `limits[].type === 'TIME_LIMIT'` → `percentage` + `currentValue`/`usage` counts (MCP quota, monthly) |
 
 To add a provider kind: extend `ProviderId` and `PROVIDER_CATALOG` (`src/shared/provider-catalog.ts`), create a class implementing `IUsageProvider` in the `usage-provider/` folder, and register it in `UsagePollService._createDefaultProviders()`.
 

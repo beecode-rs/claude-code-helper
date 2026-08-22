@@ -18,6 +18,7 @@ const MAX_MINUTE_OF_DAY = 23 * 60 + 59
 const MAX_USED_PERCENT = 100
 const MINUTES_PER_HOUR = 60
 const MONTH_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
+const PREVIEW_MCP_TOTAL_CALLS = 1000
 const PREVIEW_NEXT_REFRESH_OFFSET_MS = 150_000
 const PREVIEW_REFRESH_INTERVAL_SECONDS = 300
 const PREVIEW_REFRESH_SPIN_MS = 1000
@@ -88,6 +89,10 @@ export const DevelopmentPage = (): ReactElement => {
     return Date.now() + MONTH_WINDOW_MS - elapsedMs
   }
 
+  const resolveMcpUsedCalls = (): number => {
+    return Math.round((usedPercent / MAX_USED_PERCENT) * PREVIEW_MCP_TOTAL_CALLS)
+  }
+
   const resolvePreviewSnapshot = (): IProviderSnapshot => {
     const previewNowMs = resolvePreviewNowMs()
 
@@ -105,7 +110,14 @@ export const DevelopmentPage = (): ReactElement => {
           usedPercent,
           windowMs: usageResetUtil.fiveHourWindowMs,
         },
-        { label: 'Monthly', resetAt: resolveMonthlyResetAt(), usedPercent, windowMs: MONTH_WINDOW_MS },
+        {
+          label: 'MCP quota',
+          resetAt: resolveMonthlyResetAt(),
+          totalAmount: PREVIEW_MCP_TOTAL_CALLS,
+          usedAmount: resolveMcpUsedCalls(),
+          usedPercent,
+          windowMs: MONTH_WINDOW_MS,
+        },
       ],
     }
   }

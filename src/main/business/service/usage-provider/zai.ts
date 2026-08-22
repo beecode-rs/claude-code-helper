@@ -61,12 +61,7 @@ export class UsageProviderZai implements IUsageProvider {
         }),
         windowMs: FIVE_HOUR_WINDOW_MS,
       }),
-      this._stampCalendarMonthWindowMs({
-        window: this._buildWindow({
-          expectedLabel: 'Monthly',
-          limitRecord: this._findLimitRecord({ limits: params.limits, limitType: 'TIME_LIMIT' }),
-        }),
-      }),
+      this._buildMcpQuotaWindow({ limits: params.limits }),
     ].filter((window) => {
       return window !== undefined
     })
@@ -76,6 +71,43 @@ export class UsageProviderZai implements IUsageProvider {
     }
 
     return windows
+  }
+
+  protected _buildMcpQuotaWindow(params: { limits: unknown[] }): IUsageWindow | undefined {
+    const limitRecord = this._findLimitRecord({ limits: params.limits, limitType: 'TIME_LIMIT' })
+
+    return this._stampMcpAmounts({
+      limitRecord,
+      window: this._stampCalendarMonthWindowMs({
+        window: this._buildWindow({ expectedLabel: 'MCP quota', limitRecord }),
+      }),
+    })
+  }
+
+  protected _stampMcpAmounts(params: {
+    limitRecord?: Record<string, unknown>
+    window?: IUsageWindow
+  }): IUsageWindow | undefined {
+    if (params.window === undefined || params.limitRecord === undefined) {
+      return params.window
+    }
+
+    const usedAmount = this._resolveFiniteCount({ value: params.limitRecord['currentValue'] })
+    const totalAmount = this._resolveFiniteCount({ value: params.limitRecord['usage'] })
+
+    if (usedAmount === undefined || totalAmount === undefined || totalAmount <= 0) {
+      return params.window
+    }
+
+    return { ...params.window, totalAmount, usedAmount }
+  }
+
+  protected _resolveFiniteCount(params: { value: unknown }): number | undefined {
+    if (typeof params.value !== 'number' || !Number.isFinite(params.value) || params.value < 0) {
+      return undefined
+    }
+
+    return Math.round(params.value)
   }
 
   protected _stampCalendarMonthWindowMs(params: { window?: IUsageWindow }): IUsageWindow | undefined {

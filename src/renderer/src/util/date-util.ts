@@ -8,21 +8,20 @@ export const dateUtil = {
     })
   },
 
-  formatCountdown: (durationMs: number): string => {
-    const totalSeconds = Math.max(0, Math.ceil(durationMs / 1000))
-    const hours = Math.floor(totalSeconds / 3600)
-    const minutes = Math.floor((totalSeconds % 3600) / 60)
-    const seconds = totalSeconds % 60
+  formatDateTime: (timestamp: number): string => {
+    const date = new Date(timestamp)
+    const datePart = [
+      String(date.getFullYear()),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0'),
+    ].join('-')
+    const timePart = [
+      String(date.getHours()).padStart(2, '0'),
+      String(date.getMinutes()).padStart(2, '0'),
+      String(date.getSeconds()).padStart(2, '0'),
+    ].join(':')
 
-    if (hours > 0) {
-      return `${String(hours)}h ${String(minutes)}m`
-    }
-
-    if (minutes > 0) {
-      return `${String(minutes)}m ${String(seconds).padStart(2, '0')}s`
-    }
-
-    return `${String(seconds)}s`
+    return `${datePart} ${timePart}`
   },
 
   formatDuration: (durationMs: number): string => {
@@ -52,19 +51,5 @@ export const dateUtil = {
       hourCycle: 'h23',
       minute: '2-digit',
     })
-  },
-
-  formatMonthDay: (timestamp: number): string => {
-    return new Date(timestamp).toLocaleDateString([], {
-      day: 'numeric',
-      month: 'short',
-    })
-  },
-
-  isSameDay: (params: { timestampA: number; timestampB: number }): boolean => {
-    const dateAText = new Date(params.timestampA).toDateString()
-    const dateBText = new Date(params.timestampB).toDateString()
-
-    return dateAText === dateBText
   },
 }

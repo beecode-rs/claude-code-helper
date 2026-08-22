@@ -153,21 +153,11 @@ export const ProviderUsageCard = (props: {
   }
 
   const resolveIsSnapshotStale = (): boolean => {
-    if (isAutoRefreshPaused || refreshIntervalSeconds === undefined || providerSnapshot.fetchedAt === undefined) {
+    if (refreshIntervalSeconds === undefined || providerSnapshot.fetchedAt === undefined) {
       return false
     }
 
     return nowMs - providerSnapshot.fetchedAt > refreshIntervalSeconds * 1000
-  }
-
-  const resolveFetchedAtText = (params: { fetchedAt: number }): string => {
-    const timeText = dateUtil.formatHourMinute(params.fetchedAt)
-
-    if (dateUtil.isSameDay({ timestampA: nowMs, timestampB: params.fetchedAt })) {
-      return timeText
-    }
-
-    return `${dateUtil.formatMonthDay(params.fetchedAt)}, ${timeText}`
   }
 
   const renderLastFetchedItem = (): ReactElement | undefined => {
@@ -175,18 +165,11 @@ export const ProviderUsageCard = (props: {
       return undefined
     }
 
-    const fetchedAtText = resolveFetchedAtText({ fetchedAt: providerSnapshot.fetchedAt })
-    const elapsedText = dateUtil.formatDuration(nowMs - providerSnapshot.fetchedAt)
+    const tooltipText = `Last fetched at ${dateUtil.formatDateTime(providerSnapshot.fetchedAt)}`
 
     if (resolveIsSnapshotStale()) {
-      const staleTooltipText = `Data is stale — last fetched at ${fetchedAtText} (${elapsedText} ago)`
-
       return (
-        <span
-          aria-label={staleTooltipText}
-          className="provider-card-footer-item is-stale"
-          data-tooltip={staleTooltipText}
-        >
+        <span aria-label={tooltipText} className="provider-card-footer-item is-stale" data-tooltip={tooltipText}>
           <svg
             fill="none"
             height="13"
@@ -206,8 +189,6 @@ export const ProviderUsageCard = (props: {
       )
     }
 
-    const tooltipText = `Last fetched at ${fetchedAtText} (${elapsedText} ago)`
-
     return (
       <span aria-label={tooltipText} className="provider-card-footer-item" data-tooltip={tooltipText}>
         <svg
@@ -223,36 +204,7 @@ export const ProviderUsageCard = (props: {
           <circle cx="12" cy="12" r="10" />
           <polyline points="12 6 12 12 16 14" />
         </svg>
-        {`${fetchedAtText} · ${elapsedText} ago`}
-      </span>
-    )
-  }
-
-  const renderNextRefreshItem = (): ReactElement | undefined => {
-    if (providerSnapshot.nextRefreshAt === undefined) {
-      return undefined
-    }
-
-    const countdownText = dateUtil.formatCountdown(providerSnapshot.nextRefreshAt - nowMs)
-    const tooltipText = `Next refresh in ${countdownText}`
-
-    return (
-      <span aria-label={tooltipText} className="provider-card-footer-item" data-tooltip={tooltipText}>
-        <svg
-          fill="none"
-          height="13"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
-          width="13"
-        >
-          <line x1="10" x2="14" y1="2" y2="2" />
-          <line x1="12" x2="15" y1="14" y2="11" />
-          <circle cx="12" cy="14" r="8" />
-        </svg>
-        {countdownText}
+        {dateUtil.formatHourMinute(providerSnapshot.fetchedAt)}
       </span>
     )
   }
@@ -308,11 +260,9 @@ export const ProviderUsageCard = (props: {
     return Math.min(100, Math.max(0, (elapsedMs / intervalMs) * 100))
   }
 
-  const footerItems = [renderLastFetchedItem(), renderNextRefreshItem(), renderIntervalItem()].filter(
-    (item): item is ReactElement => {
-      return item !== undefined
-    },
-  )
+  const footerItems = [renderLastFetchedItem(), renderIntervalItem()].filter((item): item is ReactElement => {
+    return item !== undefined
+  })
   const refreshProgressPercent = resolveRefreshProgressPercent()
   const hasFooterContent = footerItems.length > 0 || refreshProgressPercent !== undefined
 

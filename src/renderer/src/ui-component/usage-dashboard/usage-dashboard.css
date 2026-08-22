@@ -108,7 +108,9 @@ body {
   border-radius: 12px;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   padding: 20px;
+  position: relative;
 }
 
 .provider-card-header {
@@ -379,6 +381,21 @@ body {
   color: var(--ink-muted);
   font-size: 12px;
   margin: 14px 0 0;
+}
+
+.provider-card-progress-track {
+  background: var(--meter-track);
+  bottom: 0;
+  height: 2px;
+  left: 0;
+  position: absolute;
+  right: 0;
+}
+
+.provider-card-progress-fill {
+  background: var(--meter-accent);
+  height: 100%;
+  transition: width 1s linear;
 }
 
 .provider-card-status-pending {

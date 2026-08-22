@@ -53,11 +53,24 @@ export const ProviderUsageCard = (props: {
     return `every ${dateUtil.formatDuration(refreshIntervalSeconds * 1000)}`
   }
 
+  const resolveRefreshProgressPercent = (): number | undefined => {
+    if (providerSnapshot.nextRefreshAt === undefined || refreshIntervalSeconds === undefined) {
+      return undefined
+    }
+
+    const intervalMs = refreshIntervalSeconds * 1000
+    const remainingMs = Math.max(0, providerSnapshot.nextRefreshAt - nowMs)
+    const elapsedMs = intervalMs - remainingMs
+
+    return Math.min(100, Math.max(0, (elapsedMs / intervalMs) * 100))
+  }
+
   const metaParts = [resolveUpdatedLabel(), resolveNextRefreshLabel(), resolveIntervalLabel()].filter(
     (part): part is string => {
       return part !== undefined
     },
   )
+  const refreshProgressPercent = resolveRefreshProgressPercent()
 
   return (
     <section className="provider-card">
@@ -135,6 +148,11 @@ export const ProviderUsageCard = (props: {
         <p className="provider-card-message">No usage windows returned.</p>
       )}
       {metaParts.length > 0 && <p className="provider-card-meta">{metaParts.join(' · ')}</p>}
+      {refreshProgressPercent !== undefined && (
+        <div className="provider-card-progress-track">
+          <div className="provider-card-progress-fill" style={{ width: `${String(refreshProgressPercent)}%` }} />
+        </div>
+      )}
     </section>
   )
 }

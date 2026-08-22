@@ -31,16 +31,16 @@ Tokens are stored only in `usage-pulse-settings.json` inside the app's userData 
 ## Development
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Other scripts:
 
-- `npm run build` — build main/preload/renderer into `out/`
-- `npm start` — run the built app
-- `npm run typecheck` — typecheck the node and web projects
-- `npm run lint` / `npm run lint-fix` — ESLint + Prettier + json-sort-cli
+- `pnpm build` — build main/preload/renderer into `out/`
+- `pnpm start` — run the built app
+- `pnpm typecheck` — typecheck the node and web projects
+- `pnpm lint` / `pnpm lint-fix` — ESLint + Prettier + json-sort-cli
 
 ## Architecture
 

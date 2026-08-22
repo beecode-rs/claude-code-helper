@@ -400,9 +400,9 @@ body {
   border-top: 1px solid var(--hairline);
   display: flex;
   flex-direction: column;
-  gap: 10px;
   margin: auto -20px -20px;
   padding: 12px 20px 14px;
+  position: relative;
 }
 
 .provider-card-footer-meta {
@@ -460,15 +460,16 @@ body {
 
 .provider-card-progress-track {
   background: var(--meter-track);
-  border-radius: 999px;
-  height: 3px;
+  bottom: -1px;
+  height: 1px;
+  left: 11px;
   overflow: hidden;
-  width: 100%;
+  position: absolute;
+  right: 11px;
 }
 
 .provider-card-progress-fill {
   background: var(--meter-accent);
-  border-radius: 999px;
   height: 100%;
   transition: width 1s linear;
 }

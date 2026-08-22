@@ -10,15 +10,17 @@ import { usageSeverityUtil } from '#src/renderer/src/util/usage-severity-util'
 import { type IProviderSnapshot, UsageStatus } from '#src/shared/usage-model'
 
 const DEFAULT_ELAPSED_MINUTES = 60
+const DEFAULT_FETCHED_ELAPSED_MINUTES = 1
 const DEFAULT_USED_PERCENT = 45
 const MAX_ELAPSED_MINUTES = 300
+const MAX_FETCHED_ELAPSED_MINUTES = 3 * 24 * 60
 const MAX_MINUTE_OF_DAY = 23 * 60 + 59
 const MAX_USED_PERCENT = 100
 const MINUTES_PER_HOUR = 60
 const MONTH_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
-const PREVIEW_FETCHED_AT_OFFSET_MS = 60_000
 const PREVIEW_NEXT_REFRESH_OFFSET_MS = 150_000
 const PREVIEW_REFRESH_INTERVAL_SECONDS = 300
+const PREVIEW_REFRESH_SPIN_MS = 1000
 
 const DAY_OFFSETS = [0, 1, 2, 3, 4, 5, 6]
 
@@ -42,6 +44,7 @@ const SEVERITY_BANDS = [
 export const DevelopmentPage = (): ReactElement => {
   const [usedPercent, setUsedPercent] = useState(DEFAULT_USED_PERCENT)
   const [elapsedMinutes, setElapsedMinutes] = useState(DEFAULT_ELAPSED_MINUTES)
+  const [fetchedElapsedMinutes, setFetchedElapsedMinutes] = useState(DEFAULT_FETCHED_ELAPSED_MINUTES)
   const [minuteOfDay, setMinuteOfDay] = useState((): number => {
     const now = new Date()
 
@@ -50,6 +53,8 @@ export const DevelopmentPage = (): ReactElement => {
   const [weekdayValue, setWeekdayValue] = useState((): string => {
     return String(new Date().getDay())
   })
+  const [isPreviewAutoRefreshPaused, setIsPreviewAutoRefreshPaused] = useState(false)
+  const [isPreviewRefreshing, setIsPreviewRefreshing] = useState(false)
 
   const resolvePreviewNowMs = (): number => {
     const today = new Date()
@@ -87,7 +92,7 @@ export const DevelopmentPage = (): ReactElement => {
     const previewNowMs = resolvePreviewNowMs()
 
     return {
-      fetchedAt: previewNowMs - PREVIEW_FETCHED_AT_OFFSET_MS,
+      fetchedAt: previewNowMs - fetchedElapsedMinutes * 60_000,
       nextRefreshAt: previewNowMs + PREVIEW_NEXT_REFRESH_OFFSET_MS,
       providerId: 'zai',
       status: UsageStatus.OK,
@@ -122,6 +127,12 @@ export const DevelopmentPage = (): ReactElement => {
     return `${elapsedText} elapsed`
   }
 
+  const resolveFetchedValueText = (): string => {
+    const elapsedText = dateUtil.formatDuration(fetchedElapsedMinutes * 60_000)
+
+    return `${elapsedText} ago`
+  }
+
   const resolveTimeValueText = (): string => {
     const timeDate = new Date()
 
@@ -130,7 +141,22 @@ export const DevelopmentPage = (): ReactElement => {
     return dateUtil.formatHourMinute(timeDate.getTime())
   }
 
-  const handlePreviewAction = (): void => {}
+  const handlePreviewToggleAutoRefresh = (): void => {
+    setIsPreviewAutoRefreshPaused((isPaused) => {
+      return !isPaused
+    })
+  }
+
+  const handlePreviewRefresh = (): void => {
+    setIsPreviewRefreshing(true)
+    setTimeout(() => {
+      setIsPreviewRefreshing(false)
+    }, PREVIEW_REFRESH_SPIN_MS)
+  }
+
+  const handlePreviewOpenSettings = (): void => {
+    return
+  }
 
   return (
     <div className="development-page">
@@ -138,16 +164,16 @@ export const DevelopmentPage = (): ReactElement => {
         <h1 className="development-page-title">Development</h1>
         <p className="development-page-subtitle">
           Drag the sliders and pick a day to preview the provider card at any usage level, point in the five hour
-          window, and time of week. The z.ai card tints amber during peak hours (weekdays 14:00–18:00 UTC+8).
+          window, data age, and time of week. The z.ai card tints amber during peak hours (weekdays 14:00–18:00 UTC+8).
         </p>
       </header>
       <ProviderUsageCard
-        isAutoRefreshPaused={false}
-        isRefreshing={false}
+        isAutoRefreshPaused={isPreviewAutoRefreshPaused}
+        isRefreshing={isPreviewRefreshing}
         nowMs={resolvePreviewNowMs()}
-        onOpenSettings={handlePreviewAction}
-        onRefresh={handlePreviewAction}
-        onToggleAutoRefresh={handlePreviewAction}
+        onOpenSettings={handlePreviewOpenSettings}
+        onRefresh={handlePreviewRefresh}
+        onToggleAutoRefresh={handlePreviewToggleAutoRefresh}
         providerSnapshot={resolvePreviewSnapshot()}
         refreshIntervalSeconds={PREVIEW_REFRESH_INTERVAL_SECONDS}
       />
@@ -165,6 +191,13 @@ export const DevelopmentPage = (): ReactElement => {
           onChange={setElapsedMinutes}
           value={elapsedMinutes}
           valueText={resolveElapsedValueText()}
+        />
+        <SliderField
+          label="Fetched"
+          max={MAX_FETCHED_ELAPSED_MINUTES}
+          onChange={setFetchedElapsedMinutes}
+          value={fetchedElapsedMinutes}
+          valueText={resolveFetchedValueText()}
         />
         <SliderField
           label="Time of day"

@@ -25,12 +25,4 @@ export const usageResetUtil = {
 
     return dateUtil.formatDuration(params.remainingMs)
   },
-
-  resolveWindowStartedAt: (params: { resetAt?: number; windowMs: number }): number | undefined => {
-    if (params.resetAt === undefined) {
-      return undefined
-    }
-
-    return params.resetAt - params.windowMs
-  },
 }

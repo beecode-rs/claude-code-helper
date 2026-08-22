@@ -32,10 +32,6 @@ export const ProviderUsageCard = (props: {
   const usageWindows = providerSnapshot.usage ?? []
   const primaryWindow = usageWindows[0]
   const secondaryWindows = usageWindows.slice(1)
-  const windowStartedAt = usageResetUtil.resolveWindowStartedAt({
-    resetAt: primaryWindow?.resetAt,
-    windowMs: primaryWindow?.windowMs ?? usageResetUtil.fiveHourWindowMs,
-  })
   const peakInfo = zaiPeakUtil.resolvePeakInfo({ nowMs, providerId: providerSnapshot.providerId })
 
   const resolveCardClassName = (): string => {
@@ -68,6 +64,22 @@ export const ProviderUsageCard = (props: {
     }
 
     return 'Pause auto-refresh'
+  }
+
+  const resolveStatusText = (): string => {
+    if (isAutoRefreshPaused && providerSnapshot.status === UsageStatus.OK) {
+      return 'Paused'
+    }
+
+    return usageStatusUtil.resolveStatusText(providerSnapshot.status)
+  }
+
+  const resolveStatusClassName = (): string => {
+    if (isAutoRefreshPaused && providerSnapshot.status === UsageStatus.OK) {
+      return 'provider-card-status provider-card-status-paused'
+    }
+
+    return `provider-card-status provider-card-status-${providerSnapshot.status.toLowerCase()}`
   }
 
   const renderPauseIcon = (): ReactElement => {
@@ -112,37 +124,89 @@ export const ProviderUsageCard = (props: {
     )
   }
 
-  const renderPeakItem = (): ReactElement | undefined => {
+  const renderPeakBanner = (): ReactElement | undefined => {
     if (peakInfo === undefined) {
       return undefined
     }
 
-    const tooltipText = `Premium models are billed at 3× credits on weekdays 14:00–18:00 (UTC+8) — ${peakInfo.peakWindowText} your time.`
+    const tooltipText = [
+      'Premium models are billed at 3× credits during peak hours and 1× off-peak.',
+      'Peak hours are weekdays 14:00–18:00 (UTC+8).',
+      `Your local peak window: ${peakInfo.peakWindowText}.`,
+    ].join('\n')
 
     if (peakInfo.isPeakHour) {
       return (
-        <span aria-label={tooltipText} className="provider-card-footer-item is-peak-active" data-tooltip={tooltipText}>
+        <div aria-label={tooltipText} className="provider-card-peak-banner is-peak-active" data-tooltip={tooltipText}>
           {renderPeakIcon()}
-          3× peak until {peakInfo.peakEndsAtText}
-        </span>
+          <span>3× peak until {peakInfo.peakEndsAtText}</span>
+        </div>
       )
     }
 
     return (
-      <span aria-label={tooltipText} className="provider-card-footer-item" data-tooltip={tooltipText}>
+      <div aria-label={tooltipText} className="provider-card-peak-banner" data-tooltip={tooltipText}>
         {renderPeakIcon()}
-        Peak {peakInfo.peakWindowText}
-      </span>
+        <span>Peak hours {peakInfo.peakWindowText} your time</span>
+      </div>
     )
   }
 
-  const renderUpdatedItem = (): ReactElement | undefined => {
+  const resolveIsSnapshotStale = (): boolean => {
+    if (isAutoRefreshPaused || refreshIntervalSeconds === undefined || providerSnapshot.fetchedAt === undefined) {
+      return false
+    }
+
+    return nowMs - providerSnapshot.fetchedAt > refreshIntervalSeconds * 1000
+  }
+
+  const resolveFetchedAtText = (params: { fetchedAt: number }): string => {
+    const timeText = dateUtil.formatHourMinute(params.fetchedAt)
+
+    if (dateUtil.isSameDay({ timestampA: nowMs, timestampB: params.fetchedAt })) {
+      return timeText
+    }
+
+    return `${dateUtil.formatMonthDay(params.fetchedAt)}, ${timeText}`
+  }
+
+  const renderLastFetchedItem = (): ReactElement | undefined => {
     if (providerSnapshot.fetchedAt === undefined) {
       return undefined
     }
 
+    const fetchedAtText = resolveFetchedAtText({ fetchedAt: providerSnapshot.fetchedAt })
     const elapsedText = dateUtil.formatDuration(nowMs - providerSnapshot.fetchedAt)
-    const tooltipText = `Updated ${elapsedText} ago`
+
+    if (resolveIsSnapshotStale()) {
+      const staleTooltipText = `Data is stale — last fetched at ${fetchedAtText} (${elapsedText} ago)`
+
+      return (
+        <span
+          aria-label={staleTooltipText}
+          className="provider-card-footer-item is-stale"
+          data-tooltip={staleTooltipText}
+        >
+          <svg
+            fill="none"
+            height="13"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            width="13"
+          >
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" x2="12" y1="9" y2="13" />
+            <line x1="12" x2="12.01" y1="17" y2="17" />
+          </svg>
+          Stale
+        </span>
+      )
+    }
+
+    const tooltipText = `Last fetched at ${fetchedAtText} (${elapsedText} ago)`
 
     return (
       <span aria-label={tooltipText} className="provider-card-footer-item" data-tooltip={tooltipText}>
@@ -159,62 +223,7 @@ export const ProviderUsageCard = (props: {
           <circle cx="12" cy="12" r="10" />
           <polyline points="12 6 12 12 16 14" />
         </svg>
-        {elapsedText}
-      </span>
-    )
-  }
-
-  const renderWindowStartedItem = (): ReactElement | undefined => {
-    if (windowStartedAt === undefined) {
-      return undefined
-    }
-
-    const startedAtText = dateUtil.formatHourMinute(windowStartedAt)
-    const tooltipText = `Window started at ${startedAtText}`
-
-    return (
-      <span aria-label={tooltipText} className="provider-card-footer-item" data-tooltip={tooltipText}>
-        <svg
-          fill="none"
-          height="13"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
-          width="13"
-        >
-          <rect height="18" rx="2" ry="2" width="18" x="3" y="4" />
-          <line x1="16" x2="16" y1="2" y2="6" />
-          <line x1="8" x2="8" y1="2" y2="6" />
-          <line x1="3" x2="21" y1="10" y2="10" />
-        </svg>
-        {startedAtText}
-      </span>
-    )
-  }
-
-  const renderPausedItem = (): ReactElement | undefined => {
-    if (!isAutoRefreshPaused) {
-      return undefined
-    }
-
-    return (
-      <span aria-label="Auto-refresh paused" className="provider-card-footer-item" data-tooltip="Auto-refresh paused">
-        <svg
-          fill="none"
-          height="13"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
-          width="13"
-        >
-          <line x1="10" x2="10" y1="5" y2="19" />
-          <line x1="14" x2="14" y1="5" y2="19" />
-        </svg>
-        Paused
+        {`${fetchedAtText} · ${elapsedText} ago`}
       </span>
     )
   }
@@ -249,15 +258,24 @@ export const ProviderUsageCard = (props: {
   }
 
   const renderIntervalItem = (): ReactElement | undefined => {
-    if (isAutoRefreshPaused || refreshIntervalSeconds === undefined) {
+    if (refreshIntervalSeconds === undefined) {
       return undefined
     }
 
     const intervalText = dateUtil.formatDuration(refreshIntervalSeconds * 1000)
-    const tooltipText = `Auto-refreshes every ${intervalText}`
+
+    const resolveIntervalTooltipText = (): string => {
+      if (isAutoRefreshPaused) {
+        return `Refresh interval ${intervalText} — auto-refresh paused`
+      }
+
+      return `Auto-refreshes every ${intervalText}`
+    }
+
+    const tooltipText = resolveIntervalTooltipText()
 
     return (
-      <span aria-label={tooltipText} className="provider-card-footer-item" data-tooltip={tooltipText}>
+      <span aria-label={tooltipText} className="provider-card-footer-item is-pushed-right" data-tooltip={tooltipText}>
         <svg
           fill="none"
           height="13"
@@ -290,16 +308,11 @@ export const ProviderUsageCard = (props: {
     return Math.min(100, Math.max(0, (elapsedMs / intervalMs) * 100))
   }
 
-  const footerItems = [
-    renderPeakItem(),
-    renderUpdatedItem(),
-    renderWindowStartedItem(),
-    renderPausedItem(),
-    renderNextRefreshItem(),
-    renderIntervalItem(),
-  ].filter((item): item is ReactElement => {
-    return item !== undefined
-  })
+  const footerItems = [renderLastFetchedItem(), renderNextRefreshItem(), renderIntervalItem()].filter(
+    (item): item is ReactElement => {
+      return item !== undefined
+    },
+  )
   const refreshProgressPercent = resolveRefreshProgressPercent()
   const hasFooterContent = footerItems.length > 0 || refreshProgressPercent !== undefined
 
@@ -311,9 +324,7 @@ export const ProviderUsageCard = (props: {
           <h2 className="provider-card-title">{providerSnapshot.trackerName}</h2>
         </div>
         <div className="provider-card-actions">
-          <span className={`provider-card-status provider-card-status-${providerSnapshot.status.toLowerCase()}`}>
-            {usageStatusUtil.resolveStatusText(providerSnapshot.status)}
-          </span>
+          <span className={resolveStatusClassName()}>{resolveStatusText()}</span>
           <button
             aria-label={resolvePauseButtonAriaLabel()}
             className={resolvePauseButtonClassName()}
@@ -360,6 +371,7 @@ export const ProviderUsageCard = (props: {
           </button>
         </div>
       </header>
+      {renderPeakBanner()}
       {providerSnapshot.status === UsageStatus.OK && primaryWindow !== undefined && (
         <div className="provider-card-body">
           <UsageWindowBox

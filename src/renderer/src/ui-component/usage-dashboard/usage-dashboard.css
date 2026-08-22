@@ -108,6 +108,7 @@ body {
   border-radius: 12px;
   display: flex;
   flex-direction: column;
+  gap: 16px;
   padding: 20px;
 }
 
@@ -115,7 +116,6 @@ body {
   align-items: center;
   display: flex;
   justify-content: space-between;
-  margin-bottom: 16px;
 }
 
 .provider-card-heading {
@@ -185,7 +185,7 @@ body {
 .provider-card-message {
   color: var(--ink-secondary);
   font-size: 14px;
-  margin: 12px 0;
+  margin: 0;
 }
 
 .provider-card-message-error {
@@ -395,12 +395,14 @@ body {
 }
 
 .provider-card-footer {
+  background: var(--page);
+  border-radius: 0 0 11px 11px;
   border-top: 1px solid var(--hairline);
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-top: 14px;
-  padding-top: 10px;
+  margin: auto -20px -20px;
+  padding: 12px 20px 14px;
 }
 
 .provider-card-footer-meta {
@@ -439,6 +441,23 @@ body {
   z-index: 2;
 }
 
+.provider-card-footer-item.is-stale {
+  color: var(--meter-warning);
+}
+
+.provider-card-footer-item.is-stale:hover {
+  color: var(--meter-warning);
+}
+
+.provider-card-footer-item.is-pushed-right {
+  margin-left: auto;
+}
+
+.provider-card-footer-item.is-pushed-right:hover::after {
+  left: auto;
+  right: 0;
+}
+
 .provider-card-progress-track {
   background: var(--meter-track);
   border-radius: 999px;
@@ -457,6 +476,11 @@ body {
 .provider-card-status-pending {
   background: rgba(250, 178, 25, 0.12);
   color: var(--meter-warning);
+}
+
+.provider-card-status-paused {
+  background: rgba(128, 128, 128, 0.14);
+  color: var(--ink-muted);
 }
 
 .dashboard-empty-state {
@@ -532,16 +556,38 @@ body {
   border-color: color-mix(in srgb, var(--meter-warning) 50%, var(--hairline));
 }
 
-.provider-card-footer-item.is-peak-active {
+.provider-card-peak-banner {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  color: var(--ink-muted);
+  cursor: default;
+  display: flex;
+  font-size: 12px;
+  gap: 6px;
+  padding: 8px 10px;
+  position: relative;
+}
+
+.provider-card-peak-banner.is-peak-active {
+  background: color-mix(in srgb, var(--meter-warning) 12%, transparent);
   color: var(--meter-warning);
 }
 
-.provider-card-footer-item.is-peak-active:hover {
-  color: var(--meter-warning);
-}
-
-.provider-card-footer-item.is-peak-active:hover::after {
-  max-width: 240px;
-  white-space: normal;
+.provider-card-peak-banner:hover::after {
+  background: var(--page);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  bottom: calc(100% + 8px);
+  color: var(--ink-primary);
+  content: attr(data-tooltip);
+  font-size: 12px;
+  left: 0;
+  line-height: 1.5;
+  max-width: 280px;
+  padding: 6px 10px;
+  position: absolute;
+  white-space: pre-line;
   width: max-content;
+  z-index: 2;
 }

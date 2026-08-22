@@ -53,4 +53,18 @@ export const dateUtil = {
       minute: '2-digit',
     })
   },
+
+  formatMonthDay: (timestamp: number): string => {
+    return new Date(timestamp).toLocaleDateString([], {
+      day: 'numeric',
+      month: 'short',
+    })
+  },
+
+  isSameDay: (params: { timestampA: number; timestampB: number }): boolean => {
+    const dateAText = new Date(params.timestampA).toDateString()
+    const dateBText = new Date(params.timestampB).toDateString()
+
+    return dateAText === dateBText
+  },
 }

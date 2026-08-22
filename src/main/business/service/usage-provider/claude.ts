@@ -2,7 +2,7 @@ import { type IUsageProvider } from '#src/main/business/service/usage-provider/u
 import { httpUtil } from '#src/main/util/http-util'
 import { objectUtil } from '#src/main/util/object-util'
 import { percentUtil } from '#src/main/util/percent-util'
-import { FIVE_HOUR_WINDOW_MS, type IUsageWindow, type ProviderId } from '#src/shared/usage-model'
+import { FIVE_HOUR_WINDOW_MS, type IUsageWindow, type ProviderId, SEVEN_DAY_WINDOW_MS } from '#src/shared/usage-model'
 
 export class UsageProviderClaude implements IUsageProvider {
   protected readonly _usageUrl = 'https://api.anthropic.com/api/oauth/usage'
@@ -46,16 +46,21 @@ export class UsageProviderClaude implements IUsageProvider {
     }
 
     const windows: IUsageWindow[] = [fiveHourWindow]
-    const sevenDayWindow = this._buildWindow({
-      label: 'Weekly',
-      sectionRecord: objectUtil.asRecord(params.usageRecord['seven_day']),
-    })
+    const weeklyWindow = this._buildWeeklyWindow({ usageRecord: params.usageRecord })
 
-    if (sevenDayWindow !== undefined) {
-      windows.push(sevenDayWindow)
+    if (weeklyWindow !== undefined) {
+      windows.push(weeklyWindow)
     }
 
     return windows
+  }
+
+  protected _buildWeeklyWindow(params: { usageRecord: Record<string, unknown> }): IUsageWindow | undefined {
+    return this._buildWindow({
+      label: 'Weekly',
+      sectionRecord: objectUtil.asRecord(params.usageRecord['seven_day']),
+      windowMs: SEVEN_DAY_WINDOW_MS,
+    })
   }
 
   protected _buildWindow(params: {

@@ -1,0 +1,11 @@
+.provider-icon {
+  flex: none;
+}
+
+.provider-icon-claude {
+  color: #d97757;
+}
+
+.provider-icon-zai {
+  color: var(--ink-primary, #ffffff);
+}

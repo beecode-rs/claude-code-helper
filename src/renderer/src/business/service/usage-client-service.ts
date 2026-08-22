@@ -17,6 +17,12 @@ export const usageClientService = {
   saveSettings: (params: { settings: IAppSettings }): Promise<IAppSettings> => {
     return window.usageApi.saveSettings(params.settings)
   },
+  setTrackerPaused: (params: { isAutoRefreshPaused: boolean; trackerId: string }): Promise<IAppSettings> => {
+    return window.usageApi.setTrackerPaused({
+      isAutoRefreshPaused: params.isAutoRefreshPaused,
+      trackerId: params.trackerId,
+    })
+  },
   subscribeToUsageUpdates: (params: { onUpdate: UsageUpdateListener }): (() => void) => {
     return window.usageApi.onUsageUpdate(params.onUpdate)
   },

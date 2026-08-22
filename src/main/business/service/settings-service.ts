@@ -32,6 +32,18 @@ export class SettingsService {
     }
   }
 
+  setTrackerPaused(params: { isAutoRefreshPaused: boolean; settings: IAppSettings; trackerId: string }): IAppSettings {
+    return {
+      trackers: params.settings.trackers.map((tracker) => {
+        if (tracker.id !== params.trackerId) {
+          return tracker
+        }
+
+        return { ...tracker, isAutoRefreshPaused: params.isAutoRefreshPaused }
+      }),
+    }
+  }
+
   protected _resolveTrackers(params: { rawRecord: Record<string, unknown>; rawTrackers: unknown }): ITrackerConfig[] {
     if (!Array.isArray(params.rawTrackers)) {
       return this._migrateLegacyTrackers({ rawRecord: params.rawRecord })
@@ -67,6 +79,7 @@ export class SettingsService {
         return {
           accessToken: this._resolveStringValue({ fallback: '', value: params.rawTracker['accessToken'] }),
           id: this._resolveTrackerId({ value: params.rawTracker['id'] }),
+          isAutoRefreshPaused: this._resolveIsAutoRefreshPaused({ value: params.rawTracker['isAutoRefreshPaused'] }),
           name: this._resolveTrackerName({ providerId: 'claude', value: params.rawTracker['name'] }),
           providerId: 'claude',
           refreshIntervalSeconds: this._resolveRefreshIntervalSeconds({
@@ -81,6 +94,7 @@ export class SettingsService {
         return {
           accessToken: this._resolveStringValue({ fallback: '', value: params.rawTracker['accessToken'] }),
           id: this._resolveTrackerId({ value: params.rawTracker['id'] }),
+          isAutoRefreshPaused: this._resolveIsAutoRefreshPaused({ value: params.rawTracker['isAutoRefreshPaused'] }),
           name: this._resolveTrackerName({ providerId: 'zai', value: params.rawTracker['name'] }),
           providerId: 'zai',
           refreshIntervalSeconds: this._resolveRefreshIntervalSeconds({
@@ -118,6 +132,7 @@ export class SettingsService {
     return {
       accessToken: claudeToken,
       id: crypto.randomUUID(),
+      isAutoRefreshPaused: false,
       name: 'Claude',
       providerId: 'claude',
       refreshIntervalSeconds: this._resolveRefreshIntervalSeconds({ providerId: 'claude', value: undefined }),
@@ -135,6 +150,7 @@ export class SettingsService {
     return {
       accessToken: zaiToken,
       id: crypto.randomUUID(),
+      isAutoRefreshPaused: false,
       name: 'z.ai',
       providerId: 'zai',
       refreshIntervalSeconds: this._resolveRefreshIntervalSeconds({ providerId: 'zai', value: undefined }),
@@ -177,6 +193,14 @@ export class SettingsService {
     }
 
     return catalogEntry.name
+  }
+
+  protected _resolveIsAutoRefreshPaused(params: { value: unknown }): boolean {
+    if (params.value === true) {
+      return true
+    }
+
+    return false
   }
 
   protected _resolveStringValue(params: { fallback: string; value: unknown }): string {

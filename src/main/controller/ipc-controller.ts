@@ -3,6 +3,7 @@ import { type BrowserWindow, ipcMain } from 'electron'
 import { type SettingsRepo } from '#src/main/business/repo/settings-repo'
 import { SettingsService } from '#src/main/business/service/settings-service'
 import { type UsagePollService } from '#src/main/business/service/usage-poll-service'
+import { objectUtil } from '#src/main/util/object-util'
 import { IpcChannelMapper } from '#src/shared/ipc-channel'
 import { type IAppSettings } from '#src/shared/settings-model'
 import { type IUsageSnapshot } from '#src/shared/usage-model'
@@ -41,6 +42,27 @@ export const ipcController = {
 
       await params.pollService.refreshTracker({ trackerId })
     })
+
+    ipcMain.handle(
+      IpcChannelMapper.USAGE_SET_TRACKER_PAUSED,
+      async (_event, rawParams: unknown): Promise<IAppSettings> => {
+        const settings = await params.settingsRepo.load()
+        const rawRecord = objectUtil.asRecord(rawParams)
+        const trackerId = rawRecord?.['trackerId']
+        const isAutoRefreshPaused = rawRecord?.['isAutoRefreshPaused']
+
+        if (typeof trackerId !== 'string' || typeof isAutoRefreshPaused !== 'boolean') {
+          return settings
+        }
+
+        const nextSettings = new SettingsService().setTrackerPaused({ isAutoRefreshPaused, settings, trackerId })
+
+        await params.settingsRepo.save({ settings: nextSettings })
+        await params.pollService.applyTrackerAutoRefresh({ settings: nextSettings, trackerId })
+
+        return nextSettings
+      },
+    )
 
     params.pollService.onUpdate({
       listener: (snapshot) => {

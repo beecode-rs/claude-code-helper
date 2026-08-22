@@ -1,6 +1,7 @@
 import { type ReactElement, useEffect, useState } from 'react'
 
 import { usageClientService } from '#src/renderer/src/business/service/usage-client-service'
+import { ProviderIcon } from '#src/renderer/src/ui-component/provider/provider-icon'
 import { TrackerConfigFields } from '#src/renderer/src/ui-component/tracker/tracker-config-fields'
 import { errorUtil } from '#src/renderer/src/util/error-util'
 import { PROVIDER_CATALOG } from '#src/shared/provider-catalog'
@@ -47,6 +48,7 @@ export const AddTrackerDialog = (props: { onClose: () => void; onSaved: () => vo
         return {
           accessToken: '',
           id: crypto.randomUUID(),
+          isAutoRefreshPaused: false,
           name: '',
           providerId: 'claude',
           refreshIntervalSeconds: resolveDefaultRefreshIntervalSeconds('claude'),
@@ -58,6 +60,7 @@ export const AddTrackerDialog = (props: { onClose: () => void; onSaved: () => vo
         return {
           accessToken: '',
           id: crypto.randomUUID(),
+          isAutoRefreshPaused: false,
           name: '',
           providerId: 'zai',
           refreshIntervalSeconds: resolveDefaultRefreshIntervalSeconds('zai'),
@@ -150,7 +153,10 @@ export const AddTrackerDialog = (props: { onClose: () => void; onSaved: () => vo
                 }}
                 type="button"
               >
-                <span className="provider-choice-name">{catalogEntry.name}</span>
+                <span className="provider-choice-heading">
+                  <ProviderIcon providerId={catalogEntry.id} size={16} />
+                  <span className="provider-choice-name">{catalogEntry.name}</span>
+                </span>
                 <span className="provider-choice-description">{catalogEntry.description}</span>
               </button>
             )

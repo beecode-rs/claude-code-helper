@@ -68,9 +68,13 @@ export class UsagePollService {
     }
 
     await Promise.all(
-      settings.trackers.map((tracker) => {
-        return this.refreshTracker({ trackerId: tracker.id })
-      }),
+      settings.trackers
+        .filter((tracker) => {
+          return !tracker.isAutoRefreshPaused
+        })
+        .map((tracker) => {
+          return this.refreshTracker({ trackerId: tracker.id })
+        }),
     )
   }
 
@@ -85,9 +89,26 @@ export class UsagePollService {
 
     const isPollApplied = await this._pollTrackerOnce({ tracker })
 
-    if (isPollApplied) {
-      this._scheduleTracker({ delayMs: tracker.refreshIntervalSeconds * 1000, tracker })
+    this._rescheduleTrackerAfterPoll({ isPollApplied, trackerId: tracker.id })
+  }
+
+  async applyTrackerAutoRefresh(params: { settings: IAppSettings; trackerId: string }): Promise<void> {
+    this._settings = params.settings
+
+    const tracker = this._resolveTracker({ trackerId: params.trackerId })
+
+    if (tracker === undefined) {
+      return
     }
+
+    if (tracker.isAutoRefreshPaused) {
+      this._cancelTrackerTimer({ trackerId: tracker.id })
+      this._notifyListeners({ snapshot: this._buildSnapshot() })
+
+      return
+    }
+
+    await this.refreshTracker({ trackerId: tracker.id })
   }
 
   getSnapshot(): IUsageSnapshot {
@@ -207,6 +228,10 @@ export class UsagePollService {
   }
 
   protected async _resumeTracker(params: { tracker: ITrackerConfig }): Promise<void> {
+    if (params.tracker.isAutoRefreshPaused) {
+      return
+    }
+
     const resumeDelayMs = this._calcResumeDelayMs({ tracker: params.tracker })
 
     if (resumeDelayMs > 0) {
@@ -262,22 +287,31 @@ export class UsagePollService {
   }
 
   protected _resolveTrackerSnapshot(params: { tracker: ITrackerConfig }): IProviderSnapshot {
+    const nextRefreshAt = this._resolveTrackerNextRefreshAt({ tracker: params.tracker })
     const existingSnapshot = this._snapshotByTrackerId.get(params.tracker.id)
 
     if (existingSnapshot !== undefined) {
       return {
         ...existingSnapshot,
-        nextRefreshAt: this._nextPollAtByTrackerId.get(params.tracker.id),
+        nextRefreshAt,
       }
     }
 
     return {
-      nextRefreshAt: this._nextPollAtByTrackerId.get(params.tracker.id),
+      nextRefreshAt,
       providerId: params.tracker.providerId,
       status: UsageStatus.PENDING,
       trackerId: params.tracker.id,
       trackerName: params.tracker.name,
     }
+  }
+
+  protected _resolveTrackerNextRefreshAt(params: { tracker: ITrackerConfig }): number | undefined {
+    if (params.tracker.isAutoRefreshPaused) {
+      return undefined
+    }
+
+    return this._nextPollAtByTrackerId.get(params.tracker.id)
   }
 
   protected async _pollTracker(params: { tracker: ITrackerConfig }): Promise<IProviderSnapshot> {
@@ -325,6 +359,20 @@ export class UsagePollService {
     return params.tracker.accessToken
   }
 
+  protected _rescheduleTrackerAfterPoll(params: { isPollApplied: boolean; trackerId: string }): void {
+    if (!params.isPollApplied) {
+      return
+    }
+
+    const tracker = this._resolveTracker({ trackerId: params.trackerId })
+
+    if (tracker === undefined || tracker.isAutoRefreshPaused) {
+      return
+    }
+
+    this._scheduleTracker({ delayMs: tracker.refreshIntervalSeconds * 1000, tracker })
+  }
+
   protected _scheduleTracker(params: { delayMs: number; tracker: ITrackerConfig }): void {
     this._cancelTrackerTimer({ trackerId: params.tracker.id })
 
@@ -341,9 +389,7 @@ export class UsagePollService {
   protected async _onTrackerTimer(params: { tracker: ITrackerConfig }): Promise<void> {
     const isPollApplied = await this._pollTrackerOnce({ tracker: params.tracker })
 
-    if (isPollApplied) {
-      this._scheduleTracker({ delayMs: params.tracker.refreshIntervalSeconds * 1000, tracker: params.tracker })
-    }
+    this._rescheduleTrackerAfterPoll({ isPollApplied, trackerId: params.tracker.id })
   }
 
   protected _cancelTrackerTimer(params: { trackerId: string }): void {

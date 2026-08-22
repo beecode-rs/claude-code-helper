@@ -46,6 +46,18 @@ export const UsageDashboard = (): ReactElement => {
     })
   }
 
+  const toggleTrackerAutoRefresh = async (params: {
+    isAutoRefreshPaused: boolean
+    trackerId: string
+  }): Promise<void> => {
+    const nextSettings = await usageClientService.setTrackerPaused({
+      isAutoRefreshPaused: !params.isAutoRefreshPaused,
+      trackerId: params.trackerId,
+    })
+
+    setSettings(nextSettings)
+  }
+
   useEffect(() => {
     const unsubscribe = usageClientService.subscribeToUsageUpdates({
       onUpdate: (updatedSnapshot) => {
@@ -106,12 +118,19 @@ export const UsageDashboard = (): ReactElement => {
           return (
             <ProviderUsageCard
               key={providerSnapshot.trackerId}
+              isAutoRefreshPaused={trackerConfig?.isAutoRefreshPaused ?? false}
               nowMs={nowMs}
               onOpenSettings={() => {
                 setOpenTrackerId(providerSnapshot.trackerId)
               }}
               onRefresh={() => {
                 void refreshTracker(providerSnapshot.trackerId)
+              }}
+              onToggleAutoRefresh={() => {
+                void toggleTrackerAutoRefresh({
+                  isAutoRefreshPaused: trackerConfig?.isAutoRefreshPaused ?? false,
+                  trackerId: providerSnapshot.trackerId,
+                })
               }}
               providerSnapshot={providerSnapshot}
               refreshIntervalSeconds={trackerConfig?.refreshIntervalSeconds}

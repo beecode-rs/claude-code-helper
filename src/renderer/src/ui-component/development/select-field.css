@@ -1,0 +1,32 @@
+.select-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.select-field-header {
+  display: flex;
+  justify-content: space-between;
+}
+
+.select-field-label {
+  color: var(--ink-secondary);
+  font-size: 13px;
+}
+
+.select-field-input {
+  accent-color: var(--meter-accent);
+  background: var(--page);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  color: var(--ink-primary);
+  font-size: 13px;
+  margin: 0;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.select-field-input:focus {
+  border-color: var(--meter-accent);
+  outline: none;
+}

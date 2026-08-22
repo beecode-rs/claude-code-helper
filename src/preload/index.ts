@@ -31,6 +31,9 @@ const usageApi: IUsageApiClient = {
   saveSettings: (settings: IAppSettings): Promise<IAppSettings> => {
     return ipcRenderer.invoke(IpcChannelMapper.SETTINGS_SAVE, settings)
   },
+  setTrackerPaused: (params: { isAutoRefreshPaused: boolean; trackerId: string }): Promise<IAppSettings> => {
+    return ipcRenderer.invoke(IpcChannelMapper.USAGE_SET_TRACKER_PAUSED, params)
+  },
 }
 
 contextBridge.exposeInMainWorld('usageApi', usageApi)

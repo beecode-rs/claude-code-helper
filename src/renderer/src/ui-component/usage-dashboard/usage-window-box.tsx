@@ -31,19 +31,27 @@ export const UsageWindowBox = (props: {
   const elapsedPercent = usageResetUtil.resolveElapsedPercent({ remainingMs, windowMs })
   const paceFillColor = usagePaceUtil.resolvePaceColor({ now, resetAt, usedPercent, windowMs })
 
+  const renderResetBar = (): ReactElement => {
+    if (resetAt === undefined) {
+      return <UsageBar ariaLabel={`${title} reset inactive`} label="Reset" percent={0} valueText="no active window" />
+    }
+
+    return (
+      <UsageBar
+        ariaLabel={`time until ${title} reset`}
+        fillColor={paceFillColor}
+        label="Reset"
+        percent={elapsedPercent}
+        valueText={usageResetUtil.resolveRemainingText({ remainingMs })}
+      />
+    )
+  }
+
   return (
     <div className="usage-window-box">
       <span className="usage-window-box-title">{title}</span>
       <UsageBar ariaLabel={`${title} usage`} fillColor={paceFillColor} label="Usage" percent={usedPercent} />
-      {resetAt !== undefined && (
-        <UsageBar
-          ariaLabel={`time until ${title} reset`}
-          fillColor={paceFillColor}
-          label="Reset"
-          percent={elapsedPercent}
-          valueText={usageResetUtil.resolveRemainingText({ remainingMs })}
-        />
-      )}
+      {renderResetBar()}
     </div>
   )
 }

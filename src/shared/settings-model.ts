@@ -6,6 +6,7 @@ export enum ClaudeTokenSource {
 export interface ITrackerConfigBase {
   accessToken: string
   id: string
+  isAutoRefreshPaused: boolean
   name: string
   refreshIntervalSeconds: number
 }

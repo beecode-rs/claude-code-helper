@@ -1,17 +1,36 @@
 import { type ReactElement, useState } from 'react'
 
 import '#src/renderer/src/ui-component/development/development-page.css'
+import { SelectField } from '#src/renderer/src/ui-component/development/select-field'
 import { SliderField } from '#src/renderer/src/ui-component/development/slider-field'
-import { UsageWindowBox } from '#src/renderer/src/ui-component/usage-dashboard/usage-window-box'
+import { ProviderUsageCard } from '#src/renderer/src/ui-component/usage-dashboard/provider-usage-card'
 import { dateUtil } from '#src/renderer/src/util/date-util'
 import { usageResetUtil } from '#src/renderer/src/util/usage-reset-util'
 import { usageSeverityUtil } from '#src/renderer/src/util/usage-severity-util'
+import { type IProviderSnapshot, UsageStatus } from '#src/shared/usage-model'
 
 const DEFAULT_ELAPSED_MINUTES = 60
 const DEFAULT_USED_PERCENT = 45
 const MAX_ELAPSED_MINUTES = 300
+const MAX_MINUTE_OF_DAY = 23 * 60 + 59
 const MAX_USED_PERCENT = 100
+const MINUTES_PER_HOUR = 60
 const MONTH_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
+const PREVIEW_FETCHED_AT_OFFSET_MS = 60_000
+const PREVIEW_NEXT_REFRESH_OFFSET_MS = 150_000
+const PREVIEW_REFRESH_INTERVAL_SECONDS = 300
+
+const DAY_OFFSETS = [0, 1, 2, 3, 4, 5, 6]
+
+const WEEKDAY_OPTIONS = [
+  { label: 'Monday', value: '1' },
+  { label: 'Tuesday', value: '2' },
+  { label: 'Wednesday', value: '3' },
+  { label: 'Thursday', value: '4' },
+  { label: 'Friday', value: '5' },
+  { label: 'Saturday', value: '6' },
+  { label: 'Sunday', value: '0' },
+]
 
 const SEVERITY_BANDS = [
   { colorVar: 'var(--meter-accent)', label: 'Normal', range: '0–69%' },
@@ -23,6 +42,33 @@ const SEVERITY_BANDS = [
 export const DevelopmentPage = (): ReactElement => {
   const [usedPercent, setUsedPercent] = useState(DEFAULT_USED_PERCENT)
   const [elapsedMinutes, setElapsedMinutes] = useState(DEFAULT_ELAPSED_MINUTES)
+  const [minuteOfDay, setMinuteOfDay] = useState((): number => {
+    const now = new Date()
+
+    return now.getHours() * MINUTES_PER_HOUR + now.getMinutes()
+  })
+  const [weekdayValue, setWeekdayValue] = useState((): string => {
+    return String(new Date().getDay())
+  })
+
+  const resolvePreviewNowMs = (): number => {
+    const today = new Date()
+    const matchingOffset = DAY_OFFSETS.find((offset) => {
+      const candidateDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset)
+
+      return candidateDate.getDay() === Number(weekdayValue)
+    })
+
+    if (matchingOffset === undefined) {
+      return Date.now()
+    }
+
+    const previewDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + matchingOffset)
+
+    previewDate.setHours(Math.floor(minuteOfDay / MINUTES_PER_HOUR), minuteOfDay % MINUTES_PER_HOUR, 0, 0)
+
+    return previewDate.getTime()
+  }
 
   const resolveResetAt = (): number => {
     const elapsedMs = elapsedMinutes * 60_000
@@ -35,6 +81,28 @@ export const DevelopmentPage = (): ReactElement => {
     const elapsedMs = elapsedFraction * MONTH_WINDOW_MS
 
     return Date.now() + MONTH_WINDOW_MS - elapsedMs
+  }
+
+  const resolvePreviewSnapshot = (): IProviderSnapshot => {
+    const previewNowMs = resolvePreviewNowMs()
+
+    return {
+      fetchedAt: previewNowMs - PREVIEW_FETCHED_AT_OFFSET_MS,
+      nextRefreshAt: previewNowMs + PREVIEW_NEXT_REFRESH_OFFSET_MS,
+      providerId: 'zai',
+      status: UsageStatus.OK,
+      trackerId: 'development-zai',
+      trackerName: 'z.ai',
+      usage: [
+        {
+          label: '5-hour window',
+          resetAt: resolveResetAt(),
+          usedPercent,
+          windowMs: usageResetUtil.fiveHourWindowMs,
+        },
+        { label: 'Monthly', resetAt: resolveMonthlyResetAt(), usedPercent, windowMs: MONTH_WINDOW_MS },
+      ],
+    }
   }
 
   const resolveUsageValueText = (): string => {
@@ -54,28 +122,35 @@ export const DevelopmentPage = (): ReactElement => {
     return `${elapsedText} elapsed`
   }
 
+  const resolveTimeValueText = (): string => {
+    const timeDate = new Date()
+
+    timeDate.setHours(Math.floor(minuteOfDay / MINUTES_PER_HOUR), minuteOfDay % MINUTES_PER_HOUR, 0, 0)
+
+    return dateUtil.formatHourMinute(timeDate.getTime())
+  }
+
+  const handlePreviewAction = (): void => {}
+
   return (
     <div className="development-page">
       <header>
         <h1 className="development-page-title">Development</h1>
         <p className="development-page-subtitle">
-          Drag the sliders to preview the five hour window and monthly boxes at any usage level and point in the window.
+          Drag the sliders and pick a day to preview the provider card at any usage level, point in the five hour
+          window, and time of week. The z.ai card tints amber during peak hours (weekdays 14:00–18:00 UTC+8).
         </p>
       </header>
-      <section className="development-page-panel">
-        <UsageWindowBox
-          resetAt={resolveResetAt()}
-          title="5-hour window"
-          usedPercent={usedPercent}
-          windowMs={usageResetUtil.fiveHourWindowMs}
-        />
-        <UsageWindowBox
-          resetAt={resolveMonthlyResetAt()}
-          title="Monthly"
-          usedPercent={usedPercent}
-          windowMs={MONTH_WINDOW_MS}
-        />
-      </section>
+      <ProviderUsageCard
+        isAutoRefreshPaused={false}
+        isRefreshing={false}
+        nowMs={resolvePreviewNowMs()}
+        onOpenSettings={handlePreviewAction}
+        onRefresh={handlePreviewAction}
+        onToggleAutoRefresh={handlePreviewAction}
+        providerSnapshot={resolvePreviewSnapshot()}
+        refreshIntervalSeconds={PREVIEW_REFRESH_INTERVAL_SECONDS}
+      />
       <section className="development-page-panel">
         <SliderField
           label="Usage"
@@ -91,6 +166,14 @@ export const DevelopmentPage = (): ReactElement => {
           value={elapsedMinutes}
           valueText={resolveElapsedValueText()}
         />
+        <SliderField
+          label="Time of day"
+          max={MAX_MINUTE_OF_DAY}
+          onChange={setMinuteOfDay}
+          value={minuteOfDay}
+          valueText={resolveTimeValueText()}
+        />
+        <SelectField label="Day" onChange={setWeekdayValue} options={WEEKDAY_OPTIONS} value={weekdayValue} />
       </section>
       <section className="development-page-panel">
         <h2 className="development-page-section-title">Color bands</h2>

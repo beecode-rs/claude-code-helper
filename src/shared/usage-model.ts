@@ -4,6 +4,8 @@ export type ProviderId = 'claude' | 'zai'
 
 export const FIVE_HOUR_WINDOW_MS = 5 * 60 * 60 * 1000
 
+export const SEVEN_DAY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
+
 export enum UsageStatus {
   ERROR = 'ERROR',
   OK = 'OK',
@@ -42,4 +44,5 @@ export interface IUsageApiClient {
   refreshNow: () => Promise<void>
   refreshTracker: (params: { trackerId: string }) => Promise<void>
   saveSettings: (settings: IAppSettings) => Promise<IAppSettings>
+  setTrackerPaused: (params: { isAutoRefreshPaused: boolean; trackerId: string }) => Promise<IAppSettings>
 }

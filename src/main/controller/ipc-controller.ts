@@ -5,6 +5,7 @@ import { SettingsService } from '#src/main/business/service/settings-service'
 import { type UsagePollService } from '#src/main/business/service/usage-poll-service'
 import { IpcChannelMapper } from '#src/shared/ipc-channel'
 import { type IAppSettings } from '#src/shared/settings-model'
+import { type IUsageSnapshot } from '#src/shared/usage-model'
 
 export const ipcController = {
   register: (params: {
@@ -23,6 +24,10 @@ export const ipcController = {
       await params.pollService.restart({ settings })
 
       return settings
+    })
+
+    ipcMain.handle(IpcChannelMapper.USAGE_GET_SNAPSHOT, (): IUsageSnapshot => {
+      return params.pollService.getSnapshot()
     })
 
     ipcMain.handle(IpcChannelMapper.USAGE_REFRESH, async (): Promise<void> => {

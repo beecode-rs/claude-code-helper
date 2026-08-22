@@ -2,7 +2,7 @@ import { type ReactElement, useState } from 'react'
 
 import '#src/renderer/src/ui-component/development/development-page.css'
 import { SliderField } from '#src/renderer/src/ui-component/development/slider-field'
-import { FiveHourWindowBox } from '#src/renderer/src/ui-component/usage-dashboard/five-hour-window-box'
+import { UsageWindowBox } from '#src/renderer/src/ui-component/usage-dashboard/usage-window-box'
 import { dateUtil } from '#src/renderer/src/util/date-util'
 import { usageResetUtil } from '#src/renderer/src/util/usage-reset-util'
 import { usageSeverityUtil } from '#src/renderer/src/util/usage-severity-util'
@@ -11,6 +11,7 @@ const DEFAULT_ELAPSED_MINUTES = 60
 const DEFAULT_USED_PERCENT = 45
 const MAX_ELAPSED_MINUTES = 300
 const MAX_USED_PERCENT = 100
+const MONTH_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
 
 const SEVERITY_BANDS = [
   { colorVar: 'var(--meter-accent)', label: 'Normal', range: '0–69%' },
@@ -27,6 +28,13 @@ export const DevelopmentPage = (): ReactElement => {
     const elapsedMs = elapsedMinutes * 60_000
 
     return Date.now() + usageResetUtil.fiveHourWindowMs - elapsedMs
+  }
+
+  const resolveMonthlyResetAt = (): number => {
+    const elapsedFraction = elapsedMinutes / MAX_ELAPSED_MINUTES
+    const elapsedMs = elapsedFraction * MONTH_WINDOW_MS
+
+    return Date.now() + MONTH_WINDOW_MS - elapsedMs
   }
 
   const resolveUsageValueText = (): string => {
@@ -51,11 +59,22 @@ export const DevelopmentPage = (): ReactElement => {
       <header>
         <h1 className="development-page-title">Development</h1>
         <p className="development-page-subtitle">
-          Drag the sliders to preview the five hour window box at any usage level and point in the window.
+          Drag the sliders to preview the five hour window and monthly boxes at any usage level and point in the window.
         </p>
       </header>
       <section className="development-page-panel">
-        <FiveHourWindowBox resetAt={resolveResetAt()} title="5-hour window" usedPercent={usedPercent} />
+        <UsageWindowBox
+          resetAt={resolveResetAt()}
+          title="5-hour window"
+          usedPercent={usedPercent}
+          windowMs={usageResetUtil.fiveHourWindowMs}
+        />
+        <UsageWindowBox
+          resetAt={resolveMonthlyResetAt()}
+          title="Monthly"
+          usedPercent={usedPercent}
+          windowMs={MONTH_WINDOW_MS}
+        />
       </section>
       <section className="development-page-panel">
         <SliderField

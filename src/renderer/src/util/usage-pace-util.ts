@@ -42,13 +42,18 @@ export const usagePaceUtil = {
     return params.usedPercent / params.elapsedPercent
   },
 
-  resolvePaceColor: (params: { now: number; resetAt?: number; usedPercent: number }): string | undefined => {
+  resolvePaceColor: (params: {
+    now: number
+    resetAt?: number
+    usedPercent: number
+    windowMs: number
+  }): string | undefined => {
     if (params.resetAt === undefined) {
       return undefined
     }
 
     const remainingMs = usageResetUtil.resolveRemainingMs({ now: params.now, resetAt: params.resetAt })
-    const elapsedPercent = usageResetUtil.resolveElapsedPercent({ remainingMs })
+    const elapsedPercent = usageResetUtil.resolveElapsedPercent({ remainingMs, windowMs: params.windowMs })
     const paceRatio = usagePaceUtil._resolvePaceRatio({ elapsedPercent, usedPercent: params.usedPercent })
 
     return usagePaceUtil._resolvePaceColorForRatio({ paceRatio })

@@ -1,12 +1,11 @@
 import { dateUtil } from '#src/renderer/src/util/date-util'
-
-const FIVE_HOUR_WINDOW_MS = 5 * 60 * 60 * 1000
+import { FIVE_HOUR_WINDOW_MS } from '#src/shared/usage-model'
 
 export const usageResetUtil = {
   fiveHourWindowMs: FIVE_HOUR_WINDOW_MS,
 
-  resolveElapsedPercent: (params: { remainingMs: number }): number => {
-    const elapsedFraction = 1 - params.remainingMs / FIVE_HOUR_WINDOW_MS
+  resolveElapsedPercent: (params: { remainingMs: number; windowMs: number }): number => {
+    const elapsedFraction = 1 - params.remainingMs / params.windowMs
 
     return Math.min(Math.max(elapsedFraction, 0), 1) * 100
   },
@@ -27,11 +26,11 @@ export const usageResetUtil = {
     return dateUtil.formatDuration(params.remainingMs)
   },
 
-  resolveWindowStartedAt: (params: { resetAt?: number }): number | undefined => {
+  resolveWindowStartedAt: (params: { resetAt?: number; windowMs: number }): number | undefined => {
     if (params.resetAt === undefined) {
       return undefined
     }
 
-    return params.resetAt - FIVE_HOUR_WINDOW_MS
+    return params.resetAt - params.windowMs
   },
 }

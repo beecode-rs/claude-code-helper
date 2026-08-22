@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react'
 
-import { FiveHourWindowBox } from '#src/renderer/src/ui-component/usage-dashboard/five-hour-window-box'
 import { UsageBar } from '#src/renderer/src/ui-component/usage-dashboard/usage-bar'
+import { UsageWindowBox } from '#src/renderer/src/ui-component/usage-dashboard/usage-window-box'
 import { dateUtil } from '#src/renderer/src/util/date-util'
 import { usageResetUtil } from '#src/renderer/src/util/usage-reset-util'
 import { usageStatusUtil } from '#src/renderer/src/util/usage-status-util'
@@ -19,7 +19,10 @@ export const ProviderUsageCard = (props: {
   const usageWindows = providerSnapshot.usage ?? []
   const primaryWindow = usageWindows[0]
   const secondaryWindows = usageWindows.slice(1)
-  const windowStartedAt = usageResetUtil.resolveWindowStartedAt({ resetAt: primaryWindow?.resetAt })
+  const windowStartedAt = usageResetUtil.resolveWindowStartedAt({
+    resetAt: primaryWindow?.resetAt,
+    windowMs: primaryWindow?.windowMs ?? usageResetUtil.fiveHourWindowMs,
+  })
 
   const resolveRefreshButtonClassName = (): string => {
     if (isRefreshing) {
@@ -125,13 +128,26 @@ export const ProviderUsageCard = (props: {
       </header>
       {providerSnapshot.status === UsageStatus.OK && primaryWindow !== undefined && (
         <div className="provider-card-body">
-          <FiveHourWindowBox
+          <UsageWindowBox
             resetAt={primaryWindow.resetAt}
             title={primaryWindow.label}
             usedPercent={primaryWindow.usedPercent}
+            windowMs={primaryWindow.windowMs ?? usageResetUtil.fiveHourWindowMs}
           />
           <div className="provider-card-windows">
             {secondaryWindows.map((usageWindow) => {
+              if (usageWindow.windowMs !== undefined) {
+                return (
+                  <UsageWindowBox
+                    key={usageWindow.label}
+                    resetAt={usageWindow.resetAt}
+                    title={usageWindow.label}
+                    usedPercent={usageWindow.usedPercent}
+                    windowMs={usageWindow.windowMs}
+                  />
+                )
+              }
+
               return <UsageBar key={usageWindow.label} label={usageWindow.label} percent={usageWindow.usedPercent} />
             })}
           </div>

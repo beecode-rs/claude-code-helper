@@ -2,6 +2,8 @@ import type { IAppSettings } from '#src/shared/settings-model'
 
 export type ProviderId = 'claude' | 'zai'
 
+export const FIVE_HOUR_WINDOW_MS = 5 * 60 * 60 * 1000
+
 export enum UsageStatus {
   ERROR = 'ERROR',
   OK = 'OK',
@@ -13,6 +15,7 @@ export interface IUsageWindow {
   label: string
   resetAt?: number
   usedPercent: number
+  windowMs?: number
 }
 
 export interface IProviderSnapshot {
@@ -34,6 +37,7 @@ export type UsageUpdateListener = (snapshot: IUsageSnapshot) => void
 
 export interface IUsageApiClient {
   getSettings: () => Promise<IAppSettings>
+  getSnapshot: () => Promise<IUsageSnapshot>
   onUsageUpdate: (listener: UsageUpdateListener) => () => void
   refreshNow: () => Promise<void>
   refreshTracker: (params: { trackerId: string }) => Promise<void>

@@ -2,6 +2,7 @@ import { app, dialog } from 'electron'
 import { join } from 'node:path'
 
 import { SettingsRepo } from '#src/main/business/repo/settings-repo'
+import { UsageSnapshotRepo } from '#src/main/business/repo/usage-snapshot-repo'
 import { UsagePollService } from '#src/main/business/service/usage-poll-service'
 import { ipcController } from '#src/main/controller/ipc-controller'
 import { appWindow } from '#src/main/lib/app-window'
@@ -15,7 +16,10 @@ const bootstrapApp = async (): Promise<void> => {
   const settingsRepo = new SettingsRepo({
     settingsFilePath: join(app.getPath('userData'), 'usage-pulse-settings.json'),
   })
-  const pollService = new UsagePollService({ isDevelopment: !app.isPackaged })
+  const usageSnapshotRepo = new UsageSnapshotRepo({
+    snapshotFilePath: join(app.getPath('userData'), 'usage-pulse-snapshots.json'),
+  })
+  const pollService = new UsagePollService({ snapshotRepo: usageSnapshotRepo })
   const settings = await settingsRepo.load()
   await settingsRepo.save({ settings })
   const browserWindow = appWindow.create()

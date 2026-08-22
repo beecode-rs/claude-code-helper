@@ -1,3 +1,4 @@
+import { type UsageSnapshotRepo } from '#src/main/business/repo/usage-snapshot-repo'
 import { ClaudeSystemTokenService } from '#src/main/business/service/claude-system-token-service'
 import { UsageProviderClaude } from '#src/main/business/service/usage-provider/claude'
 import { type IUsageProvider } from '#src/main/business/service/usage-provider/usage-provider'
@@ -19,36 +20,31 @@ export class UsagePollService {
   protected _settings: IAppSettings | undefined
   protected _snapshotByTrackerId = new Map<string, IProviderSnapshot>()
   protected _timerByTrackerId = new Map<string, NodeJS.Timeout>()
-  protected readonly _isDevelopment: boolean
   protected readonly _claudeSystemTokenService: ClaudeSystemTokenService
   protected readonly _providers: Record<ProviderId, IUsageProvider>
+  protected readonly _snapshotRepo?: UsageSnapshotRepo
 
   constructor(params?: {
     claudeSystemTokenService?: ClaudeSystemTokenService
-    isDevelopment?: boolean
     providers?: Record<ProviderId, IUsageProvider>
+    snapshotRepo?: UsageSnapshotRepo
   }) {
     const {
       claudeSystemTokenService = new ClaudeSystemTokenService(),
-      isDevelopment = false,
       providers = this._createDefaultProviders(),
+      snapshotRepo,
     } = params ?? {}
 
     this._claudeSystemTokenService = claudeSystemTokenService
-    this._isDevelopment = isDevelopment
     this._providers = providers
+    this._snapshotRepo = snapshotRepo
   }
 
   async start(params: { settings: IAppSettings }): Promise<void> {
     this._settings = params.settings
 
-    if (this._isDevelopment) {
-      this._scheduleAllTrackers()
-
-      return
-    }
-
-    await this.refreshNow()
+    await this._hydratePersistedSnapshots()
+    await this._resumeTrackers()
   }
 
   async restart(params: { settings: IAppSettings }): Promise<void> {
@@ -90,8 +86,12 @@ export class UsagePollService {
     const isPollApplied = await this._pollTrackerOnce({ tracker })
 
     if (isPollApplied) {
-      this._scheduleTracker({ tracker })
+      this._scheduleTracker({ delayMs: tracker.refreshIntervalSeconds * 1000, tracker })
     }
+  }
+
+  getSnapshot(): IUsageSnapshot {
+    return this._buildSnapshot()
   }
 
   onUpdate(params: { listener: UsageUpdateListener }): () => void {
@@ -131,6 +131,7 @@ export class UsagePollService {
     }
 
     this._snapshotByTrackerId.set(params.tracker.id, providerSnapshot)
+    this._persistSnapshots()
     this._notifyListeners({ snapshot: this._buildSnapshot() })
 
     return true
@@ -141,6 +142,109 @@ export class UsagePollService {
     this._generationByTrackerId.set(params.trackerId, nextGeneration)
 
     return nextGeneration
+  }
+
+  protected _buildPersistedSnapshotsByTrackerId(): Record<string, IProviderSnapshot> {
+    const settings = this._settings
+
+    if (settings === undefined) {
+      return {}
+    }
+
+    return settings.trackers.reduce<Record<string, IProviderSnapshot>>((snapshotsByTrackerId, tracker) => {
+      const snapshot = this._snapshotByTrackerId.get(tracker.id)
+
+      if (snapshot?.status === UsageStatus.OK) {
+        snapshotsByTrackerId[tracker.id] = {
+          fetchedAt: snapshot.fetchedAt,
+          providerId: snapshot.providerId,
+          status: UsageStatus.OK,
+          trackerId: snapshot.trackerId,
+          trackerName: snapshot.trackerName,
+          usage: snapshot.usage,
+        }
+      }
+
+      return snapshotsByTrackerId
+    }, {})
+  }
+
+  protected async _hydratePersistedSnapshots(): Promise<void> {
+    const snapshotRepo = this._snapshotRepo
+
+    if (snapshotRepo === undefined) {
+      return
+    }
+
+    const persistedSnapshotsByTrackerId = await snapshotRepo.load()
+    const settings = this._settings
+
+    if (settings === undefined) {
+      return
+    }
+
+    settings.trackers.forEach((tracker) => {
+      const persistedSnapshot = persistedSnapshotsByTrackerId[tracker.id]
+
+      if (persistedSnapshot !== undefined) {
+        this._snapshotByTrackerId.set(tracker.id, persistedSnapshot)
+      }
+    })
+  }
+
+  protected async _resumeTrackers(): Promise<void> {
+    const settings = this._settings
+
+    if (settings === undefined) {
+      return
+    }
+
+    await Promise.all(
+      settings.trackers.map((tracker) => {
+        return this._resumeTracker({ tracker })
+      }),
+    )
+  }
+
+  protected async _resumeTracker(params: { tracker: ITrackerConfig }): Promise<void> {
+    const resumeDelayMs = this._calcResumeDelayMs({ tracker: params.tracker })
+
+    if (resumeDelayMs > 0) {
+      this._scheduleTracker({ delayMs: resumeDelayMs, tracker: params.tracker })
+
+      return
+    }
+
+    await this.refreshTracker({ trackerId: params.tracker.id })
+  }
+
+  protected _calcResumeDelayMs(params: { tracker: ITrackerConfig }): number {
+    const snapshot = this._snapshotByTrackerId.get(params.tracker.id)
+
+    if (snapshot?.fetchedAt === undefined) {
+      return 0
+    }
+
+    const nextPollAt = snapshot.fetchedAt + params.tracker.refreshIntervalSeconds * 1000
+    const resumeDelayMs = nextPollAt - Date.now()
+
+    if (resumeDelayMs <= 0) {
+      return 0
+    }
+
+    return resumeDelayMs
+  }
+
+  protected _persistSnapshots(): void {
+    const snapshotRepo = this._snapshotRepo
+
+    if (snapshotRepo === undefined) {
+      return
+    }
+
+    void snapshotRepo.save({ snapshotsByTrackerId: this._buildPersistedSnapshotsByTrackerId() }).catch(() => {
+      return undefined
+    })
   }
 
   protected _buildSnapshot(): IUsageSnapshot {
@@ -221,27 +325,15 @@ export class UsagePollService {
     return params.tracker.accessToken
   }
 
-  protected _scheduleAllTrackers(): void {
-    const settings = this._settings
-
-    if (settings === undefined) {
-      return
-    }
-
-    settings.trackers.forEach((tracker) => {
-      this._scheduleTracker({ tracker })
-    })
-  }
-
-  protected _scheduleTracker(params: { tracker: ITrackerConfig }): void {
+  protected _scheduleTracker(params: { delayMs: number; tracker: ITrackerConfig }): void {
     this._cancelTrackerTimer({ trackerId: params.tracker.id })
 
-    const nextPollAt = Date.now() + params.tracker.refreshIntervalSeconds * 1000
+    const nextPollAt = Date.now() + params.delayMs
     this._nextPollAtByTrackerId.set(params.tracker.id, nextPollAt)
 
     const timer = setTimeout(() => {
       void this._onTrackerTimer({ tracker: params.tracker })
-    }, params.tracker.refreshIntervalSeconds * 1000)
+    }, params.delayMs)
 
     this._timerByTrackerId.set(params.tracker.id, timer)
   }
@@ -250,7 +342,7 @@ export class UsagePollService {
     const isPollApplied = await this._pollTrackerOnce({ tracker: params.tracker })
 
     if (isPollApplied) {
-      this._scheduleTracker({ tracker: params.tracker })
+      this._scheduleTracker({ delayMs: params.tracker.refreshIntervalSeconds * 1000, tracker: params.tracker })
     }
   }
 

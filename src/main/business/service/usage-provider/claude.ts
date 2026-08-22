@@ -2,7 +2,7 @@ import { type IUsageProvider } from '#src/main/business/service/usage-provider/u
 import { httpUtil } from '#src/main/util/http-util'
 import { objectUtil } from '#src/main/util/object-util'
 import { percentUtil } from '#src/main/util/percent-util'
-import { type IUsageWindow, type ProviderId } from '#src/shared/usage-model'
+import { FIVE_HOUR_WINDOW_MS, type IUsageWindow, type ProviderId } from '#src/shared/usage-model'
 
 export class UsageProviderClaude implements IUsageProvider {
   protected readonly _usageUrl = 'https://api.anthropic.com/api/oauth/usage'
@@ -38,6 +38,7 @@ export class UsageProviderClaude implements IUsageProvider {
     const fiveHourWindow = this._buildWindow({
       label: '5-hour window',
       sectionRecord: objectUtil.asRecord(params.usageRecord['five_hour']),
+      windowMs: FIVE_HOUR_WINDOW_MS,
     })
 
     if (fiveHourWindow === undefined) {
@@ -57,7 +58,11 @@ export class UsageProviderClaude implements IUsageProvider {
     return windows
   }
 
-  protected _buildWindow(params: { label: string; sectionRecord?: Record<string, unknown> }): IUsageWindow | undefined {
+  protected _buildWindow(params: {
+    label: string
+    sectionRecord?: Record<string, unknown>
+    windowMs?: number
+  }): IUsageWindow | undefined {
     if (params.sectionRecord === undefined) {
       return undefined
     }
@@ -71,10 +76,18 @@ export class UsageProviderClaude implements IUsageProvider {
     const resetAt = this._resolveResetAt({ sectionRecord: params.sectionRecord })
 
     if (resetAt === undefined) {
-      return { label: params.label, usedPercent: percent }
+      if (params.windowMs === undefined) {
+        return { label: params.label, usedPercent: percent }
+      }
+
+      return { label: params.label, usedPercent: percent, windowMs: params.windowMs }
     }
 
-    return { label: params.label, resetAt, usedPercent: percent }
+    if (params.windowMs === undefined) {
+      return { label: params.label, resetAt, usedPercent: percent }
+    }
+
+    return { label: params.label, resetAt, usedPercent: percent, windowMs: params.windowMs }
   }
 
   protected _resolvePercent(params: { sectionRecord: Record<string, unknown> }): number | undefined {

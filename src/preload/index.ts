@@ -8,6 +8,9 @@ const usageApi: IUsageApiClient = {
   getSettings: (): Promise<IAppSettings> => {
     return ipcRenderer.invoke(IpcChannelMapper.SETTINGS_GET)
   },
+  getSnapshot: (): Promise<IUsageSnapshot> => {
+    return ipcRenderer.invoke(IpcChannelMapper.USAGE_GET_SNAPSHOT)
+  },
   onUsageUpdate: (listener: UsageUpdateListener): (() => void) => {
     const usageUpdateListener = (_event: Electron.IpcRendererEvent, snapshot: IUsageSnapshot): void => {
       listener(snapshot)

@@ -27,8 +27,13 @@ export const dateUtil = {
 
   formatDuration: (durationMs: number): string => {
     const totalMinutes = Math.max(0, Math.floor(durationMs / 60_000))
-    const hours = Math.floor(totalMinutes / 60)
+    const days = Math.floor(totalMinutes / 1440)
+    const hours = Math.floor((totalMinutes % 1440) / 60)
     const minutes = totalMinutes % 60
+
+    if (days > 0) {
+      return `${String(days)}d ${String(hours)}h`
+    }
 
     if (hours === 0) {
       if (minutes === 0) {

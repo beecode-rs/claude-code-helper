@@ -2,7 +2,7 @@ import { type IUsageProvider } from '#src/main/business/service/usage-provider/u
 import { httpUtil } from '#src/main/util/http-util'
 import { objectUtil } from '#src/main/util/object-util'
 import { percentUtil } from '#src/main/util/percent-util'
-import { type IUsageWindow, type ProviderId } from '#src/shared/usage-model'
+import { FIVE_HOUR_WINDOW_MS, type IUsageWindow, type ProviderId } from '#src/shared/usage-model'
 
 export class UsageProviderZai implements IUsageProvider {
   protected readonly _quotaLimitUrl = 'https://api.z.ai/api/monitor/usage/quota/limit'
@@ -59,10 +59,13 @@ export class UsageProviderZai implements IUsageProvider {
           limitType: 'TOKENS_LIMIT',
           limitUnit: 3,
         }),
+        windowMs: FIVE_HOUR_WINDOW_MS,
       }),
-      this._buildWindow({
-        expectedLabel: 'Monthly',
-        limitRecord: this._findLimitRecord({ limits: params.limits, limitType: 'TIME_LIMIT' }),
+      this._stampCalendarMonthWindowMs({
+        window: this._buildWindow({
+          expectedLabel: 'Monthly',
+          limitRecord: this._findLimitRecord({ limits: params.limits, limitType: 'TIME_LIMIT' }),
+        }),
       }),
     ].filter((window) => {
       return window !== undefined
@@ -73,6 +76,18 @@ export class UsageProviderZai implements IUsageProvider {
     }
 
     return windows
+  }
+
+  protected _stampCalendarMonthWindowMs(params: { window?: IUsageWindow }): IUsageWindow | undefined {
+    if (params.window?.resetAt === undefined) {
+      return params.window
+    }
+
+    const windowStartDate = new Date(params.window.resetAt)
+
+    windowStartDate.setMonth(windowStartDate.getMonth() - 1)
+
+    return { ...params.window, windowMs: params.window.resetAt - windowStartDate.getTime() }
   }
 
   protected _findLimitRecord(params: {
@@ -109,6 +124,7 @@ export class UsageProviderZai implements IUsageProvider {
   protected _buildWindow(params: {
     expectedLabel: string
     limitRecord?: Record<string, unknown>
+    windowMs?: number
   }): IUsageWindow | undefined {
     if (params.limitRecord === undefined) {
       return undefined
@@ -123,10 +139,18 @@ export class UsageProviderZai implements IUsageProvider {
     const resetAt = this._resolveResetAt({ limitRecord: params.limitRecord })
 
     if (resetAt === undefined) {
-      return { label: params.expectedLabel, usedPercent: percent }
+      if (params.windowMs === undefined) {
+        return { label: params.expectedLabel, usedPercent: percent }
+      }
+
+      return { label: params.expectedLabel, usedPercent: percent, windowMs: params.windowMs }
     }
 
-    return { label: params.expectedLabel, resetAt, usedPercent: percent }
+    if (params.windowMs === undefined) {
+      return { label: params.expectedLabel, resetAt, usedPercent: percent }
+    }
+
+    return { label: params.expectedLabel, resetAt, usedPercent: percent, windowMs: params.windowMs }
   }
 
   protected _resolvePercent(params: { limitRecord: Record<string, unknown> }): number | undefined {

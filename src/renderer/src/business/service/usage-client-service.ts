@@ -1,9 +1,12 @@
 import type { IAppSettings } from '#src/shared/settings-model'
-import type { UsageUpdateListener } from '#src/shared/usage-model'
+import type { IUsageSnapshot, UsageUpdateListener } from '#src/shared/usage-model'
 
 export const usageClientService = {
   getSettings: (): Promise<IAppSettings> => {
     return window.usageApi.getSettings()
+  },
+  getSnapshot: (): Promise<IUsageSnapshot> => {
+    return window.usageApi.getSnapshot()
   },
   refreshNow: (): Promise<void> => {
     return window.usageApi.refreshNow()

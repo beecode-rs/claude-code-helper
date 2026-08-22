@@ -161,7 +161,7 @@ body {
   gap: 20px;
 }
 
-.five-hour-box {
+.usage-window-box {
   border: 1px solid var(--hairline);
   border-radius: 10px;
   display: flex;
@@ -171,7 +171,7 @@ body {
   width: 100%;
 }
 
-.five-hour-box-title {
+.usage-window-box-title {
   color: var(--ink-muted);
   font-size: 11px;
   letter-spacing: 0.5px;

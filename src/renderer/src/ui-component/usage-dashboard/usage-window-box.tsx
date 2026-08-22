@@ -6,8 +6,13 @@ import { usageResetUtil } from '#src/renderer/src/util/usage-reset-util'
 
 const TICK_INTERVAL_MS = 30_000
 
-export const FiveHourWindowBox = (props: { resetAt?: number; title: string; usedPercent: number }): ReactElement => {
-  const { resetAt, title, usedPercent } = props
+export const UsageWindowBox = (props: {
+  resetAt?: number
+  title: string
+  usedPercent: number
+  windowMs: number
+}): ReactElement => {
+  const { resetAt, title, usedPercent, windowMs } = props
   const [now, setNow] = useState(() => {
     return Date.now()
   })
@@ -23,12 +28,12 @@ export const FiveHourWindowBox = (props: { resetAt?: number; title: string; used
   }, [])
 
   const remainingMs = usageResetUtil.resolveRemainingMs({ now, resetAt })
-  const elapsedPercent = usageResetUtil.resolveElapsedPercent({ remainingMs })
-  const paceFillColor = usagePaceUtil.resolvePaceColor({ now, resetAt, usedPercent })
+  const elapsedPercent = usageResetUtil.resolveElapsedPercent({ remainingMs, windowMs })
+  const paceFillColor = usagePaceUtil.resolvePaceColor({ now, resetAt, usedPercent, windowMs })
 
   return (
-    <div className="five-hour-box">
-      <span className="five-hour-box-title">{title}</span>
+    <div className="usage-window-box">
+      <span className="usage-window-box-title">{title}</span>
       <UsageBar ariaLabel={`${title} usage`} fillColor={paceFillColor} label="Usage" percent={usedPercent} />
       {resetAt !== undefined && (
         <UsageBar

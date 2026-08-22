@@ -26,6 +26,12 @@ export const UsageDashboard = (): ReactElement => {
     setSettings(loadedSettings)
   }
 
+  const loadSnapshot = async (): Promise<void> => {
+    const currentSnapshot = await usageClientService.getSnapshot()
+
+    setSnapshot(currentSnapshot)
+  }
+
   const refreshTracker = async (trackerId: string): Promise<void> => {
     setRefreshingTrackerIds((currentIds) => {
       return [...currentIds, trackerId]
@@ -47,9 +53,7 @@ export const UsageDashboard = (): ReactElement => {
       },
     })
 
-    if (import.meta.env.DEV) {
-      void usageClientService.refreshNow()
-    }
+    void loadSnapshot()
 
     return () => {
       unsubscribe()

@@ -57,29 +57,19 @@ const resolveBarLayout = (params: {
   }
 }
 
-const resolveBarHourMarks = (params: {
-  endMinutes: number
-  startMinutes: number
-}): { leftPercent: number; minutes: number }[] => {
+const resolveBarHourMarks = (params: { endMinutes: number; startMinutes: number }): number[] => {
   const clippedStartMinutes = Math.max(params.startMinutes, 0)
   const clippedEndMinutes = Math.min(params.endMinutes, PLANNER_DAY_MINUTES)
   const spanMinutes = clippedEndMinutes - clippedStartMinutes
 
-  if (spanMinutes <= 0) {
+  if (spanMinutes <= 60) {
     return []
   }
 
-  const firstHour = Math.floor(clippedStartMinutes / 60) + 1
-  const lastHour = Math.ceil(clippedEndMinutes / 60) - 1
-  const hourCount = Math.max(0, lastHour - firstHour + 1)
+  const markCount = Math.ceil(spanMinutes / 60) - 1
 
-  return Array.from({ length: hourCount }, (_, index) => {
-    const hourMinutes = (firstHour + index) * 60
-
-    return {
-      leftPercent: ((hourMinutes - clippedStartMinutes) / spanMinutes) * 100,
-      minutes: hourMinutes,
-    }
+  return Array.from({ length: markCount }, (_, index) => {
+    return (((index + 1) * 60) / spanMinutes) * 100
   })
 }
 
@@ -104,9 +94,13 @@ const resolveWindowBarLabel = (window: IPlannerWindow): string => {
 }
 
 const renderBarHourMarks = (params: { endMinutes: number; startMinutes: number }): ReactElement[] => {
-  return resolveBarHourMarks(params).map((mark) => {
+  return resolveBarHourMarks(params).map((leftPercent, index) => {
     return (
-      <span className="window-planner-hour-mark" key={mark.minutes} style={{ left: `${String(mark.leftPercent)}%` }} />
+      <span
+        className="window-planner-hour-mark"
+        key={`hour-mark-${String(index)}`}
+        style={{ left: `${String(leftPercent)}%` }}
+      />
     )
   })
 }

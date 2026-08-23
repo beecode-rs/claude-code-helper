@@ -33,6 +33,22 @@
   gap: 12px;
 }
 
+.sessions-auto-refresh-status {
+  border-radius: 999px;
+  font-size: 11px;
+  padding: 3px 10px;
+}
+
+.sessions-auto-refresh-status.is-live {
+  background: rgba(12, 163, 12, 0.14);
+  color: var(--meter-good);
+}
+
+.sessions-auto-refresh-status.is-paused {
+  background: rgba(128, 128, 128, 0.14);
+  color: var(--ink-muted);
+}
+
 .sessions-legend {
   align-items: center;
   display: flex;

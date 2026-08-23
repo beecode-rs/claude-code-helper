@@ -4,6 +4,7 @@ import { sessionsClientService } from '#src/renderer/src/business/service/sessio
 import { usageClientService } from '#src/renderer/src/business/service/usage-client-service'
 import { SessionCard } from '#src/renderer/src/ui-component/sessions/session-card'
 import { SessionsAutoRefreshButton } from '#src/renderer/src/ui-component/sessions/sessions-auto-refresh-button'
+import { SessionsAutoRefreshStatus } from '#src/renderer/src/ui-component/sessions/sessions-auto-refresh-status'
 import { SessionsRefreshButton } from '#src/renderer/src/ui-component/sessions/sessions-refresh-button'
 import { SessionsRefreshProgressBar } from '#src/renderer/src/ui-component/sessions/sessions-refresh-progress-bar'
 import { SessionsSettingsButton } from '#src/renderer/src/ui-component/sessions/sessions-settings-button'
@@ -213,6 +214,7 @@ export const SessionsPage = (): ReactElement => {
           <p className="sessions-subtitle">{resolveSummaryLabel(sessions)}</p>
         </div>
         <div className="sessions-actions">
+          <SessionsAutoRefreshStatus isPaused={isAutoRefreshPaused} />
           <SessionsAutoRefreshButton
             isPaused={isAutoRefreshPaused}
             onToggle={() => {

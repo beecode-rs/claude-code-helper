@@ -650,9 +650,10 @@
   position: relative;
 }
 
-.window-planner-panel {
+.settings-panel.window-planner-panel {
   max-width: none;
-  width: 90%;
+  min-height: 560px;
+  width: 95%;
 }
 
 .window-planner-range {

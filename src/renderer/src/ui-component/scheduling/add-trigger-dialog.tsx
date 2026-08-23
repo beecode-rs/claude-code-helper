@@ -5,23 +5,34 @@ import { TriggerConfigFields } from '#src/renderer/src/ui-component/scheduling/t
 import { errorUtil } from '#src/renderer/src/util/error-util'
 import { triggerValidationUtil } from '#src/renderer/src/util/trigger-validation-util'
 import { type IAppSettings } from '#src/shared/settings-model'
-import { DEFAULT_TRIGGER_TIMEOUT_MS, type ITriggerConfig, MAX_WINDOW_TRIGGER_PRESET } from '#src/shared/trigger-model'
+import {
+  DEFAULT_TRIGGER_TIMEOUT_MS,
+  type ITriggerConfig,
+  type ITriggerPreset,
+  MAX_WINDOW_TRIGGER_PRESET,
+} from '#src/shared/trigger-model'
 
 const DEFAULT_TRIGGER_COMMAND = 'claude -p "Reply with only your name. One word, no explanations, no punctuation."'
 
-export const AddTriggerDialog = (props: { onClose: () => void; onSaved: () => void }): ReactElement => {
-  const { onClose, onSaved } = props
+export const AddTriggerDialog = (props: {
+  initialPreset?: ITriggerPreset
+  onClose: () => void
+  onSaved: () => void
+}): ReactElement => {
+  const { initialPreset, onClose, onSaved } = props
   const [settings, setSettings] = useState<IAppSettings | undefined>(undefined)
   const [newTrigger, setNewTrigger] = useState<ITriggerConfig>((): ITriggerConfig => {
+    const preset = initialPreset ?? MAX_WINDOW_TRIGGER_PRESET
+
     return {
       command: DEFAULT_TRIGGER_COMMAND,
       createdAt: Date.now(),
-      days: [...MAX_WINDOW_TRIGGER_PRESET.days],
+      days: [...preset.days],
       id: crypto.randomUUID(),
       isEnabled: true,
       name: '',
       timeoutMs: DEFAULT_TRIGGER_TIMEOUT_MS,
-      times: [...MAX_WINDOW_TRIGGER_PRESET.times],
+      times: [...preset.times],
     }
   })
   const [isSaving, setIsSaving] = useState(false)

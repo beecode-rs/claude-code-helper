@@ -1,6 +1,8 @@
 import type { ReactElement } from 'react'
 
+import { minutesTimeUtil } from '#src/renderer/src/util/minutes-time-util'
 import { MAX_WINDOW_TRIGGER_PRESET } from '#src/shared/trigger-model'
+import { formatDayMinutes } from '#src/shared/trigger-planner-model'
 import { FIVE_HOUR_WINDOW_MS } from '#src/shared/usage-model'
 
 interface ITimeRange {
@@ -22,20 +24,6 @@ const WORK_RANGE_LABEL = 'Work 10:00–18:00'
 
 const WINDOW_MINUTES = FIVE_HOUR_WINDOW_MS / 60_000
 
-const formatMinutes = (params: { minutes: number }): string => {
-  const hours = Math.floor(params.minutes / 60)
-  const minutes = params.minutes % 60
-
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
-}
-
-const resolveMinutes = (time: string): number => {
-  const hours = Number.parseInt(time.slice(0, 2), 10)
-  const minutes = Number.parseInt(time.slice(3, 5), 10)
-
-  return hours * 60 + minutes
-}
-
 const resolvePositionPercent = (params: { minutes: number }): number => {
   const domainMinutes = DIAGRAM_DOMAIN_MINUTES.endMinutes - DIAGRAM_DOMAIN_MINUTES.startMinutes
   const offsetMinutes = params.minutes - DIAGRAM_DOMAIN_MINUTES.startMinutes
@@ -52,7 +40,7 @@ const resolveSegmentLayout = (params: { range: ITimeRange }): { leftPercent: num
 
 const resolveWindowSegments = (): IWindowSegment[] => {
   return MAX_WINDOW_TRIGGER_PRESET.times.map((startTime) => {
-    const startMinutes = resolveMinutes(startTime)
+    const startMinutes = minutesTimeUtil.resolveMinutes(startTime)
 
     return {
       endMinutes: startMinutes + WINDOW_MINUTES,
@@ -65,7 +53,7 @@ const resolveWindowSegments = (): IWindowSegment[] => {
 const resolveWindowSentence = (): string => {
   return resolveWindowSegments()
     .map((segment) => {
-      const endTime = formatMinutes({ minutes: segment.endMinutes })
+      const endTime = formatDayMinutes(segment.endMinutes)
 
       return `${segment.startTime} → ${endTime}`
     })
@@ -136,7 +124,7 @@ export const TriggerWindowExplainer = (): ReactElement => {
           </div>
           <div className="trigger-window-diagram-ticks">
             {DIAGRAM_TICKS.map((tick) => {
-              const leftPercent = resolvePositionPercent({ minutes: resolveMinutes(tick) })
+              const leftPercent = resolvePositionPercent({ minutes: minutesTimeUtil.resolveMinutes(tick) })
 
               return (
                 <span className="trigger-window-diagram-tick" key={tick} style={{ left: `${String(leftPercent)}%` }}>

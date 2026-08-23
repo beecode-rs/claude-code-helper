@@ -183,6 +183,85 @@
   padding: 2px 8px;
 }
 
+.session-card-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: -6px;
+}
+
+.session-chip {
+  background: var(--meter-track);
+  border-radius: 999px;
+  color: var(--ink-secondary);
+  display: inline-flex;
+  font-size: 11px;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 2px 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-transcript {
+  border-top: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.session-transcript-stats {
+  display: grid;
+  gap: 6px 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.session-transcript-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.session-transcript-stat-label {
+  color: var(--ink-muted);
+  font-size: 11px;
+}
+
+.session-transcript-stat-value {
+  color: var(--ink-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-transcript-prompt {
+  color: var(--ink-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  max-height: 96px;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.session-transcript-identifiers {
+  color: var(--ink-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 11px;
+  gap: 10px;
+}
+
+.session-transcript-session-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
 .session-card-header {
   align-items: flex-start;
   display: flex;
@@ -320,6 +399,33 @@
 .session-focus-button:hover {
   background: color-mix(in srgb, var(--ink-muted) 14%, transparent);
   color: var(--ink-primary);
+}
+
+.session-expand-button {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.session-expand-button:hover {
+  background: color-mix(in srgb, var(--ink-muted) 14%, transparent);
+  color: var(--ink-primary);
+}
+
+.session-expand-button svg {
+  transition: transform 0.15s ease;
+}
+
+.session-expand-button.is-expanded svg {
+  transform: rotate(180deg);
 }
 
 .sessions-icon-button {

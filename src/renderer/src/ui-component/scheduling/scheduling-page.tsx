@@ -5,6 +5,7 @@ import { usageClientService } from '#src/renderer/src/business/service/usage-cli
 import { AddTriggerDialog } from '#src/renderer/src/ui-component/scheduling/add-trigger-dialog'
 import { ClearRunsDialog } from '#src/renderer/src/ui-component/scheduling/clear-runs-dialog'
 import '#src/renderer/src/ui-component/scheduling/scheduling.css'
+import { TriggerPlannerDialog } from '#src/renderer/src/ui-component/scheduling/trigger-planner-dialog'
 import { TriggerSettingsDialog } from '#src/renderer/src/ui-component/scheduling/trigger-settings-dialog'
 import { TriggerWindowExplainer } from '#src/renderer/src/ui-component/scheduling/trigger-window-explainer'
 import { DashboardAddButton } from '#src/renderer/src/ui-component/usage-dashboard/dashboard-add-button'
@@ -17,6 +18,7 @@ import { type IAppSettings } from '#src/shared/settings-model'
 import {
   type ISchedulingInfo,
   type ITriggerConfig,
+  type ITriggerPreset,
   type ITriggerRegistrationHealth,
   type ITriggerRunLogEntry,
   TRIGGER_DAYS,
@@ -293,6 +295,8 @@ export const SchedulingPage = (): ReactElement => {
   const [runsByTriggerId, setRunsByTriggerId] = useState<Record<string, ITriggerRunLogEntry[]>>({})
   const [runsErrorMessage, setRunsErrorMessage] = useState('')
   const [isAddOpen, setIsAddOpen] = useState(false)
+  const [isPlannerOpen, setIsPlannerOpen] = useState(false)
+  const [plannerPreset, setPlannerPreset] = useState<ITriggerPreset | undefined>(undefined)
   const [openTriggerId, setOpenTriggerId] = useState<string | undefined>(undefined)
   const [clearingTriggerId, setClearingTriggerId] = useState<string | undefined>(undefined)
 
@@ -384,6 +388,12 @@ export const SchedulingPage = (): ReactElement => {
 
   const handleSaved = (): void => {
     void loadPage()
+  }
+
+  const handleCreateFromPlanner = (preset: ITriggerPreset): void => {
+    setIsPlannerOpen(false)
+    setPlannerPreset(preset)
+    setIsAddOpen(true)
   }
 
   const handleToggleRuns = (params: { triggerId: string }): void => {
@@ -527,6 +537,15 @@ export const SchedulingPage = (): ReactElement => {
           <p className="dashboard-subtitle">Run commands on a schedule through your OS scheduler</p>
         </div>
         <div className="dashboard-actions">
+          <button
+            className="button"
+            onClick={() => {
+              setIsPlannerOpen(true)
+            }}
+            type="button"
+          >
+            Plan windows
+          </button>
           <DashboardAddButton
             label="Add trigger"
             onClick={() => {
@@ -673,10 +692,20 @@ export const SchedulingPage = (): ReactElement => {
       </footer>
       {isAddOpen && (
         <AddTriggerDialog
+          initialPreset={plannerPreset}
           onClose={() => {
             setIsAddOpen(false)
+            setPlannerPreset(undefined)
           }}
           onSaved={handleSaved}
+        />
+      )}
+      {isPlannerOpen && (
+        <TriggerPlannerDialog
+          onClose={() => {
+            setIsPlannerOpen(false)
+          }}
+          onCreateTrigger={handleCreateFromPlanner}
         />
       )}
       {openTriggerId !== undefined && (

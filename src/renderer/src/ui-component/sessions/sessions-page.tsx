@@ -2,9 +2,7 @@ import { type ReactElement, useEffect, useState } from 'react'
 
 import { sessionsClientService } from '#src/renderer/src/business/service/sessions-client-service'
 import { usageClientService } from '#src/renderer/src/business/service/usage-client-service'
-import { LocalIcon } from '#src/renderer/src/ui-component/icon/local-icon'
-import { ServerIcon } from '#src/renderer/src/ui-component/icon/server-icon'
-import { SessionFocusButton } from '#src/renderer/src/ui-component/sessions/session-focus-button'
+import { SessionCard } from '#src/renderer/src/ui-component/sessions/session-card'
 import { SessionsAutoRefreshToggle } from '#src/renderer/src/ui-component/sessions/sessions-auto-refresh-toggle'
 import { SessionsRefreshButton } from '#src/renderer/src/ui-component/sessions/sessions-refresh-button'
 import { SessionsSettingsButton } from '#src/renderer/src/ui-component/sessions/sessions-settings-button'
@@ -13,57 +11,11 @@ import { SshHostsButton } from '#src/renderer/src/ui-component/sessions/ssh-host
 import { SshHostsDialog } from '#src/renderer/src/ui-component/sessions/ssh-hosts-dialog'
 import '#src/renderer/src/ui-component/sessions/sessions.css'
 import '#src/renderer/src/ui-component/usage-dashboard/usage-dashboard.css'
-import { dateUtil } from '#src/renderer/src/util/date-util'
 import { errorUtil } from '#src/renderer/src/util/error-util'
-import {
-  type ISessionInfo,
-  type ISessionSnapshot,
-  type IUnreachableHost,
-  type SessionStatus,
-} from '#src/shared/session-model'
+import { type ISessionInfo, type ISessionSnapshot, type IUnreachableHost } from '#src/shared/session-model'
 import { DEFAULT_SESSIONS_REFRESH_INTERVAL_SECONDS, type IAppSettings } from '#src/shared/settings-model'
 
 const NOW_TICK_INTERVAL_MS = 1000
-
-const resolveStatusPresentation = (
-  status: SessionStatus,
-): { badgeClassName: string; dotClassName: string; label: string } => {
-  switch (status) {
-    case 'busy': {
-      return { badgeClassName: 'session-status is-busy', dotClassName: 'session-status-dot is-busy', label: 'Working' }
-    }
-
-    case 'idle': {
-      return { badgeClassName: 'session-status is-idle', dotClassName: 'session-status-dot is-idle', label: 'Idle' }
-    }
-
-    case 'waiting': {
-      return {
-        badgeClassName: 'session-status is-waiting',
-        dotClassName: 'session-status-dot is-waiting',
-        label: 'Waiting for input',
-      }
-    }
-
-    default: {
-      return {
-        badgeClassName: 'session-status is-unknown',
-        dotClassName: 'session-status-dot is-unknown',
-        label: 'Unknown',
-      }
-    }
-  }
-}
-
-const resolveCardClassName = (params: { isRemote: boolean; status: SessionStatus }): string => {
-  const classNames = ['session-card', `is-${params.status}`]
-
-  if (params.isRemote) {
-    classNames.push('is-remote')
-  }
-
-  return classNames.join(' ')
-}
 
 const resolveSessionKey = (session: ISessionInfo): string => {
   const hostId = session.hostId ?? 'local'
@@ -79,51 +31,6 @@ const resolveUnreachableHostsLabel = (hosts: IUnreachableHost[]): string => {
   return `Unreachable SSH hosts: ${hostParts.join(' · ')}`
 }
 
-const resolveKindLabel = (kind: string): string => {
-  switch (kind) {
-    case 'background': {
-      return 'Background'
-    }
-
-    case 'interactive': {
-      return 'Interactive'
-    }
-
-    default: {
-      return kind
-    }
-  }
-}
-
-const resolveProjectLabel = (cwd: string): string => {
-  const segments = cwd.split('/').filter((segment) => {
-    return segment !== ''
-  })
-  const lastSegment = segments.at(-1)
-
-  if (lastSegment === undefined) {
-    return cwd
-  }
-
-  return lastSegment
-}
-
-const resolveSessionTitle = (session: ISessionInfo): string => {
-  if (session.name !== '') {
-    return session.name
-  }
-
-  if (session.cwd !== '') {
-    return resolveProjectLabel(session.cwd)
-  }
-
-  return 'Unnamed session'
-}
-
-const resolveUptimeLabel = (params: { nowMs: number; startedAt: number }): string => {
-  return `up ${dateUtil.formatDuration(params.nowMs - params.startedAt)}`
-}
-
 const resolveUpdatedAgoLabel = (params: { fetchedAt: number; nowMs: number }): string => {
   const secondsAgo = Math.max(0, Math.round((params.nowMs - params.fetchedAt) / 1000))
 
@@ -136,14 +43,6 @@ const resolveSessionsWord = (count: number): string => {
   }
 
   return 'sessions'
-}
-
-const renderOriginIcon = (isRemote: boolean): ReactElement => {
-  if (isRemote) {
-    return <ServerIcon />
-  }
-
-  return <LocalIcon />
 }
 
 const resolveSummaryLabel = (sessions: ISessionInfo[]): string => {
@@ -196,6 +95,7 @@ export const SessionsPage = (): ReactElement => {
   const [nowMs, setNowMs] = useState((): number => {
     return Date.now()
   })
+  const [expandedSessionKeys, setExpandedSessionKeys] = useState<Set<string>>(new Set<string>())
 
   const loadSessions = async (): Promise<void> => {
     try {
@@ -240,6 +140,20 @@ export const SessionsPage = (): ReactElement => {
     } catch (error) {
       setErrorMessage(errorUtil.resolveMessage(error))
     }
+  }
+
+  const handleToggleSession = (params: { key: string }): void => {
+    setExpandedSessionKeys((previous) => {
+      if (previous.has(params.key)) {
+        return new Set(
+          [...previous].filter((candidateKey) => {
+            return candidateKey !== params.key
+          }),
+        )
+      }
+
+      return new Set([...previous, params.key])
+    })
   }
 
   const refreshIntervalSeconds = settings?.sessionsRefreshIntervalSeconds ?? DEFAULT_SESSIONS_REFRESH_INTERVAL_SECONDS
@@ -339,47 +253,21 @@ export const SessionsPage = (): ReactElement => {
         {!hasSnapshot && errorMessage !== '' && <p className="sessions-empty">Could not load sessions</p>}
         {isEmpty && <p className="sessions-empty">No active sessions</p>}
         {sessions.map((session) => {
-          const statusPresentation = resolveStatusPresentation(session.status)
+          const sessionKey = resolveSessionKey(session)
 
           return (
-            <article
-              className={resolveCardClassName({ isRemote: session.hostId !== undefined, status: session.status })}
-              key={resolveSessionKey(session)}
-              title={session.cwd}
-            >
-              <header className="session-card-header">
-                <div className="session-card-heading">
-                  <span className="session-card-origin">{renderOriginIcon(session.hostId !== undefined)}</span>
-                  <h2 className="session-card-title">{resolveSessionTitle(session)}</h2>
-                </div>
-                <span className={statusPresentation.badgeClassName}>
-                  <span className={statusPresentation.dotClassName} />
-                  {statusPresentation.label}
-                </span>
-                {session.hostId === undefined && (
-                  <SessionFocusButton
-                    label={`Focus terminal for ${resolveSessionTitle(session)}`}
-                    onClick={() => {
-                      void focusSession({ cwd: session.cwd, pid: session.pid })
-                    }}
-                  />
-                )}
-              </header>
-              <p className="session-card-project" title={session.cwd}>
-                {resolveProjectLabel(session.cwd)}
-              </p>
-              <footer className="session-card-footer">
-                {session.hostId !== undefined && (
-                  <span className="session-card-meta session-host-chip">
-                    <ServerIcon size={12} />
-                    {session.hostLabel}
-                  </span>
-                )}
-                {session.kind !== '' && <span className="session-card-meta">{resolveKindLabel(session.kind)}</span>}
-                <span className="session-card-meta">pid {String(session.pid)}</span>
-                <span className="session-card-meta">{resolveUptimeLabel({ nowMs, startedAt: session.startedAt })}</span>
-              </footer>
-            </article>
+            <SessionCard
+              isExpanded={expandedSessionKeys.has(sessionKey)}
+              key={sessionKey}
+              nowMs={nowMs}
+              onFocus={() => {
+                void focusSession({ cwd: session.cwd, pid: session.pid })
+              }}
+              onToggle={() => {
+                handleToggleSession({ key: sessionKey })
+              }}
+              session={session}
+            />
           )
         })}
       </main>

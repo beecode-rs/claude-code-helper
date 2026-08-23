@@ -3,6 +3,7 @@ import { type BrowserWindow, ipcMain } from 'electron'
 import { type SettingsRepo } from '#src/main/business/repo/settings-repo'
 import { type TriggerRunLogRepo } from '#src/main/business/repo/trigger-run-log-repo'
 import { type SchedulingService } from '#src/main/business/service/scheduling-service'
+import { type SessionTranscriptService } from '#src/main/business/service/session-transcript-service'
 import { type SessionsService } from '#src/main/business/service/sessions-service'
 import { SettingsService } from '#src/main/business/service/settings-service'
 import { type SshSessionsService } from '#src/main/business/service/ssh-sessions-service'
@@ -23,6 +24,7 @@ export const ipcController = {
     getWindow: () => BrowserWindow
     pollService: UsagePollService
     schedulingService: SchedulingService
+    sessionTranscriptService: SessionTranscriptService
     sessionsService: SessionsService
     settingsRepo: SettingsRepo
     sshSessionsService: SshSessionsService
@@ -70,8 +72,14 @@ export const ipcController = {
         params.sessionsService.listSessions(),
         params.sshSessionsService.listRemoteSessions({ hosts: settings.sshHosts }),
       ])
+      const mergedSnapshot = params.sshSessionsService.mergeSessionSnapshots({ localSnapshot, remoteResults })
+      const sessions = await params.sessionTranscriptService
+        .enrichSessions({ sessions: mergedSnapshot.sessions })
+        .catch(() => {
+          return mergedSnapshot.sessions
+        })
 
-      return params.sshSessionsService.mergeSessionSnapshots({ localSnapshot, remoteResults })
+      return { ...mergedSnapshot, sessions }
     })
 
     ipcMain.handle(IpcChannelMapper.SESSIONS_TEST_SSH_HOST, async (_event, rawParams: unknown): Promise<void> => {

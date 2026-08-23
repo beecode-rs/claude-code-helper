@@ -1,3 +1,60 @@
+.planner-dial {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.planner-dial-fill {
+  fill: none;
+  stroke: var(--meter-accent);
+  stroke-linecap: round;
+  stroke-width: 5;
+}
+
+.planner-dial-knob {
+  fill: var(--ink-primary);
+}
+
+.planner-dial-label {
+  color: var(--ink-secondary);
+  font-size: 11px;
+}
+
+.planner-dial-needle {
+  stroke: var(--ink-primary);
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+
+.planner-dial-svg {
+  cursor: grab;
+  touch-action: none;
+}
+
+.planner-dial-svg:active {
+  cursor: grabbing;
+}
+
+.planner-dial-svg:focus-visible {
+  border-radius: 50%;
+  outline: 2px solid var(--meter-accent);
+  outline-offset: 2px;
+}
+
+.planner-dial-track {
+  fill: none;
+  stroke: var(--meter-track);
+  stroke-linecap: round;
+  stroke-width: 5;
+}
+
+.planner-dial-value {
+  color: var(--ink-primary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
 .scheduling {
   display: flex;
   flex-direction: column;
@@ -536,4 +593,88 @@
 .trigger-window-diagram-ticks {
   height: 14px;
   position: relative;
+}
+
+.window-planner-bar {
+  align-items: center;
+  background: color-mix(in srgb, var(--meter-accent) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--meter-accent) 55%, transparent);
+  border-radius: 3px;
+  bottom: 0;
+  color: var(--ink-primary);
+  display: flex;
+  font-size: 10px;
+  justify-content: center;
+  overflow: hidden;
+  position: absolute;
+  top: 0;
+  white-space: nowrap;
+}
+
+.window-planner-bar.is-lunch {
+  background: color-mix(in srgb, var(--meter-good) 35%, transparent);
+  border: 1px solid color-mix(in srgb, var(--meter-good) 60%, transparent);
+}
+
+.window-planner-bar.is-work {
+  background: color-mix(in srgb, var(--meter-warning) 12%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--meter-warning) 60%, transparent);
+  color: var(--meter-warning);
+}
+
+.window-planner-dials {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.window-planner-hint {
+  color: var(--meter-warning);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.window-planner-lane {
+  background: var(--meter-track);
+  border-radius: 4px;
+  height: 22px;
+  position: relative;
+}
+
+.window-planner-panel {
+  max-width: 520px;
+}
+
+.window-planner-range {
+  accent-color: var(--meter-accent);
+}
+
+.window-planner-tick {
+  color: var(--ink-muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+}
+
+.window-planner-tick.is-first {
+  transform: translateX(0);
+}
+
+.window-planner-tick.is-last {
+  transform: translateX(-100%);
+}
+
+.window-planner-ticks {
+  height: 14px;
+  position: relative;
+}
+
+.window-planner-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 10px 0 8px;
 }

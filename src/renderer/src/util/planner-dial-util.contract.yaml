@@ -1,0 +1,203 @@
+subject: plannerDialUtil
+module: ./planner-dial-util.js
+subjectType: function
+methods:
+  resolveDialDeltaDegrees:
+    terms:
+      # Arc start (135° in SVG y-down coords, bottom-left of the dial) maps to delta 0.
+      - params:
+          - angleDegrees: 135
+        result: 0
+      # Arc midpoint (top of the dial) is half the 270° sweep.
+      - params:
+          - angleDegrees: 270
+        result: 135
+      # End convention: the sweep ends at 405°, which is the same point as 45° (bottom-right).
+      - params:
+          - angleDegrees: 405
+        result: 270
+      - params:
+          - angleDegrees: 45
+        result: 270
+      # Dead zone (the 90° bottom gap, deltas 270–360) snaps to the nearer arc end;
+      # 80° sits 35° from the end and 55° from the start, so it snaps to the end.
+      - params:
+          - angleDegrees: 80
+        result: 270
+      # 100° sits 35° from the start and 55° from the end, so it snaps to the start.
+      - params:
+          - angleDegrees: 100
+        result: 0
+      # Dead-zone midpoint (90°, delta 315) is an exact tie and snaps to the start.
+      - params:
+          - angleDegrees: 90
+        result: 0
+  resolveSteppedValue:
+    terms:
+      # Off-step raw values round to the nearest step.
+      - params:
+          - max: 23
+            min: 0
+            rawValue: 10.4
+            step: 1
+        result: 10
+      - params:
+          - max: 23
+            min: 0
+            rawValue: 10.6
+            step: 1
+        result: 11
+      # 15-minute steps round to the nearest quarter hour.
+      - params:
+          - max: 1425
+            min: 0
+            rawValue: 100
+            step: 15
+        result: 105
+      - params:
+          - max: 1425
+            min: 0
+            rawValue: 92
+            step: 15
+        result: 90
+      # Rounding is relative to min, not to zero.
+      - params:
+          - max: 16
+            min: 1
+            rawValue: 4.4
+            step: 1
+        result: 4
+      # Raw values beyond the range clamp to the bounds.
+      - params:
+          - max: 23
+            min: 0
+            rawValue: -5
+            step: 1
+        result: 0
+      - params:
+          - max: 23
+            min: 0
+            rawValue: 99
+            step: 1
+        result: 23
+  resolvePointerValue:
+    terms:
+      # Pointer at the arc start (bottom-left, atan2(1, -1) = 135°) resolves to min.
+      - params:
+          - dx: -1
+            dy: 1
+            max: 23
+            min: 0
+            step: 1
+        result: 0
+      # Pointer at the arc end (bottom-right, atan2(1, 1) = 45°) resolves to max.
+      - params:
+          - dx: 1
+            dy: 1
+            max: 23
+            min: 0
+            step: 1
+        result: 23
+      # Pointer straight up (atan2(-1, 0) = -90°) is half the sweep; 11.5 rounds up to 12.
+      - params:
+          - dx: 0
+            dy: -1
+            max: 23
+            min: 0
+            step: 1
+        result: 12
+      # Pointer straight down is the dead-zone tie and resolves to min.
+      - params:
+          - dx: 0
+            dy: 1
+            max: 23
+            min: 0
+            step: 1
+        result: 0
+  resolveKeyboardValue:
+    terms:
+      # ArrowUp/ArrowRight increase by one step.
+      - params:
+          - key: ArrowUp
+            max: 23
+            min: 0
+            step: 1
+            value: 10
+        result: 11
+      - params:
+          - key: ArrowRight
+            max: 23
+            min: 0
+            step: 1
+            value: 10
+        result: 11
+      # ArrowDown/ArrowLeft decrease by one step.
+      - params:
+          - key: ArrowDown
+            max: 23
+            min: 0
+            step: 1
+            value: 10
+        result: 9
+      - params:
+          - key: ArrowLeft
+            max: 23
+            min: 0
+            step: 1
+            value: 10
+        result: 9
+      # Stepping past the bounds clamps instead of wrapping.
+      - params:
+          - key: ArrowDown
+            max: 23
+            min: 0
+            step: 1
+            value: 0
+        result: 0
+      - params:
+          - key: ArrowUp
+            max: 23
+            min: 0
+            step: 1
+            value: 23
+        result: 23
+      # Home/End jump to the bounds; other keys leave the value unchanged.
+      - params:
+          - key: Home
+            max: 23
+            min: 0
+            step: 1
+            value: 10
+        result: 0
+      - params:
+          - key: End
+            max: 23
+            min: 0
+            step: 1
+            value: 10
+        result: 23
+      - params:
+          - key: x
+            max: 23
+            min: 0
+            step: 1
+            value: 7
+        result: 7
+  resolveValueAngleDegrees:
+    terms:
+      # Value-to-angle inverse: min sits at 135°, max at 405° (= 45°), mid at the top (270°).
+      - params:
+          - max: 23
+            min: 0
+            value: 0
+        result: 135
+      - params:
+          - max: 23
+            min: 0
+            value: 23
+        result: 405
+      - params:
+          - max: 16
+            min: 1
+            value: 8.5
+        result: 270

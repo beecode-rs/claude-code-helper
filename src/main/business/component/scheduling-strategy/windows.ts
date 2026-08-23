@@ -6,11 +6,17 @@ import type {
 import type { OsPlatform } from '#src/main/util/os-util'
 
 export class SchedulingStrategyWindows implements ISchedulingStrategy {
+  readonly isSupported = false
+
   getSchedulingPlatform(): OsPlatform {
     return 'windows'
   }
 
   inspectRegistration(_params: { triggerId: string }): Promise<ISchedulingInspection> {
+    return Promise.reject(new Error('OS scheduling is not implemented on Windows yet'))
+  }
+
+  listRegistrationIds(): Promise<string[]> {
     return Promise.reject(new Error('OS scheduling is not implemented on Windows yet'))
   }
 

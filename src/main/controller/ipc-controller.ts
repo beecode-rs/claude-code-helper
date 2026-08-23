@@ -1,19 +1,26 @@
 import { type BrowserWindow, ipcMain } from 'electron'
 
 import { type SettingsRepo } from '#src/main/business/repo/settings-repo'
+import { type SchedulingService } from '#src/main/business/service/scheduling-service'
 import { SettingsService } from '#src/main/business/service/settings-service'
 import { type UsagePollService } from '#src/main/business/service/usage-poll-service'
 import { objectUtil } from '#src/main/util/object-util'
 import { IpcChannelMapper } from '#src/shared/ipc-channel'
 import { type IAppSettings } from '#src/shared/settings-model'
+import { type ISchedulingInfo, type ITriggerRegistrationHealth } from '#src/shared/trigger-model'
 import { type IUsageSnapshot } from '#src/shared/usage-model'
 
 export const ipcController = {
   register: (params: {
     getWindow: () => BrowserWindow
     pollService: UsagePollService
+    schedulingService: SchedulingService
     settingsRepo: SettingsRepo
   }): void => {
+    ipcMain.handle(IpcChannelMapper.SCHEDULING_GET_INFO, (): ISchedulingInfo => {
+      return params.schedulingService.getSchedulingInfo()
+    })
+
     ipcMain.handle(IpcChannelMapper.SETTINGS_GET, async (): Promise<IAppSettings> => {
       return await params.settingsRepo.load()
     })
@@ -23,8 +30,33 @@ export const ipcController = {
 
       await params.settingsRepo.save({ settings })
       await params.pollService.restart({ settings })
+      await params.schedulingService.syncRegistrations({ settings })
 
       return settings
+    })
+
+    ipcMain.handle(IpcChannelMapper.TRIGGER_OS_INSPECT, async (): Promise<ITriggerRegistrationHealth[]> => {
+      const settings = await params.settingsRepo.load()
+
+      return await params.schedulingService.inspectRegistrations({ settings })
+    })
+
+    ipcMain.handle(IpcChannelMapper.TRIGGER_SET_ENABLED, async (_event, rawParams: unknown): Promise<IAppSettings> => {
+      const settings = await params.settingsRepo.load()
+      const rawRecord = objectUtil.asRecord(rawParams)
+      const triggerId = rawRecord?.['triggerId']
+      const isEnabled = rawRecord?.['isEnabled']
+
+      if (typeof triggerId !== 'string' || typeof isEnabled !== 'boolean') {
+        return settings
+      }
+
+      const nextSettings = new SettingsService().setTriggerEnabled({ isEnabled, settings, triggerId })
+
+      await params.settingsRepo.save({ settings: nextSettings })
+      await params.schedulingService.syncRegistrations({ settings: nextSettings })
+
+      return nextSettings
     })
 
     ipcMain.handle(IpcChannelMapper.USAGE_GET_SNAPSHOT, (): IUsageSnapshot => {

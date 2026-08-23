@@ -1,4 +1,5 @@
 import type { IAppSettings } from '#src/shared/settings-model'
+import type { ISchedulingInfo, ITriggerRegistrationHealth } from '#src/shared/trigger-model'
 
 export type ProviderId = 'claude' | 'zai'
 
@@ -41,10 +42,13 @@ export type UsageUpdateListener = (snapshot: IUsageSnapshot) => void
 
 export interface IUsageApiClient {
   getSettings: () => Promise<IAppSettings>
+  getSchedulingInfo: () => Promise<ISchedulingInfo>
   getSnapshot: () => Promise<IUsageSnapshot>
+  inspectTriggerRegistrations: () => Promise<ITriggerRegistrationHealth[]>
   onUsageUpdate: (listener: UsageUpdateListener) => () => void
   refreshNow: () => Promise<void>
   refreshTracker: (params: { trackerId: string }) => Promise<void>
   saveSettings: (settings: IAppSettings) => Promise<IAppSettings>
+  setTriggerEnabled: (params: { isEnabled: boolean; triggerId: string }) => Promise<IAppSettings>
   setTrackerPaused: (params: { isAutoRefreshPaused: boolean; trackerId: string }) => Promise<IAppSettings>
 }

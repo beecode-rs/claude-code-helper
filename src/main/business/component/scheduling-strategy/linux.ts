@@ -6,11 +6,17 @@ import type {
 import type { OsPlatform } from '#src/main/util/os-util'
 
 export class SchedulingStrategyLinux implements ISchedulingStrategy {
+  readonly isSupported = false
+
   getSchedulingPlatform(): OsPlatform {
     return 'linux'
   }
 
   inspectRegistration(_params: { triggerId: string }): Promise<ISchedulingInspection> {
+    return Promise.reject(new Error('OS scheduling is not implemented on Linux yet'))
+  }
+
+  listRegistrationIds(): Promise<string[]> {
     return Promise.reject(new Error('OS scheduling is not implemented on Linux yet'))
   }
 

@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { mkdir, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir, userInfo } from 'node:os'
 import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
@@ -8,10 +8,10 @@ import type {
   ISchedulingInspection,
   ISchedulingRegistrationParams,
   ISchedulingStrategy,
-  TriggerDay,
 } from '#src/main/business/component/scheduling-strategy/scheduling-strategy'
 import { errorUtil } from '#src/main/util/error-util'
 import { type OsPlatform, osUtil } from '#src/main/util/os-util'
+import type { TriggerDay } from '#src/shared/trigger-model'
 
 const execFileAsync = promisify(execFile)
 
@@ -22,7 +22,10 @@ interface ILaunchdCalendarInterval {
 }
 
 export class SchedulingStrategyMacLaunchd implements ISchedulingStrategy {
+  readonly isSupported = true
+
   protected readonly _homeDir: string
+  protected readonly _labelPrefix = 'com.usage-pulse.trigger.'
   protected readonly _launchctlTimeoutMs = 10000
   protected readonly _launchdWeekdayByTriggerDay: Record<TriggerDay, number> = {
     friday: 5,
@@ -51,6 +54,18 @@ export class SchedulingStrategyMacLaunchd implements ISchedulingStrategy {
     const isLabelLoaded = await this._resolveIsLabelLoaded({ triggerId: params.triggerId })
 
     return { isRegistered: isPlistPresent && isLabelLoaded }
+  }
+
+  async listRegistrationIds(): Promise<string[]> {
+    const plistFileNames = await this._resolveLaunchAgentsFileNames()
+
+    return plistFileNames
+      .filter((fileName) => {
+        return fileName.startsWith(this._labelPrefix) && fileName.endsWith('.plist')
+      })
+      .map((fileName) => {
+        return fileName.slice(this._labelPrefix.length, -'.plist'.length)
+      })
   }
 
   async removeRegistration(params: { triggerId: string }): Promise<void> {
@@ -243,8 +258,16 @@ export class SchedulingStrategyMacLaunchd implements ISchedulingStrategy {
     }
   }
 
+  protected async _resolveLaunchAgentsFileNames(): Promise<string[]> {
+    try {
+      return await readdir(join(this._homeDir, 'Library', 'LaunchAgents'))
+    } catch {
+      return []
+    }
+  }
+
   protected _resolveLabel(params: { triggerId: string }): string {
-    return `com.usage-pulse.trigger.${params.triggerId}`
+    return `${this._labelPrefix}${params.triggerId}`
   }
 
   protected _resolveLaunchctlErrorMessage(error: unknown): string {

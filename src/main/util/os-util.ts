@@ -1,4 +1,6 @@
-export type OsPlatform = 'linux' | 'macos' | 'windows'
+import type { OsPlatform } from '#src/shared/os-model'
+
+export type { OsPlatform }
 
 export const osUtil = {
   resolvePlatform: (): OsPlatform => {

@@ -3,12 +3,13 @@ import { type ReactElement, useState } from 'react'
 import { AboutPage } from '#src/renderer/src/ui-component/about/about-page'
 import '#src/renderer/src/ui-component/app-shell/app-shell.css'
 import { DevelopmentPage } from '#src/renderer/src/ui-component/development/development-page'
+import { SchedulingPage } from '#src/renderer/src/ui-component/scheduling/scheduling-page'
 import { type ISideMenuItem, SideMenu } from '#src/renderer/src/ui-component/side-menu/side-menu'
 import { UsageDashboard } from '#src/renderer/src/ui-component/usage-dashboard/usage-dashboard'
 import { envUtil } from '#src/renderer/src/util/env-util'
 import { sideMenuPrefsUtil } from '#src/renderer/src/util/side-menu-prefs-util'
 
-type AppViewId = 'about' | 'development' | 'usage'
+type AppViewId = 'about' | 'development' | 'scheduling' | 'usage'
 
 const MENU_ICONS: Record<AppViewId, ReactElement> = {
   about: (
@@ -38,6 +39,19 @@ const MENU_ICONS: Record<AppViewId, ReactElement> = {
       <line x1="12" x2="20" y1="19" y2="19" />
     </svg>
   ),
+  scheduling: (
+    <svg
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.8}
+      viewBox="0 0 24 24"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  ),
   usage: (
     <svg
       fill="none"
@@ -54,6 +68,7 @@ const MENU_ICONS: Record<AppViewId, ReactElement> = {
 
 const BASE_MENU_ITEMS: ISideMenuItem<AppViewId>[] = [
   { icon: MENU_ICONS.usage, id: 'usage', label: 'Usage' },
+  { icon: MENU_ICONS.scheduling, id: 'scheduling', label: 'Scheduling' },
   { icon: MENU_ICONS.about, id: 'about', label: 'About' },
 ]
 
@@ -90,6 +105,10 @@ export const AppShell = (): ReactElement => {
 
       case 'development': {
         return <DevelopmentPage />
+      }
+
+      case 'scheduling': {
+        return <SchedulingPage />
       }
 
       case 'usage': {

@@ -9,12 +9,22 @@ import {
   MAX_REFRESH_INTERVAL_SECONDS,
   MIN_REFRESH_INTERVAL_SECONDS,
 } from '#src/shared/settings-model'
+import {
+  DEFAULT_TRIGGER_TIMEOUT_MS,
+  type ITriggerConfig,
+  MAX_TRIGGER_TIMEOUT_MS,
+  MIN_TRIGGER_TIMEOUT_MS,
+  TRIGGER_DAYS,
+  TRIGGER_TIME_PATTERN,
+  type TriggerDay,
+} from '#src/shared/trigger-model'
 import type { ProviderId } from '#src/shared/usage-model'
 
 export class SettingsService {
   createDefaultSettings(): IAppSettings {
     return {
       trackers: [],
+      triggers: [],
     }
   }
 
@@ -26,20 +36,36 @@ export class SettingsService {
     }
 
     const rawTrackers = rawRecord['trackers']
+    const rawTriggers = rawRecord['triggers']
 
     return {
       trackers: this._resolveTrackers({ rawRecord, rawTrackers }),
+      triggers: this._resolveTriggers({ rawTriggers }),
     }
   }
 
   setTrackerPaused(params: { isAutoRefreshPaused: boolean; settings: IAppSettings; trackerId: string }): IAppSettings {
     return {
+      ...params.settings,
       trackers: params.settings.trackers.map((tracker) => {
         if (tracker.id !== params.trackerId) {
           return tracker
         }
 
         return { ...tracker, isAutoRefreshPaused: params.isAutoRefreshPaused }
+      }),
+    }
+  }
+
+  setTriggerEnabled(params: { isEnabled: boolean; settings: IAppSettings; triggerId: string }): IAppSettings {
+    return {
+      ...params.settings,
+      triggers: params.settings.triggers.map((trigger) => {
+        if (trigger.id !== params.triggerId) {
+          return trigger
+        }
+
+        return { ...trigger, isEnabled: params.isEnabled }
       }),
     }
   }
@@ -169,6 +195,138 @@ export class SettingsService {
 
       return tracker
     })
+  }
+
+  protected _resolveTriggers(params: { rawTriggers: unknown }): ITriggerConfig[] {
+    if (!Array.isArray(params.rawTriggers)) {
+      return []
+    }
+
+    const triggers = params.rawTriggers
+      .map((rawTrigger) => {
+        return this._sanitizeTrigger({ rawTrigger })
+      })
+      .filter((trigger): trigger is ITriggerConfig => {
+        return trigger !== undefined
+      })
+
+    return this._ensureUniqueTriggerIds({ triggers })
+  }
+
+  protected _sanitizeTrigger(params: { rawTrigger: unknown }): ITriggerConfig | undefined {
+    const rawTrigger = objectUtil.asRecord(params.rawTrigger)
+
+    if (rawTrigger === undefined) {
+      return undefined
+    }
+
+    const command = this._resolveTriggerCommand({ value: rawTrigger['command'] })
+    const days = this._resolveTriggerDays({ value: rawTrigger['days'] })
+    const times = this._resolveTriggerTimes({ value: rawTrigger['times'] })
+
+    if (command === undefined || days.length === 0 || times.length === 0) {
+      return undefined
+    }
+
+    return {
+      command,
+      createdAt: this._resolveTriggerCreatedAt({ value: rawTrigger['createdAt'] }),
+      days,
+      id: this._resolveTriggerId({ value: rawTrigger['id'] }),
+      isEnabled: this._resolveIsTriggerEnabled({ value: rawTrigger['isEnabled'] }),
+      name: this._resolveTriggerName({ value: rawTrigger['name'] }),
+      timeoutMs: this._resolveTriggerTimeoutMs({ value: rawTrigger['timeoutMs'] }),
+      times,
+    }
+  }
+
+  protected _ensureUniqueTriggerIds(params: { triggers: ITriggerConfig[] }): ITriggerConfig[] {
+    const seenIds = new Set<string>()
+
+    return params.triggers.map((trigger) => {
+      if (seenIds.has(trigger.id)) {
+        return { ...trigger, id: crypto.randomUUID() }
+      }
+
+      seenIds.add(trigger.id)
+
+      return trigger
+    })
+  }
+
+  protected _resolveTriggerCommand(params: { value: unknown }): string | undefined {
+    if (typeof params.value !== 'string' || params.value.trim() === '') {
+      return undefined
+    }
+
+    return params.value.trim()
+  }
+
+  protected _resolveTriggerCreatedAt(params: { value: unknown }): number {
+    if (typeof params.value !== 'number' || !Number.isFinite(params.value)) {
+      return Date.now()
+    }
+
+    return params.value
+  }
+
+  protected _resolveTriggerDays(params: { value: unknown }): TriggerDay[] {
+    if (!Array.isArray(params.value)) {
+      return []
+    }
+
+    const knownDays = new Set<string>(TRIGGER_DAYS)
+    const selectedDays = new Set<TriggerDay>(
+      params.value.filter((day): day is TriggerDay => {
+        return typeof day === 'string' && knownDays.has(day)
+      }),
+    )
+
+    return TRIGGER_DAYS.filter((day) => {
+      return selectedDays.has(day)
+    })
+  }
+
+  protected _resolveTriggerId(params: { value: unknown }): string {
+    if (typeof params.value !== 'string' || params.value === '') {
+      return crypto.randomUUID()
+    }
+
+    return params.value
+  }
+
+  protected _resolveTriggerName(params: { value: unknown }): string {
+    if (typeof params.value === 'string' && params.value.trim() !== '') {
+      return params.value.trim()
+    }
+
+    return 'Trigger'
+  }
+
+  protected _resolveTriggerTimes(params: { value: unknown }): string[] {
+    if (!Array.isArray(params.value)) {
+      return []
+    }
+
+    const times = params.value.filter((time): time is string => {
+      return typeof time === 'string' && TRIGGER_TIME_PATTERN.test(time)
+    })
+
+    return [...new Set(times)].sort()
+  }
+
+  protected _resolveTriggerTimeoutMs(params: { value: unknown }): number {
+    if (typeof params.value !== 'number' || !Number.isFinite(params.value)) {
+      return DEFAULT_TRIGGER_TIMEOUT_MS
+    }
+
+    const clampedTimeoutMs = Math.min(Math.max(params.value, MIN_TRIGGER_TIMEOUT_MS), MAX_TRIGGER_TIMEOUT_MS)
+
+    return Math.round(clampedTimeoutMs)
+  }
+
+  protected _resolveIsTriggerEnabled(params: { value: unknown }): boolean {
+    return params.value === true
   }
 
   protected _resolveTrackerId(params: { value: unknown }): string {

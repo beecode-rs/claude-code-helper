@@ -1,3 +1,5 @@
+import type { ITriggerConfig } from '#src/shared/trigger-model'
+
 export enum ClaudeTokenSource {
   MANUAL = 'manual',
   SYSTEM = 'system',
@@ -24,6 +26,7 @@ export type ITrackerConfig = IClaudeTrackerConfig | IZaiTrackerConfig
 
 export interface IAppSettings {
   trackers: ITrackerConfig[]
+  triggers: ITriggerConfig[]
 }
 
 export const MIN_REFRESH_INTERVAL_SECONDS = 60

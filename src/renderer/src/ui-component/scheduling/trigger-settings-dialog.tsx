@@ -164,8 +164,10 @@ export const TriggerSettingsDialog = (props: {
             Close
           </button>
         </header>
-        <TriggerConfigFields config={editedTrigger} onChange={setEditedTrigger} />
-        {errorMessage !== '' && <p className="settings-error">{errorMessage}</p>}
+        <div className="settings-panel-body">
+          <TriggerConfigFields config={editedTrigger} onChange={setEditedTrigger} />
+          {errorMessage !== '' && <p className="settings-error">{errorMessage}</p>}
+        </div>
         <div className="settings-dialog-actions">
           <button
             className="button button-primary"

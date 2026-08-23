@@ -2,10 +2,17 @@ import { contextBridge, ipcRenderer } from 'electron'
 
 import { IpcChannelMapper } from '#src/shared/ipc-channel'
 import { type IAppSettings } from '#src/shared/settings-model'
-import { type ISchedulingInfo, type ITriggerRegistrationHealth } from '#src/shared/trigger-model'
+import {
+  type ISchedulingInfo,
+  type ITriggerRegistrationHealth,
+  type ITriggerRunLogEntry,
+} from '#src/shared/trigger-model'
 import { type IUsageApiClient, type IUsageSnapshot, type UsageUpdateListener } from '#src/shared/usage-model'
 
 const usageApi: IUsageApiClient = {
+  clearTriggerRunLogs: (params: { triggerId: string }): Promise<void> => {
+    return ipcRenderer.invoke(IpcChannelMapper.TRIGGER_CLEAR_RUN_LOGS, params)
+  },
   getSchedulingInfo: (): Promise<ISchedulingInfo> => {
     return ipcRenderer.invoke(IpcChannelMapper.SCHEDULING_GET_INFO)
   },
@@ -14,6 +21,9 @@ const usageApi: IUsageApiClient = {
   },
   getSnapshot: (): Promise<IUsageSnapshot> => {
     return ipcRenderer.invoke(IpcChannelMapper.USAGE_GET_SNAPSHOT)
+  },
+  getTriggerRunLogs: (params: { triggerId: string }): Promise<ITriggerRunLogEntry[]> => {
+    return ipcRenderer.invoke(IpcChannelMapper.TRIGGER_GET_RUN_LOGS, params)
   },
   inspectTriggerRegistrations: (): Promise<ITriggerRegistrationHealth[]> => {
     return ipcRenderer.invoke(IpcChannelMapper.TRIGGER_OS_INSPECT)

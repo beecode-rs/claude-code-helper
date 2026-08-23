@@ -3,6 +3,7 @@ import type { TriggerDay } from '#src/shared/trigger-model'
 
 export interface ISchedulingRegistrationParams {
   days: TriggerDay[]
+  executableArgs: string[]
   executablePath: string
   times: string[]
   triggerId: string

@@ -1,5 +1,5 @@
 import type { IAppSettings } from '#src/shared/settings-model'
-import type { ISchedulingInfo, ITriggerRegistrationHealth } from '#src/shared/trigger-model'
+import type { ISchedulingInfo, ITriggerRegistrationHealth, ITriggerRunLogEntry } from '#src/shared/trigger-model'
 
 export type ProviderId = 'claude' | 'zai'
 
@@ -41,9 +41,11 @@ export interface IUsageSnapshot {
 export type UsageUpdateListener = (snapshot: IUsageSnapshot) => void
 
 export interface IUsageApiClient {
+  clearTriggerRunLogs: (params: { triggerId: string }) => Promise<void>
   getSettings: () => Promise<IAppSettings>
   getSchedulingInfo: () => Promise<ISchedulingInfo>
   getSnapshot: () => Promise<IUsageSnapshot>
+  getTriggerRunLogs: (params: { triggerId: string }) => Promise<ITriggerRunLogEntry[]>
   inspectTriggerRegistrations: () => Promise<ITriggerRegistrationHealth[]>
   onUsageUpdate: (listener: UsageUpdateListener) => () => void
   refreshNow: () => Promise<void>

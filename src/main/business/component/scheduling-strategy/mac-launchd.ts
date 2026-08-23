@@ -99,6 +99,18 @@ export class SchedulingStrategyMacLaunchd implements ISchedulingStrategy {
       throw new Error('Trigger registration requires a non-empty executablePath')
     }
 
+    if (params.executableArgs.length === 0) {
+      throw new Error('Trigger registration requires at least one executable argument')
+    }
+
+    const isEmptyArgument = params.executableArgs.some((argument) => {
+      return argument.trim() === ''
+    })
+
+    if (isEmptyArgument) {
+      throw new Error('Trigger registration requires non-empty executable arguments')
+    }
+
     if (params.days.length === 0) {
       throw new Error('Trigger registration requires at least one day')
     }
@@ -154,6 +166,12 @@ export class SchedulingStrategyMacLaunchd implements ISchedulingStrategy {
     })
   }
 
+  protected _buildProgramArgumentLines(params: ISchedulingRegistrationParams): string[] {
+    return [params.executablePath, ...params.executableArgs].map((argument) => {
+      return `\t\t<string>${this._escapeXml(argument)}</string>`
+    })
+  }
+
   protected _buildPlistXml(params: ISchedulingRegistrationParams): string {
     const calendarIntervals = this._buildCalendarIntervals({ days: params.days, times: params.times })
     const calendarIntervalLines = calendarIntervals.flatMap((interval) => {
@@ -177,9 +195,7 @@ export class SchedulingStrategyMacLaunchd implements ISchedulingStrategy {
       `\t<string>${this._escapeXml(this._resolveLabel({ triggerId: params.triggerId }))}</string>`,
       '\t<key>ProgramArguments</key>',
       '\t<array>',
-      `\t\t<string>${this._escapeXml(params.executablePath)}</string>`,
-      '\t\t<string>--fire-trigger</string>',
-      `\t\t<string>${this._escapeXml(params.triggerId)}</string>`,
+      ...this._buildProgramArgumentLines(params),
       '\t</array>',
       '\t<key>StartCalendarInterval</key>',
       '\t<array>',

@@ -5,11 +5,9 @@ import { TriggerConfigFields } from '#src/renderer/src/ui-component/scheduling/t
 import { errorUtil } from '#src/renderer/src/util/error-util'
 import { triggerValidationUtil } from '#src/renderer/src/util/trigger-validation-util'
 import { type IAppSettings } from '#src/shared/settings-model'
-import { DEFAULT_TRIGGER_TIMEOUT_MS, type ITriggerConfig, type TriggerDay } from '#src/shared/trigger-model'
+import { DEFAULT_TRIGGER_TIMEOUT_MS, type ITriggerConfig, MAX_WINDOW_TRIGGER_PRESET } from '#src/shared/trigger-model'
 
-const DEFAULT_TRIGGER_COMMAND = 'claude -p "What is your name?"'
-const DEFAULT_TRIGGER_TIMES = ['09:00', '13:00', '17:00']
-const WEEKDAY_TRIGGER_DAYS: TriggerDay[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+const DEFAULT_TRIGGER_COMMAND = 'claude -p "Reply with only your name. One word, no explanations, no punctuation."'
 
 export const AddTriggerDialog = (props: { onClose: () => void; onSaved: () => void }): ReactElement => {
   const { onClose, onSaved } = props
@@ -18,12 +16,12 @@ export const AddTriggerDialog = (props: { onClose: () => void; onSaved: () => vo
     return {
       command: DEFAULT_TRIGGER_COMMAND,
       createdAt: Date.now(),
-      days: [...WEEKDAY_TRIGGER_DAYS],
+      days: [...MAX_WINDOW_TRIGGER_PRESET.days],
       id: crypto.randomUUID(),
       isEnabled: true,
       name: '',
       timeoutMs: DEFAULT_TRIGGER_TIMEOUT_MS,
-      times: [...DEFAULT_TRIGGER_TIMES],
+      times: [...MAX_WINDOW_TRIGGER_PRESET.times],
     }
   })
   const [isSaving, setIsSaving] = useState(false)
@@ -93,8 +91,10 @@ export const AddTriggerDialog = (props: { onClose: () => void; onSaved: () => vo
             Close
           </button>
         </header>
-        <TriggerConfigFields config={newTrigger} onChange={setNewTrigger} />
-        {errorMessage !== '' && <p className="settings-error">{errorMessage}</p>}
+        <div className="settings-panel-body">
+          <TriggerConfigFields config={newTrigger} onChange={setNewTrigger} />
+          {errorMessage !== '' && <p className="settings-error">{errorMessage}</p>}
+        </div>
         <div className="settings-dialog-actions">
           <button
             className="button button-primary"

@@ -263,9 +263,21 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  max-height: calc(100vh - 64px);
   max-width: 440px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 24px;
   width: 90vw;
+}
+
+.settings-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .settings-panel-header {

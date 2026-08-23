@@ -3,10 +3,14 @@ import type { IAppSettings } from '#src/shared/settings-model'
 import type { ISchedulingInfo, ITriggerConfig, ITriggerRegistrationHealth } from '#src/shared/trigger-model'
 
 export class SchedulingService {
+  protected readonly _executablePrefixArgs: string[]
+  protected readonly _executablePath: string
   protected readonly _fingerprintsByTriggerId = new Map<string, string>()
   protected readonly _strategy: ISchedulingStrategy
 
-  constructor(params: { strategy: ISchedulingStrategy }) {
+  constructor(params: { executablePrefixArgs?: string[]; executablePath?: string; strategy: ISchedulingStrategy }) {
+    this._executablePrefixArgs = params.executablePrefixArgs ?? []
+    this._executablePath = params.executablePath ?? process.execPath
     this._strategy = params.strategy
   }
 
@@ -85,7 +89,11 @@ export class SchedulingService {
       return
     }
 
-    const fingerprint = this._resolveRegistrationFingerprint({ trigger: params.trigger })
+    const executableArgs = this._resolveExecutableArgs({ triggerId: params.trigger.id })
+    const fingerprint = this._resolveRegistrationFingerprint({
+      executableArgs,
+      trigger: params.trigger,
+    })
     const syncedFingerprint = this._fingerprintsByTriggerId.get(params.trigger.id)
     const isRegistrationCurrent = params.registeredIds.has(params.trigger.id) && syncedFingerprint === fingerprint
 
@@ -95,7 +103,8 @@ export class SchedulingService {
 
     await this._strategy.upsertRegistration({
       days: params.trigger.days,
-      executablePath: process.execPath,
+      executableArgs,
+      executablePath: this._executablePath,
       times: params.trigger.times,
       triggerId: params.trigger.id,
     })
@@ -111,9 +120,15 @@ export class SchedulingService {
     this._fingerprintsByTriggerId.delete(params.triggerId)
   }
 
-  protected _resolveRegistrationFingerprint(params: { trigger: ITriggerConfig }): string {
+  protected _resolveExecutableArgs(params: { triggerId: string }): string[] {
+    return [...this._executablePrefixArgs, '--fire-trigger', params.triggerId]
+  }
+
+  protected _resolveRegistrationFingerprint(params: { executableArgs: string[]; trigger: ITriggerConfig }): string {
     return JSON.stringify({
       days: [...params.trigger.days].sort(),
+      executableArgs: params.executableArgs,
+      executablePath: this._executablePath,
       times: [...params.trigger.times].sort(),
     })
   }

@@ -3,18 +3,26 @@ import { type ReactElement, useEffect, useState } from 'react'
 import { schedulingClientService } from '#src/renderer/src/business/service/scheduling-client-service'
 import { usageClientService } from '#src/renderer/src/business/service/usage-client-service'
 import { AddTriggerDialog } from '#src/renderer/src/ui-component/scheduling/add-trigger-dialog'
+import { ClearRunsDialog } from '#src/renderer/src/ui-component/scheduling/clear-runs-dialog'
 import '#src/renderer/src/ui-component/scheduling/scheduling.css'
 import { TriggerSettingsDialog } from '#src/renderer/src/ui-component/scheduling/trigger-settings-dialog'
+import { TriggerWindowExplainer } from '#src/renderer/src/ui-component/scheduling/trigger-window-explainer'
 import '#src/renderer/src/ui-component/usage-dashboard/usage-dashboard.css'
+import { dateUtil } from '#src/renderer/src/util/date-util'
 import { errorUtil } from '#src/renderer/src/util/error-util'
+import { type ITriggerRunSummary, triggerRunUtil } from '#src/renderer/src/util/trigger-run-util'
 import { type OsPlatform } from '#src/shared/os-model'
 import { type IAppSettings } from '#src/shared/settings-model'
 import {
   type ISchedulingInfo,
   type ITriggerConfig,
   type ITriggerRegistrationHealth,
+  type ITriggerRunLogEntry,
   TRIGGER_DAYS,
+  TRIGGER_RUN_EXIT_CODE_TIMED_OUT,
   type TriggerDay,
+  type TriggerRunSkipReason,
+  type TriggerRunSource,
 } from '#src/shared/trigger-model'
 
 const TRIGGER_DAY_LABELS: Record<TriggerDay, string> = {
@@ -47,13 +55,219 @@ const resolvePlatformLabel = (platform: OsPlatform): string => {
   }
 }
 
+const resolveFinishedOutcome = (params: { exitCode: number }): { className: string; label: string } => {
+  if (params.exitCode === 0) {
+    return { className: 'trigger-run-badge is-ok', label: 'OK' }
+  }
+
+  if (params.exitCode === TRIGGER_RUN_EXIT_CODE_TIMED_OUT) {
+    return { className: 'trigger-run-badge is-failed', label: 'Timed out' }
+  }
+
+  return { className: 'trigger-run-badge is-failed', label: `Exit ${String(params.exitCode)}` }
+}
+
+const resolveCardClassName = (params: { isEnabled: boolean }): string => {
+  if (params.isEnabled) {
+    return 'trigger-card'
+  }
+
+  return 'trigger-card is-paused'
+}
+
+const resolveRunsButtonClassName = (params: { isExpanded: boolean }): string => {
+  if (params.isExpanded) {
+    return 'trigger-icon-button is-active'
+  }
+
+  return 'trigger-icon-button'
+}
+
+const resolveRunsButtonTitle = (params: { isExpanded: boolean }): string => {
+  if (params.isExpanded) {
+    return 'Hide runs'
+  }
+
+  return 'Show runs'
+}
+
+const resolveSwitchTitle = (params: { isEnabled: boolean }): string => {
+  if (params.isEnabled) {
+    return 'Pause trigger'
+  }
+
+  return 'Enable trigger'
+}
+
+const resolveRunDurationPart = (params: { summary: ITriggerRunSummary }): string => {
+  if (params.summary.phase !== 'finished') {
+    return ''
+  }
+
+  return dateUtil.formatPreciseDuration(params.summary.durationMs)
+}
+
+const resolveRunExitCodePart = (params: { summary: ITriggerRunSummary }): string => {
+  if (params.summary.phase !== 'finished') {
+    return ''
+  }
+
+  return `exit ${String(params.summary.exitCode)}`
+}
+
+const resolveRunMeta = (summary: ITriggerRunSummary): string => {
+  return [
+    resolveRunDurationPart({ summary }),
+    resolveRunExitCodePart({ summary }),
+    resolveRunSourceLabel(summary.trigger),
+  ]
+    .filter((part) => {
+      return part !== ''
+    })
+    .join(' · ')
+}
+
+const resolveRunOutcome = (summary: ITriggerRunSummary): { className: string; label: string } => {
+  switch (summary.phase) {
+    case 'finished': {
+      return resolveFinishedOutcome({ exitCode: summary.exitCode })
+    }
+
+    case 'skipped': {
+      return resolveSkippedOutcome({ skipReason: summary.skipReason })
+    }
+
+    case 'started': {
+      return { className: 'trigger-run-badge is-running', label: 'Running…' }
+    }
+
+    default: {
+      throw new Error(`unsupported run phase: ${String(summary.phase)}`)
+    }
+  }
+}
+
+const resolveRunSourceLabel = (source: TriggerRunSource): string => {
+  switch (source) {
+    case 'manual': {
+      return 'Manual'
+    }
+
+    case 'os-schedule': {
+      return 'OS schedule'
+    }
+
+    default: {
+      throw new Error(`unsupported run source: ${String(source)}`)
+    }
+  }
+}
+
+const resolveSkipReasonLabel = (skipReason: TriggerRunSkipReason): string => {
+  switch (skipReason) {
+    case 'disabled': {
+      return 'Disabled'
+    }
+
+    case 'not-found': {
+      return 'Trigger removed'
+    }
+
+    case 'not-scheduled-day': {
+      return 'Day not scheduled'
+    }
+
+    case 'stale': {
+      return 'Stale fire'
+    }
+
+    default: {
+      throw new Error(`unsupported skip reason: ${String(skipReason)}`)
+    }
+  }
+}
+
+const resolveSkippedOutcome = (params: {
+  skipReason: TriggerRunSkipReason | ''
+}): { className: string; label: string } => {
+  if (params.skipReason === '') {
+    return { className: 'trigger-run-badge is-skipped', label: 'Skipped' }
+  }
+
+  return {
+    className: 'trigger-run-badge is-skipped',
+    label: `Skipped · ${resolveSkipReasonLabel(params.skipReason)}`,
+  }
+}
+
+const renderGearIcon = (): ReactElement => {
+  return (
+    <svg
+      fill="none"
+      height="15"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+      width="15"
+    >
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
+const renderTerminalIcon = (): ReactElement => {
+  return (
+    <svg
+      fill="none"
+      height="15"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+      width="15"
+    >
+      <polyline points="4 17 10 11 4 5" />
+      <line x1="12" x2="20" y1="19" y2="19" />
+    </svg>
+  )
+}
+
+const renderTrashIcon = (): ReactElement => {
+  return (
+    <svg
+      fill="none"
+      height="15"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+      width="15"
+    >
+      <path d="M3 6h18" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <line x1="10" x2="10" y1="11" y2="17" />
+      <line x1="14" x2="14" y1="11" y2="17" />
+    </svg>
+  )
+}
+
 export const SchedulingPage = (): ReactElement => {
   const [settings, setSettings] = useState<IAppSettings | undefined>(undefined)
   const [schedulingInfo, setSchedulingInfo] = useState<ISchedulingInfo | undefined>(undefined)
   const [healthByTriggerId, setHealthByTriggerId] = useState<Record<string, ITriggerRegistrationHealth>>({})
   const [healthErrorMessage, setHealthErrorMessage] = useState('')
+  const [expandedTriggerIds, setExpandedTriggerIds] = useState<Set<string>>(new Set<string>())
+  const [runsByTriggerId, setRunsByTriggerId] = useState<Record<string, ITriggerRunLogEntry[]>>({})
+  const [runsErrorMessage, setRunsErrorMessage] = useState('')
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [openTriggerId, setOpenTriggerId] = useState<string | undefined>(undefined)
+  const [clearingTriggerId, setClearingTriggerId] = useState<string | undefined>(undefined)
 
   const loadHealth = async (): Promise<void> => {
     setHealthErrorMessage('')
@@ -87,6 +301,40 @@ export const SchedulingPage = (): ReactElement => {
     }
   }
 
+  const loadRuns = async (params: { triggerId: string }): Promise<void> => {
+    setRunsErrorMessage('')
+
+    try {
+      const entries = await schedulingClientService.getTriggerRunLogs({ triggerId: params.triggerId })
+
+      setRunsByTriggerId((previous) => {
+        return { ...previous, [params.triggerId]: entries }
+      })
+    } catch (error) {
+      setRunsErrorMessage(errorUtil.resolveMessage(error))
+    }
+  }
+
+  const handleClearRuns = async (params: { triggerId: string }): Promise<void> => {
+    setRunsErrorMessage('')
+
+    try {
+      await schedulingClientService.clearTriggerRunLogs({ triggerId: params.triggerId })
+      await loadRuns({ triggerId: params.triggerId })
+    } catch (error) {
+      setRunsErrorMessage(errorUtil.resolveMessage(error))
+    }
+  }
+
+  const handleConfirmClearRuns = async (): Promise<void> => {
+    if (clearingTriggerId === undefined) {
+      return
+    }
+
+    await handleClearRuns({ triggerId: clearingTriggerId })
+    setClearingTriggerId(undefined)
+  }
+
   const handleToggleTrigger = async (params: { isEnabled: boolean; triggerId: string }): Promise<void> => {
     const nextSettings = await schedulingClientService.setTriggerEnabled(params)
 
@@ -99,6 +347,26 @@ export const SchedulingPage = (): ReactElement => {
 
   const handleSaved = (): void => {
     void loadPage()
+  }
+
+  const handleToggleRuns = (params: { triggerId: string }): void => {
+    const isExpanded = expandedTriggerIds.has(params.triggerId)
+
+    setExpandedTriggerIds((previous) => {
+      if (isExpanded) {
+        return new Set(
+          [...previous].filter((candidateTriggerId) => {
+            return candidateTriggerId !== params.triggerId
+          }),
+        )
+      }
+
+      return new Set([...previous, params.triggerId])
+    })
+
+    if (!isExpanded) {
+      void loadRuns({ triggerId: params.triggerId })
+    }
   }
 
   useEffect(() => {
@@ -129,6 +397,49 @@ export const SchedulingPage = (): ReactElement => {
     return { className: 'trigger-badge is-missing', label: 'Missing' }
   }
 
+  const resolveRunsContent = (params: { triggerId: string }): ReactElement => {
+    const entries = runsByTriggerId[params.triggerId]
+
+    if (runsErrorMessage !== '') {
+      return <p className="trigger-run-empty">{runsErrorMessage}</p>
+    }
+
+    if (entries === undefined) {
+      return <p className="trigger-run-empty">Loading runs…</p>
+    }
+
+    const summaries = triggerRunUtil.groupRunsByEventId({ entries })
+
+    if (summaries.length === 0) {
+      return <p className="trigger-run-empty">No runs recorded yet.</p>
+    }
+
+    return (
+      <>
+        {summaries.map((summary) => {
+          const outcome = resolveRunOutcome(summary)
+
+          return (
+            <div className="trigger-run-row" key={summary.eventId}>
+              <div className="trigger-run-row-head">
+                <span className="trigger-run-time">
+                  {dateUtil.formatDateTime(Date.parse(summary.startedAtTimestamp))}
+                </span>
+                <span className={outcome.className}>{outcome.label}</span>
+                <span className="trigger-run-meta">{resolveRunMeta(summary)}</span>
+              </div>
+              {summary.outputSnippet !== '' && (
+                <code className="trigger-run-output" title={summary.outputSnippet}>
+                  {summary.outputSnippet}
+                </code>
+              )}
+            </div>
+          )
+        })}
+      </>
+    )
+  }
+
   if (settings === undefined || schedulingInfo === undefined) {
     return (
       <div className="scheduling">
@@ -156,6 +467,16 @@ export const SchedulingPage = (): ReactElement => {
           >
             + Add
           </button>
+          <button
+            className="button"
+            onClick={() => {
+              setIsAddOpen(true)
+            }}
+            type="button"
+          >
+            Max 5h windows
+          </button>
+          <TriggerWindowExplainer />
         </div>
       </header>
       {!schedulingInfo.isSupported && (
@@ -168,16 +489,20 @@ export const SchedulingPage = (): ReactElement => {
       <main className="scheduling-list">
         {triggers.map((trigger) => {
           const badge = resolveBadge(trigger)
+          const isExpanded = expandedTriggerIds.has(trigger.id)
 
           return (
-            <article className="trigger-card" key={trigger.id}>
+            <article className={resolveCardClassName({ isEnabled: trigger.isEnabled })} key={trigger.id}>
               <header className="trigger-card-header">
-                <div>
+                <div className="trigger-card-heading">
                   <h2 className="trigger-card-title">{trigger.name}</h2>
-                  <code className="trigger-card-command">{trigger.command}</code>
+                  <code className="trigger-card-command" title={trigger.command}>
+                    {trigger.command}
+                  </code>
                 </div>
-                <label className="trigger-toggle">
+                <label className="trigger-switch" title={resolveSwitchTitle({ isEnabled: trigger.isEnabled })}>
                   <input
+                    aria-label={resolveSwitchTitle({ isEnabled: trigger.isEnabled })}
                     checked={trigger.isEnabled}
                     onChange={(event) => {
                       void handleToggleTrigger({
@@ -187,6 +512,9 @@ export const SchedulingPage = (): ReactElement => {
                     }}
                     type="checkbox"
                   />
+                  <span className="trigger-switch-track">
+                    <span className="trigger-switch-knob" />
+                  </span>
                 </label>
               </header>
               <div className="trigger-card-chips">
@@ -201,16 +529,49 @@ export const SchedulingPage = (): ReactElement => {
               <footer className="trigger-card-footer">
                 <span className="trigger-card-times">{trigger.times.join(' · ')}</span>
                 <span className={badge.className}>{badge.label}</span>
-                <button
-                  className="button"
-                  onClick={() => {
-                    setOpenTriggerId(trigger.id)
-                  }}
-                  type="button"
-                >
-                  Edit
-                </button>
+                <div className="trigger-card-actions">
+                  <button
+                    aria-label={resolveRunsButtonTitle({ isExpanded })}
+                    className={resolveRunsButtonClassName({ isExpanded })}
+                    onClick={() => {
+                      handleToggleRuns({ triggerId: trigger.id })
+                    }}
+                    title={resolveRunsButtonTitle({ isExpanded })}
+                    type="button"
+                  >
+                    {renderTerminalIcon()}
+                  </button>
+                  <button
+                    aria-label="Edit trigger"
+                    className="trigger-icon-button"
+                    onClick={() => {
+                      setOpenTriggerId(trigger.id)
+                    }}
+                    title="Edit trigger"
+                    type="button"
+                  >
+                    {renderGearIcon()}
+                  </button>
+                </div>
               </footer>
+              {expandedTriggerIds.has(trigger.id) && (
+                <div className="trigger-runs">
+                  <div className="trigger-runs-toolbar">
+                    <button
+                      aria-label="Clear run logs"
+                      className="trigger-icon-button is-danger"
+                      onClick={() => {
+                        setClearingTriggerId(trigger.id)
+                      }}
+                      title="Clear run logs"
+                      type="button"
+                    >
+                      {renderTrashIcon()}
+                    </button>
+                  </div>
+                  {resolveRunsContent({ triggerId: trigger.id })}
+                </div>
+              )}
             </article>
           )
         })}
@@ -244,6 +605,16 @@ export const SchedulingPage = (): ReactElement => {
           }}
           onSaved={handleSaved}
           triggerId={openTriggerId}
+        />
+      )}
+      {clearingTriggerId !== undefined && (
+        <ClearRunsDialog
+          onClose={() => {
+            setClearingTriggerId(undefined)
+          }}
+          onConfirm={() => {
+            void handleConfirmClearRuns()
+          }}
         />
       )}
     </div>

@@ -1,13 +1,18 @@
 import { type BrowserWindow, ipcMain } from 'electron'
 
 import { type SettingsRepo } from '#src/main/business/repo/settings-repo'
+import { type TriggerRunLogRepo } from '#src/main/business/repo/trigger-run-log-repo'
 import { type SchedulingService } from '#src/main/business/service/scheduling-service'
 import { SettingsService } from '#src/main/business/service/settings-service'
 import { type UsagePollService } from '#src/main/business/service/usage-poll-service'
 import { objectUtil } from '#src/main/util/object-util'
 import { IpcChannelMapper } from '#src/shared/ipc-channel'
 import { type IAppSettings } from '#src/shared/settings-model'
-import { type ISchedulingInfo, type ITriggerRegistrationHealth } from '#src/shared/trigger-model'
+import {
+  type ISchedulingInfo,
+  type ITriggerRegistrationHealth,
+  type ITriggerRunLogEntry,
+} from '#src/shared/trigger-model'
 import { type IUsageSnapshot } from '#src/shared/usage-model'
 
 export const ipcController = {
@@ -16,6 +21,7 @@ export const ipcController = {
     pollService: UsagePollService
     schedulingService: SchedulingService
     settingsRepo: SettingsRepo
+    triggerRunLogRepo: TriggerRunLogRepo
   }): void => {
     ipcMain.handle(IpcChannelMapper.SCHEDULING_GET_INFO, (): ISchedulingInfo => {
       return params.schedulingService.getSchedulingInfo()
@@ -34,6 +40,31 @@ export const ipcController = {
 
       return settings
     })
+
+    ipcMain.handle(IpcChannelMapper.TRIGGER_CLEAR_RUN_LOGS, async (_event, rawParams: unknown): Promise<void> => {
+      const rawRecord = objectUtil.asRecord(rawParams)
+      const triggerId = rawRecord?.['triggerId']
+
+      if (typeof triggerId !== 'string') {
+        return
+      }
+
+      await params.triggerRunLogRepo.removeByTriggerId({ triggerId })
+    })
+
+    ipcMain.handle(
+      IpcChannelMapper.TRIGGER_GET_RUN_LOGS,
+      async (_event, rawParams: unknown): Promise<ITriggerRunLogEntry[]> => {
+        const rawRecord = objectUtil.asRecord(rawParams)
+        const triggerId = rawRecord?.['triggerId']
+
+        if (typeof triggerId !== 'string') {
+          return []
+        }
+
+        return await params.triggerRunLogRepo.listByTriggerId({ triggerId })
+      },
+    )
 
     ipcMain.handle(IpcChannelMapper.TRIGGER_OS_INSPECT, async (): Promise<ITriggerRegistrationHealth[]> => {
       const settings = await params.settingsRepo.load()

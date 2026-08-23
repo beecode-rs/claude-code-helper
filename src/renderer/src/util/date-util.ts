@@ -52,4 +52,22 @@ export const dateUtil = {
       minute: '2-digit',
     })
   },
+
+  formatPreciseDuration: (durationMs: number): string => {
+    const totalSeconds = Math.max(0, durationMs) / 1000
+    const totalMinutes = Math.floor(totalSeconds / 60)
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = totalMinutes % 60
+    const seconds = Math.floor(totalSeconds % 60)
+
+    if (totalSeconds < 60) {
+      return `${totalSeconds.toFixed(1)}s`
+    }
+
+    if (hours === 0) {
+      return `${String(minutes)}m ${String(seconds)}s`
+    }
+
+    return `${String(hours)}h ${String(minutes)}m`
+  },
 }

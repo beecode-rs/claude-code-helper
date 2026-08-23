@@ -103,7 +103,7 @@ export const TriggerConfigFields = (props: {
           onChange={(event) => {
             onChange({ ...config, command: event.target.value })
           }}
-          placeholder='claude -p "What is your name?"'
+          placeholder='claude -p "Reply with only your name. One word, no explanations, no punctuation."'
           type="text"
           value={config.command}
         />

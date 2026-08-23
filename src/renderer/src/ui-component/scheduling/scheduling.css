@@ -622,6 +622,14 @@
   color: var(--meter-warning);
 }
 
+.window-planner-hour-mark {
+  border-left: 1px dotted var(--hairline);
+  bottom: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+}
+
 .window-planner-dials {
   display: flex;
   gap: 12px;
@@ -643,7 +651,8 @@
 }
 
 .window-planner-panel {
-  max-width: 520px;
+  max-width: none;
+  width: 90%;
 }
 
 .window-planner-range {

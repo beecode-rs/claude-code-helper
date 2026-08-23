@@ -3,8 +3,9 @@ import { type ReactElement, useEffect, useState } from 'react'
 import { sessionsClientService } from '#src/renderer/src/business/service/sessions-client-service'
 import { usageClientService } from '#src/renderer/src/business/service/usage-client-service'
 import { SessionCard } from '#src/renderer/src/ui-component/sessions/session-card'
-import { SessionsAutoRefreshToggle } from '#src/renderer/src/ui-component/sessions/sessions-auto-refresh-toggle'
+import { SessionsAutoRefreshButton } from '#src/renderer/src/ui-component/sessions/sessions-auto-refresh-button'
 import { SessionsRefreshButton } from '#src/renderer/src/ui-component/sessions/sessions-refresh-button'
+import { SessionsRefreshProgressBar } from '#src/renderer/src/ui-component/sessions/sessions-refresh-progress-bar'
 import { SessionsSettingsButton } from '#src/renderer/src/ui-component/sessions/sessions-settings-button'
 import { SessionsSettingsDialog } from '#src/renderer/src/ui-component/sessions/sessions-settings-dialog'
 import { SshHostsButton } from '#src/renderer/src/ui-component/sessions/ssh-hosts-button'
@@ -31,18 +32,23 @@ const resolveUnreachableHostsLabel = (hosts: IUnreachableHost[]): string => {
   return `Unreachable SSH hosts: ${hostParts.join(' · ')}`
 }
 
-const resolveUpdatedAgoLabel = (params: { fetchedAt: number; nowMs: number }): string => {
-  const secondsAgo = Math.max(0, Math.round((params.nowMs - params.fetchedAt) / 1000))
-
-  return `Updated ${String(secondsAgo)}s ago`
-}
-
 const resolveSessionsWord = (count: number): string => {
   if (count === 1) {
     return 'session'
   }
 
   return 'sessions'
+}
+
+const resolveRefreshProgressPercent = (params: {
+  cycleStartedAtMs: number
+  intervalSeconds: number
+  nowMs: number
+}): number => {
+  const intervalMs = params.intervalSeconds * 1000
+  const elapsedMs = Math.min(intervalMs, Math.max(0, params.nowMs - params.cycleStartedAtMs))
+
+  return (elapsedMs / intervalMs) * 100
 }
 
 const resolveSummaryLabel = (sessions: ISessionInfo[]): string => {
@@ -96,6 +102,7 @@ export const SessionsPage = (): ReactElement => {
     return Date.now()
   })
   const [expandedSessionKeys, setExpandedSessionKeys] = useState<Set<string>>(new Set<string>())
+  const [autoRefreshCycleStartedAtMs, setAutoRefreshCycleStartedAtMs] = useState<number | undefined>(undefined)
 
   const loadSessions = async (): Promise<void> => {
     try {
@@ -118,14 +125,14 @@ export const SessionsPage = (): ReactElement => {
     }
   }
 
-  const toggleAutoRefresh = async (params: { isEnabled: boolean }): Promise<void> => {
+  const toggleAutoRefresh = async (): Promise<void> => {
     if (settings === undefined) {
       return
     }
 
     try {
       const nextSettings = await usageClientService.saveSettings({
-        settings: { ...settings, isSessionsAutoRefreshPaused: !params.isEnabled },
+        settings: { ...settings, isSessionsAutoRefreshPaused: !settings.isSessionsAutoRefreshPaused },
       })
 
       setSettings(nextSettings)
@@ -167,10 +174,15 @@ export const SessionsPage = (): ReactElement => {
     void loadSessions()
 
     if (isAutoRefreshPaused) {
+      setAutoRefreshCycleStartedAtMs(undefined)
+
       return
     }
 
+    setAutoRefreshCycleStartedAtMs(Date.now())
+
     const refreshIntervalId = setInterval(() => {
+      setAutoRefreshCycleStartedAtMs(Date.now())
       void loadSessions()
     }, refreshIntervalSeconds * 1000)
 
@@ -201,13 +213,10 @@ export const SessionsPage = (): ReactElement => {
           <p className="sessions-subtitle">{resolveSummaryLabel(sessions)}</p>
         </div>
         <div className="sessions-actions">
-          {snapshot !== undefined && (
-            <span className="sessions-updated">{resolveUpdatedAgoLabel({ fetchedAt: snapshot.fetchedAt, nowMs })}</span>
-          )}
-          <SessionsAutoRefreshToggle
-            isEnabled={!isAutoRefreshPaused}
-            onToggle={(isEnabled) => {
-              void toggleAutoRefresh({ isEnabled })
+          <SessionsAutoRefreshButton
+            isPaused={isAutoRefreshPaused}
+            onToggle={() => {
+              void toggleAutoRefresh()
             }}
           />
           <SessionsRefreshButton
@@ -290,6 +299,15 @@ export const SessionsPage = (): ReactElement => {
             void loadSessionsSettings()
             void loadSessions()
           }}
+        />
+      )}
+      {autoRefreshCycleStartedAtMs !== undefined && (
+        <SessionsRefreshProgressBar
+          percent={resolveRefreshProgressPercent({
+            cycleStartedAtMs: autoRefreshCycleStartedAtMs,
+            intervalSeconds: refreshIntervalSeconds,
+            nowMs,
+          })}
         />
       )}
     </div>

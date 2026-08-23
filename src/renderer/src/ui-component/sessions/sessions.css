@@ -33,69 +33,6 @@
   gap: 12px;
 }
 
-.sessions-updated {
-  color: var(--ink-muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-
-.sessions-switch {
-  align-items: center;
-  color: var(--ink-secondary);
-  cursor: pointer;
-  display: inline-flex;
-  flex-shrink: 0;
-  font-size: 12px;
-  gap: 8px;
-  white-space: nowrap;
-}
-
-.sessions-switch input {
-  height: 1px;
-  margin: 0;
-  opacity: 0;
-  position: absolute;
-  width: 1px;
-}
-
-.sessions-switch input:focus-visible ~ .sessions-switch-track {
-  outline: 2px solid var(--meter-accent);
-  outline-offset: 2px;
-}
-
-.sessions-switch input:checked ~ .sessions-switch-track {
-  background: var(--meter-accent);
-}
-
-.sessions-switch input:checked ~ .sessions-switch-track .sessions-switch-knob {
-  background: var(--ink-primary);
-  transform: translateX(16px);
-}
-
-.sessions-switch-knob {
-  background: var(--ink-muted);
-  border-radius: 999px;
-  display: block;
-  height: 14px;
-  left: 3px;
-  position: absolute;
-  top: 3px;
-  transition:
-    background 0.2s ease,
-    transform 0.2s ease;
-  width: 14px;
-}
-
-.sessions-switch-track {
-  background: var(--meter-track);
-  border-radius: 999px;
-  display: block;
-  height: 20px;
-  position: relative;
-  transition: background 0.2s ease;
-  width: 36px;
-}
-
 .sessions-legend {
   align-items: center;
   display: flex;
@@ -443,6 +380,27 @@
 .sessions-icon-button:hover {
   background: color-mix(in srgb, var(--ink-muted) 14%, transparent);
   color: var(--ink-primary);
+}
+
+.sessions-icon-button.is-paused {
+  color: var(--meter-accent);
+}
+
+.sessions-progress-track {
+  background: var(--meter-track);
+  bottom: 0;
+  height: 2px;
+  left: 0;
+  overflow: hidden;
+  position: fixed;
+  right: 0;
+  z-index: 3;
+}
+
+.sessions-progress-fill {
+  background: var(--meter-accent);
+  height: 100%;
+  transition: width 1s linear;
 }
 
 .sessions-close-button {

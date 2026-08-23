@@ -11,13 +11,13 @@ import {
   plannerDialUtil,
 } from '#src/renderer/src/util/planner-dial-util'
 
-const DIAL_CENTER = 30
+const DIAL_SIZE = 76
+
+const DIAL_CENTER = DIAL_SIZE / 2
 
 const DIAL_KNOB_RADIUS = 3.5
 
-const DIAL_RADIUS = 23
-
-const DIAL_SIZE = 60
+const DIAL_RADIUS = DIAL_SIZE / 2 - 7
 
 const resolvePointOnCircle = (params: {
   angleDegrees: number

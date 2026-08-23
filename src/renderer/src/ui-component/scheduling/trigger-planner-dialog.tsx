@@ -57,6 +57,32 @@ const resolveBarLayout = (params: {
   }
 }
 
+const resolveBarHourMarks = (params: {
+  endMinutes: number
+  startMinutes: number
+}): { leftPercent: number; minutes: number }[] => {
+  const clippedStartMinutes = Math.max(params.startMinutes, 0)
+  const clippedEndMinutes = Math.min(params.endMinutes, PLANNER_DAY_MINUTES)
+  const spanMinutes = clippedEndMinutes - clippedStartMinutes
+
+  if (spanMinutes <= 0) {
+    return []
+  }
+
+  const firstHour = Math.floor(clippedStartMinutes / 60) + 1
+  const lastHour = Math.ceil(clippedEndMinutes / 60) - 1
+  const hourCount = Math.max(0, lastHour - firstHour + 1)
+
+  return Array.from({ length: hourCount }, (_, index) => {
+    const hourMinutes = (firstHour + index) * 60
+
+    return {
+      leftPercent: ((hourMinutes - clippedStartMinutes) / spanMinutes) * 100,
+      minutes: hourMinutes,
+    }
+  })
+}
+
 const resolveTickClassName = (minutes: number): string => {
   if (minutes === 0) {
     return 'window-planner-tick is-first'
@@ -75,6 +101,14 @@ const resolveWindowBarLabel = (window: IPlannerWindow): string => {
   }
 
   return `${window.startTime} → ${formatDayMinutes(window.endMinutes)}`
+}
+
+const renderBarHourMarks = (params: { endMinutes: number; startMinutes: number }): ReactElement[] => {
+  return resolveBarHourMarks(params).map((mark) => {
+    return (
+      <span className="window-planner-hour-mark" key={mark.minutes} style={{ left: `${String(mark.leftPercent)}%` }} />
+    )
+  })
 }
 
 const resolveWindowsSentence = (windows: IPlannerWindow[]): string => {
@@ -110,6 +144,18 @@ export const TriggerPlannerDialog = (props: {
     })
   }
 
+  const handleLunchStartHourChange = (hour: number): void => {
+    setLunchStartMinutes(hour * 60)
+  }
+
+  const handleWorkDurationHoursChange = (hours: number): void => {
+    setWorkDurationMinutes(hours * 60)
+  }
+
+  const handleWorkStartHourChange = (hour: number): void => {
+    setWorkStartMinutes(hour * 60)
+  }
+
   return (
     <div className="settings-overlay">
       <section className="settings-panel window-planner-panel">
@@ -130,27 +176,27 @@ export const TriggerPlannerDialog = (props: {
               label="Work start"
               max={23}
               min={0}
-              onChange={setWorkStartMinutes}
+              onChange={handleWorkStartHourChange}
               step={1}
-              value={workStartMinutes}
+              value={workStartMinutes / 60}
             />
             <PlannerDial
               formatValue={formatWorkDurationDialValue}
               label="Work hours"
               max={16}
               min={1}
-              onChange={setWorkDurationMinutes}
+              onChange={handleWorkDurationHoursChange}
               step={1}
-              value={workDurationMinutes}
+              value={workDurationMinutes / 60}
             />
             <PlannerDial
               formatValue={formatHourDialValue}
               label="Lunch start"
               max={23}
               min={0}
-              onChange={setLunchStartMinutes}
+              onChange={handleLunchStartHourChange}
               step={1}
-              value={lunchStartMinutes}
+              value={lunchStartMinutes / 60}
             />
           </div>
           <label className="settings-field">
@@ -182,18 +228,11 @@ export const TriggerPlannerDialog = (props: {
                       width: `${String(layout.widthPercent)}%`,
                     }}
                   >
+                    {renderBarHourMarks({ endMinutes: window.endMinutes, startMinutes: window.startMinutes })}
                     {resolveWindowBarLabel(window)}
                   </div>
                 )
               })}
-              <div
-                className="window-planner-bar is-lunch"
-                style={{
-                  left: `${String(lunchBarLayout.leftPercent)}%`,
-                  width: `${String(lunchBarLayout.widthPercent)}%`,
-                }}
-                title={lunchBarTitle}
-              />
             </div>
             <div className="window-planner-lane">
               <div
@@ -204,8 +243,17 @@ export const TriggerPlannerDialog = (props: {
                 }}
                 title={workBarTitle}
               >
+                {renderBarHourMarks({ endMinutes: workEndMinutes, startMinutes: workStartMinutes })}
                 {workBarTitle}
               </div>
+              <div
+                className="window-planner-bar is-lunch"
+                style={{
+                  left: `${String(lunchBarLayout.leftPercent)}%`,
+                  width: `${String(lunchBarLayout.widthPercent)}%`,
+                }}
+                title={lunchBarTitle}
+              />
             </div>
             <div className="window-planner-ticks">
               {TIMELINE_TICKS.map((tick) => {

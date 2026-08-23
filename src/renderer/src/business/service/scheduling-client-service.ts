@@ -18,6 +18,11 @@ export const schedulingClientService = {
   inspectTriggerRegistrations: (): Promise<ITriggerRegistrationHealth[]> => {
     return window.usageApi.inspectTriggerRegistrations()
   },
+  setSchedulingEnabled: (params: { isEnabled: boolean }): Promise<IAppSettings> => {
+    return window.usageApi.setSchedulingEnabled({
+      isEnabled: params.isEnabled,
+    })
+  },
   setTriggerEnabled: (params: { isEnabled: boolean; triggerId: string }): Promise<IAppSettings> => {
     return window.usageApi.setTriggerEnabled({
       isEnabled: params.isEnabled,

@@ -6,6 +6,8 @@ import { SettingsRepo } from '#src/main/business/repo/settings-repo'
 import { TriggerRunLogRepo } from '#src/main/business/repo/trigger-run-log-repo'
 import { UsageSnapshotRepo } from '#src/main/business/repo/usage-snapshot-repo'
 import { SchedulingService } from '#src/main/business/service/scheduling-service'
+import { SessionsService } from '#src/main/business/service/sessions-service'
+import { SshSessionsService } from '#src/main/business/service/ssh-sessions-service'
 import { TriggerRunnerService } from '#src/main/business/service/trigger-runner-service'
 import { UsagePollService } from '#src/main/business/service/usage-poll-service'
 import { ipcController } from '#src/main/controller/ipc-controller'
@@ -69,6 +71,8 @@ const bootstrapApp = async (): Promise<void> => {
     executablePrefixArgs: resolveExecutablePrefixArgs(),
     strategy: new SchedulingStrategyFactory().resolve(),
   })
+  const sessionsService = new SessionsService()
+  const sshSessionsService = new SshSessionsService()
   const triggerRunLogRepo = new TriggerRunLogRepo({
     logFilePath: join(app.getPath('userData'), 'usage-pulse-trigger-log.jsonl'),
   })
@@ -85,7 +89,9 @@ const bootstrapApp = async (): Promise<void> => {
     },
     pollService,
     schedulingService,
+    sessionsService,
     settingsRepo,
+    sshSessionsService,
     triggerRunLogRepo,
   })
   await pollService.start({ settings })

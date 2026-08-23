@@ -3,6 +3,7 @@ import { type ReactElement, useEffect, useState } from 'react'
 import { usageClientService } from '#src/renderer/src/business/service/usage-client-service'
 import { AddTrackerDialog } from '#src/renderer/src/ui-component/tracker/add-tracker-dialog'
 import { TrackerSettingsDialog } from '#src/renderer/src/ui-component/tracker/tracker-settings-dialog'
+import { DashboardAddButton } from '#src/renderer/src/ui-component/usage-dashboard/dashboard-add-button'
 import { ProviderUsageCard } from '#src/renderer/src/ui-component/usage-dashboard/provider-usage-card'
 import '#src/renderer/src/ui-component/usage-dashboard/usage-dashboard.css'
 import type { IAppSettings } from '#src/shared/settings-model'
@@ -98,15 +99,12 @@ export const UsageDashboard = (): ReactElement => {
           <p className="dashboard-subtitle">Track usage limits for your coding plans</p>
         </div>
         <div className="dashboard-actions">
-          <button
-            className="button"
+          <DashboardAddButton
+            label="Add tracker"
             onClick={() => {
               setIsAddOpen(true)
             }}
-            type="button"
-          >
-            + Add
-          </button>
+          />
         </div>
       </header>
       <main className="dashboard-grid">

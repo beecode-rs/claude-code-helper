@@ -1,6 +1,6 @@
 {
 	"name": "usage-pulse",
-	"version": "1.0.0",
+	"version": "0.1.0",
 	"description": "Desktop tracker for Claude and z.ai coding-plan usage limits",
 	"license": "MIT",
 	"author": "milos",

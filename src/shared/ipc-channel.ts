@@ -1,5 +1,9 @@
 export enum IpcChannelMapper {
   SCHEDULING_GET_INFO = 'scheduling:get-info',
+  SCHEDULING_SET_ENABLED = 'scheduling:set-enabled',
+  SESSIONS_FOCUS = 'sessions:focus',
+  SESSIONS_LIST = 'sessions:list',
+  SESSIONS_TEST_SSH_HOST = 'sessions:test-ssh-host',
   SETTINGS_GET = 'settings:get',
   SETTINGS_SAVE = 'settings:save',
   TRIGGER_CLEAR_RUN_LOGS = 'trigger:clear-run-logs',

@@ -1,13 +1,46 @@
-import { type ReactElement } from 'react'
+import { type ReactElement, useState } from 'react'
 
 import '#src/renderer/src/ui-component/about/about-page.css'
 import { PROVIDER_CATALOG } from '#src/shared/provider-catalog'
 
-export const AboutPage = (): ReactElement => {
+const TITLE_CLICKS_TO_TOGGLE_DEVELOPMENT = 7
+
+export const AboutPage = (props: { onToggleDevelopmentUnlock: () => void }): ReactElement => {
+  const { onToggleDevelopmentUnlock } = props
+  const [developmentClicksRemaining, setDevelopmentClicksRemaining] = useState<number>(
+    TITLE_CLICKS_TO_TOGGLE_DEVELOPMENT,
+  )
+
+  const handleTitleClick = (): void => {
+    const nextClicksRemaining = developmentClicksRemaining - 1
+
+    if (nextClicksRemaining > 0) {
+      setDevelopmentClicksRemaining(nextClicksRemaining)
+
+      return
+    }
+
+    setDevelopmentClicksRemaining(TITLE_CLICKS_TO_TOGGLE_DEVELOPMENT)
+    onToggleDevelopmentUnlock()
+  }
+
+  const resolveDevelopmentHintText = (): string => {
+    if (developmentClicksRemaining === 1) {
+      return '1 more click to toggle the Development tab'
+    }
+
+    return `${String(developmentClicksRemaining)} more clicks to toggle the Development tab`
+  }
+
   return (
     <div className="about-page">
       <header>
-        <h1 className="about-page-title">Usage Pulse</h1>
+        <h1 className="about-page-title" onClick={handleTitleClick}>
+          Usage Pulse
+        </h1>
+        {developmentClicksRemaining < TITLE_CLICKS_TO_TOGGLE_DEVELOPMENT && (
+          <p className="about-page-development-hint">{resolveDevelopmentHintText()}</p>
+        )}
         <p className="about-page-tagline">Desktop tracker for Claude and z.ai coding-plan usage limits.</p>
         <p className="about-page-version">Version {appVersion}</p>
       </header>

@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 
+import { RefreshIcon } from '#src/renderer/src/ui-component/icon/refresh-icon'
 import { ProviderIcon } from '#src/renderer/src/ui-component/provider/provider-icon'
 import { UsageBar } from '#src/renderer/src/ui-component/usage-dashboard/usage-bar'
 import { UsageWindowBox } from '#src/renderer/src/ui-component/usage-dashboard/usage-window-box'
@@ -290,19 +291,7 @@ export const ProviderUsageCard = (props: {
             onClick={onRefresh}
             type="button"
           >
-            <svg
-              fill="none"
-              height="15"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-              width="15"
-            >
-              <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-              <polyline points="21 3 21 9 15 9" />
-            </svg>
+            <RefreshIcon />
           </button>
           <button aria-label="Tracker settings" className="provider-card-gear" onClick={onOpenSettings} type="button">
             <svg

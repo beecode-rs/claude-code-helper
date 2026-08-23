@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 import { IpcChannelMapper } from '#src/shared/ipc-channel'
+import { type ISessionSnapshot } from '#src/shared/session-model'
 import { type IAppSettings } from '#src/shared/settings-model'
 import {
   type ISchedulingInfo,
@@ -12,6 +13,9 @@ import { type IUsageApiClient, type IUsageSnapshot, type UsageUpdateListener } f
 const usageApi: IUsageApiClient = {
   clearTriggerRunLogs: (params: { triggerId: string }): Promise<void> => {
     return ipcRenderer.invoke(IpcChannelMapper.TRIGGER_CLEAR_RUN_LOGS, params)
+  },
+  focusSession: (params: { cwd: string; pid: number }): Promise<void> => {
+    return ipcRenderer.invoke(IpcChannelMapper.SESSIONS_FOCUS, params)
   },
   getSchedulingInfo: (): Promise<ISchedulingInfo> => {
     return ipcRenderer.invoke(IpcChannelMapper.SCHEDULING_GET_INFO)
@@ -27,6 +31,9 @@ const usageApi: IUsageApiClient = {
   },
   inspectTriggerRegistrations: (): Promise<ITriggerRegistrationHealth[]> => {
     return ipcRenderer.invoke(IpcChannelMapper.TRIGGER_OS_INSPECT)
+  },
+  listSessions: (): Promise<ISessionSnapshot> => {
+    return ipcRenderer.invoke(IpcChannelMapper.SESSIONS_LIST)
   },
   onUsageUpdate: (listener: UsageUpdateListener): (() => void) => {
     const usageUpdateListener = (_event: Electron.IpcRendererEvent, snapshot: IUsageSnapshot): void => {
@@ -48,11 +55,17 @@ const usageApi: IUsageApiClient = {
   saveSettings: (settings: IAppSettings): Promise<IAppSettings> => {
     return ipcRenderer.invoke(IpcChannelMapper.SETTINGS_SAVE, settings)
   },
+  setSchedulingEnabled: (params: { isEnabled: boolean }): Promise<IAppSettings> => {
+    return ipcRenderer.invoke(IpcChannelMapper.SCHEDULING_SET_ENABLED, params)
+  },
   setTrackerPaused: (params: { isAutoRefreshPaused: boolean; trackerId: string }): Promise<IAppSettings> => {
     return ipcRenderer.invoke(IpcChannelMapper.USAGE_SET_TRACKER_PAUSED, params)
   },
   setTriggerEnabled: (params: { isEnabled: boolean; triggerId: string }): Promise<IAppSettings> => {
     return ipcRenderer.invoke(IpcChannelMapper.TRIGGER_SET_ENABLED, params)
+  },
+  testSshHost: (params: { url: string }): Promise<void> => {
+    return ipcRenderer.invoke(IpcChannelMapper.SESSIONS_TEST_SSH_HOST, params)
   },
 }
 

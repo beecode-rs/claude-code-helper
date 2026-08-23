@@ -4,12 +4,13 @@ import { AboutPage } from '#src/renderer/src/ui-component/about/about-page'
 import '#src/renderer/src/ui-component/app-shell/app-shell.css'
 import { DevelopmentPage } from '#src/renderer/src/ui-component/development/development-page'
 import { SchedulingPage } from '#src/renderer/src/ui-component/scheduling/scheduling-page'
+import { SessionsPage } from '#src/renderer/src/ui-component/sessions/sessions-page'
 import { type ISideMenuItem, SideMenu } from '#src/renderer/src/ui-component/side-menu/side-menu'
 import { UsageDashboard } from '#src/renderer/src/ui-component/usage-dashboard/usage-dashboard'
-import { envUtil } from '#src/renderer/src/util/env-util'
+import { developmentPrefsUtil } from '#src/renderer/src/util/development-prefs-util'
 import { sideMenuPrefsUtil } from '#src/renderer/src/util/side-menu-prefs-util'
 
-type AppViewId = 'about' | 'development' | 'scheduling' | 'usage'
+type AppViewId = 'about' | 'development' | 'scheduling' | 'sessions' | 'usage'
 
 const MENU_ICONS: Record<AppViewId, ReactElement> = {
   about: (
@@ -52,6 +53,20 @@ const MENU_ICONS: Record<AppViewId, ReactElement> = {
       <polyline points="12 6 12 12 16 14" />
     </svg>
   ),
+  sessions: (
+    <svg
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.8}
+      viewBox="0 0 24 24"
+    >
+      <rect height="13" rx="2" width="20" x="2" y="3" />
+      <line x1="8" x2="16" y1="21" y2="21" />
+      <line x1="12" x2="12" y1="16" y2="21" />
+    </svg>
+  ),
   usage: (
     <svg
       fill="none"
@@ -69,25 +84,32 @@ const MENU_ICONS: Record<AppViewId, ReactElement> = {
 const BASE_MENU_ITEMS: ISideMenuItem<AppViewId>[] = [
   { icon: MENU_ICONS.usage, id: 'usage', label: 'Usage' },
   { icon: MENU_ICONS.scheduling, id: 'scheduling', label: 'Scheduling' },
+  { icon: MENU_ICONS.sessions, id: 'sessions', label: 'Sessions' },
   { icon: MENU_ICONS.about, id: 'about', label: 'About' },
 ]
 
-const resolveMenuItems = (): ISideMenuItem<AppViewId>[] => {
-  if (!envUtil.isDevelopment) {
+const resolveMenuItems = (params: { isDevelopmentUnlocked: boolean }): ISideMenuItem<AppViewId>[] => {
+  if (!params.isDevelopmentUnlocked) {
     return BASE_MENU_ITEMS
   }
 
   return [...BASE_MENU_ITEMS, { icon: MENU_ICONS.development, id: 'development', label: 'Development' }]
 }
 
-const MENU_ITEMS = resolveMenuItems()
-
 export const AppShell = (): ReactElement => {
   const [activeViewId, setActiveViewId] = useState<AppViewId>('usage')
   const [isCollapsed, setIsCollapsed] = useState<boolean>(sideMenuPrefsUtil.loadIsCollapsed)
+  const [isDevelopmentUnlocked, setIsDevelopmentUnlocked] = useState<boolean>(developmentPrefsUtil.loadIsUnlocked)
 
   const handleSelectItem = (viewId: AppViewId): void => {
     setActiveViewId(viewId)
+  }
+
+  const handleToggleDevelopmentUnlock = (): void => {
+    const nextIsDevelopmentUnlocked = !isDevelopmentUnlocked
+
+    setIsDevelopmentUnlocked(nextIsDevelopmentUnlocked)
+    developmentPrefsUtil.saveIsUnlocked({ isUnlocked: nextIsDevelopmentUnlocked })
   }
 
   const handleToggleCollapse = (): void => {
@@ -100,7 +122,7 @@ export const AppShell = (): ReactElement => {
   const renderActiveView = (): ReactElement => {
     switch (activeViewId) {
       case 'about': {
-        return <AboutPage />
+        return <AboutPage onToggleDevelopmentUnlock={handleToggleDevelopmentUnlock} />
       }
 
       case 'development': {
@@ -109,6 +131,10 @@ export const AppShell = (): ReactElement => {
 
       case 'scheduling': {
         return <SchedulingPage />
+      }
+
+      case 'sessions': {
+        return <SessionsPage />
       }
 
       case 'usage': {
@@ -126,7 +152,7 @@ export const AppShell = (): ReactElement => {
       <SideMenu
         activeItemId={activeViewId}
         isCollapsed={isCollapsed}
-        items={MENU_ITEMS}
+        items={resolveMenuItems({ isDevelopmentUnlocked })}
         onSelectItem={handleSelectItem}
         onToggleCollapse={handleToggleCollapse}
         title="Usage Pulse"

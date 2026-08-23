@@ -7,6 +7,7 @@ import { ClearRunsDialog } from '#src/renderer/src/ui-component/scheduling/clear
 import '#src/renderer/src/ui-component/scheduling/scheduling.css'
 import { TriggerSettingsDialog } from '#src/renderer/src/ui-component/scheduling/trigger-settings-dialog'
 import { TriggerWindowExplainer } from '#src/renderer/src/ui-component/scheduling/trigger-window-explainer'
+import { DashboardAddButton } from '#src/renderer/src/ui-component/usage-dashboard/dashboard-add-button'
 import '#src/renderer/src/ui-component/usage-dashboard/usage-dashboard.css'
 import { dateUtil } from '#src/renderer/src/util/date-util'
 import { errorUtil } from '#src/renderer/src/util/error-util'
@@ -97,6 +98,14 @@ const resolveSwitchTitle = (params: { isEnabled: boolean }): string => {
   }
 
   return 'Enable trigger'
+}
+
+const resolveMasterSwitchTitle = (params: { isEnabled: boolean }): string => {
+  if (params.isEnabled) {
+    return 'Turn off OS scheduling and unload all registered triggers'
+  }
+
+  return 'Turn on OS scheduling and register enabled triggers'
 }
 
 const resolveRunDurationPart = (params: { summary: ITriggerRunSummary }): string => {
@@ -214,6 +223,24 @@ const renderGearIcon = (): ReactElement => {
     >
       <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
       <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
+const renderPlusIcon = (): ReactElement => {
+  return (
+    <svg
+      fill="none"
+      height="12"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+      width="12"
+    >
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
     </svg>
   )
 }
@@ -345,6 +372,16 @@ export const SchedulingPage = (): ReactElement => {
     }
   }
 
+  const handleToggleScheduling = async (params: { isEnabled: boolean }): Promise<void> => {
+    const nextSettings = await schedulingClientService.setSchedulingEnabled(params)
+
+    setSettings(nextSettings)
+
+    if (schedulingInfo?.isSupported) {
+      await loadHealth()
+    }
+  }
+
   const handleSaved = (): void => {
     void loadPage()
   }
@@ -384,6 +421,10 @@ export const SchedulingPage = (): ReactElement => {
   const resolveBadge = (trigger: ITriggerConfig): { className: string; label: string } => {
     if (!schedulingInfo?.isSupported) {
       return { className: 'trigger-badge', label: '—' }
+    }
+
+    if (!settings?.isSchedulingEnabled) {
+      return { className: 'trigger-badge', label: 'Off' }
     }
 
     if (!trigger.isEnabled) {
@@ -454,35 +495,56 @@ export const SchedulingPage = (): ReactElement => {
     <div className="scheduling">
       <header className="dashboard-header">
         <div>
-          <h1 className="dashboard-title">Scheduling</h1>
+          <div className="scheduling-title-row">
+            <h1 className="dashboard-title">Scheduling</h1>
+            <div className="scheduling-master">
+              <label className="trigger-switch">
+                <input
+                  aria-describedby="scheduling-master-tip"
+                  aria-label={resolveMasterSwitchTitle({ isEnabled: settings.isSchedulingEnabled })}
+                  checked={settings.isSchedulingEnabled}
+                  onChange={(event) => {
+                    void handleToggleScheduling({
+                      isEnabled: event.target.checked,
+                    })
+                  }}
+                  type="checkbox"
+                />
+                <span className="trigger-switch-track">
+                  <span className="trigger-switch-knob" />
+                </span>
+              </label>
+              <div className="scheduling-master-tip" id="scheduling-master-tip" role="tooltip">
+                <p className="trigger-explainer-title">OS scheduling</p>
+                <p className="trigger-explainer-text">
+                  Master switch for the whole scheduler. On — enabled triggers are registered with your OS scheduler and
+                  fire in the background, even when the app is closed. Off — all triggers are unloaded and nothing
+                  fires.
+                </p>
+              </div>
+            </div>
+          </div>
           <p className="dashboard-subtitle">Run commands on a schedule through your OS scheduler</p>
         </div>
         <div className="dashboard-actions">
-          <button
-            className="button"
+          <DashboardAddButton
+            label="Add trigger"
             onClick={() => {
               setIsAddOpen(true)
             }}
-            type="button"
-          >
-            + Add
-          </button>
-          <button
-            className="button"
-            onClick={() => {
-              setIsAddOpen(true)
-            }}
-            type="button"
-          >
-            Max 5h windows
-          </button>
-          <TriggerWindowExplainer />
+          />
         </div>
       </header>
       {!schedulingInfo.isSupported && (
         <div className="scheduling-banner">
           OS scheduling is not available on {resolvePlatformLabel(schedulingInfo.platform)} yet. Triggers are saved but
           will not fire.
+        </div>
+      )}
+      {!settings.isSchedulingEnabled && (
+        <div className="scheduling-banner">
+          OS scheduling is turned off. Nothing is registered with your OS scheduler, all triggers have been unloaded and
+          none will fire in the background.
         </div>
       )}
       {healthErrorMessage !== '' && <div className="scheduling-banner">{healthErrorMessage}</div>}
@@ -492,7 +554,10 @@ export const SchedulingPage = (): ReactElement => {
           const isExpanded = expandedTriggerIds.has(trigger.id)
 
           return (
-            <article className={resolveCardClassName({ isEnabled: trigger.isEnabled })} key={trigger.id}>
+            <article
+              className={resolveCardClassName({ isEnabled: settings.isSchedulingEnabled && trigger.isEnabled })}
+              key={trigger.id}
+            >
               <header className="trigger-card-header">
                 <div className="trigger-card-heading">
                   <h2 className="trigger-card-title">{trigger.name}</h2>
@@ -526,6 +591,24 @@ export const SchedulingPage = (): ReactElement => {
                   )
                 })}
               </div>
+              {expandedTriggerIds.has(trigger.id) && (
+                <div className="trigger-runs">
+                  <div className="trigger-runs-toolbar">
+                    <button
+                      aria-label="Clear run logs"
+                      className="trigger-icon-button is-danger"
+                      onClick={() => {
+                        setClearingTriggerId(trigger.id)
+                      }}
+                      title="Clear run logs"
+                      type="button"
+                    >
+                      {renderTrashIcon()}
+                    </button>
+                  </div>
+                  {resolveRunsContent({ triggerId: trigger.id })}
+                </div>
+              )}
               <footer className="trigger-card-footer">
                 <span className="trigger-card-times">{trigger.times.join(' · ')}</span>
                 <span className={badge.className}>{badge.label}</span>
@@ -554,24 +637,6 @@ export const SchedulingPage = (): ReactElement => {
                   </button>
                 </div>
               </footer>
-              {expandedTriggerIds.has(trigger.id) && (
-                <div className="trigger-runs">
-                  <div className="trigger-runs-toolbar">
-                    <button
-                      aria-label="Clear run logs"
-                      className="trigger-icon-button is-danger"
-                      onClick={() => {
-                        setClearingTriggerId(trigger.id)
-                      }}
-                      title="Clear run logs"
-                      type="button"
-                    >
-                      {renderTrashIcon()}
-                    </button>
-                  </div>
-                  {resolveRunsContent({ triggerId: trigger.id })}
-                </div>
-              )}
             </article>
           )
         })}
@@ -590,6 +655,22 @@ export const SchedulingPage = (): ReactElement => {
           </div>
         )}
       </main>
+      <footer className="scheduling-footer">
+        <div className="scheduling-preset">
+          <span className="scheduling-preset-label">Preset</span>
+          <button
+            className="scheduling-preset-button"
+            onClick={() => {
+              setIsAddOpen(true)
+            }}
+            type="button"
+          >
+            {renderPlusIcon()}
+            Max 5h windows
+          </button>
+          <TriggerWindowExplainer />
+        </div>
+      </footer>
       {isAddOpen && (
         <AddTriggerDialog
           onClose={() => {

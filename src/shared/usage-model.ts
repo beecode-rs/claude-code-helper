@@ -1,3 +1,4 @@
+import type { ISessionSnapshot } from '#src/shared/session-model'
 import type { IAppSettings } from '#src/shared/settings-model'
 import type { ISchedulingInfo, ITriggerRegistrationHealth, ITriggerRunLogEntry } from '#src/shared/trigger-model'
 
@@ -42,15 +43,19 @@ export type UsageUpdateListener = (snapshot: IUsageSnapshot) => void
 
 export interface IUsageApiClient {
   clearTriggerRunLogs: (params: { triggerId: string }) => Promise<void>
+  focusSession: (params: { cwd: string; pid: number }) => Promise<void>
   getSettings: () => Promise<IAppSettings>
   getSchedulingInfo: () => Promise<ISchedulingInfo>
   getSnapshot: () => Promise<IUsageSnapshot>
   getTriggerRunLogs: (params: { triggerId: string }) => Promise<ITriggerRunLogEntry[]>
   inspectTriggerRegistrations: () => Promise<ITriggerRegistrationHealth[]>
+  listSessions: () => Promise<ISessionSnapshot>
   onUsageUpdate: (listener: UsageUpdateListener) => () => void
   refreshNow: () => Promise<void>
   refreshTracker: (params: { trackerId: string }) => Promise<void>
   saveSettings: (settings: IAppSettings) => Promise<IAppSettings>
+  setSchedulingEnabled: (params: { isEnabled: boolean }) => Promise<IAppSettings>
   setTriggerEnabled: (params: { isEnabled: boolean; triggerId: string }) => Promise<IAppSettings>
   setTrackerPaused: (params: { isAutoRefreshPaused: boolean; trackerId: string }) => Promise<IAppSettings>
+  testSshHost: (params: { url: string }) => Promise<void>
 }

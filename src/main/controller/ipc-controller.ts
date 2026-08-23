@@ -3,10 +3,13 @@ import { type BrowserWindow, ipcMain } from 'electron'
 import { type SettingsRepo } from '#src/main/business/repo/settings-repo'
 import { type TriggerRunLogRepo } from '#src/main/business/repo/trigger-run-log-repo'
 import { type SchedulingService } from '#src/main/business/service/scheduling-service'
+import { type SessionsService } from '#src/main/business/service/sessions-service'
 import { SettingsService } from '#src/main/business/service/settings-service'
+import { type SshSessionsService } from '#src/main/business/service/ssh-sessions-service'
 import { type UsagePollService } from '#src/main/business/service/usage-poll-service'
 import { objectUtil } from '#src/main/util/object-util'
 import { IpcChannelMapper } from '#src/shared/ipc-channel'
+import { type ISessionSnapshot } from '#src/shared/session-model'
 import { type IAppSettings } from '#src/shared/settings-model'
 import {
   type ISchedulingInfo,
@@ -20,11 +23,66 @@ export const ipcController = {
     getWindow: () => BrowserWindow
     pollService: UsagePollService
     schedulingService: SchedulingService
+    sessionsService: SessionsService
     settingsRepo: SettingsRepo
+    sshSessionsService: SshSessionsService
     triggerRunLogRepo: TriggerRunLogRepo
   }): void => {
     ipcMain.handle(IpcChannelMapper.SCHEDULING_GET_INFO, (): ISchedulingInfo => {
       return params.schedulingService.getSchedulingInfo()
+    })
+
+    ipcMain.handle(
+      IpcChannelMapper.SCHEDULING_SET_ENABLED,
+      async (_event, rawParams: unknown): Promise<IAppSettings> => {
+        const settings = await params.settingsRepo.load()
+        const rawRecord = objectUtil.asRecord(rawParams)
+        const isEnabled = rawRecord?.['isEnabled']
+
+        if (typeof isEnabled !== 'boolean') {
+          return settings
+        }
+
+        const nextSettings = new SettingsService().setSchedulingEnabled({ isEnabled, settings })
+
+        await params.settingsRepo.save({ settings: nextSettings })
+        await params.schedulingService.syncRegistrations({ settings: nextSettings })
+
+        return nextSettings
+      },
+    )
+
+    ipcMain.handle(IpcChannelMapper.SESSIONS_FOCUS, async (_event, rawParams: unknown): Promise<void> => {
+      const rawRecord = objectUtil.asRecord(rawParams)
+      const pid = rawRecord?.['pid']
+      const cwd = rawRecord?.['cwd']
+
+      if (typeof pid !== 'number' || typeof cwd !== 'string') {
+        return
+      }
+
+      await params.sessionsService.focusSession({ cwd, pid })
+    })
+
+    ipcMain.handle(IpcChannelMapper.SESSIONS_LIST, async (): Promise<ISessionSnapshot> => {
+      const settings = await params.settingsRepo.load()
+      const [localSnapshot, remoteResults] = await Promise.all([
+        params.sessionsService.listSessions(),
+        params.sshSessionsService.listRemoteSessions({ hosts: settings.sshHosts }),
+      ])
+
+      return params.sshSessionsService.mergeSessionSnapshots({ localSnapshot, remoteResults })
+    })
+
+    ipcMain.handle(IpcChannelMapper.SESSIONS_TEST_SSH_HOST, async (_event, rawParams: unknown): Promise<void> => {
+      const rawRecord = objectUtil.asRecord(rawParams)
+      const url = rawRecord?.['url']
+
+      if (typeof url !== 'string' || url.trim() === '') {
+        throw new Error('an ssh host url is required')
+      }
+
+      await params.sshSessionsService.testHost({ url })
     })
 
     ipcMain.handle(IpcChannelMapper.SETTINGS_GET, async (): Promise<IAppSettings> => {

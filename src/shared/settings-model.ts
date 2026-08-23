@@ -24,10 +24,30 @@ export interface IZaiTrackerConfig extends ITrackerConfigBase {
 
 export type ITrackerConfig = IClaudeTrackerConfig | IZaiTrackerConfig
 
+export interface ISshHostConfig {
+  id: string
+  isEnabled: boolean
+  url: string
+}
+
 export interface IAppSettings {
+  isSchedulingEnabled: boolean
+  isSessionsAutoRefreshPaused: boolean
+  sessionsRefreshIntervalSeconds: number
+  sshHosts: ISshHostConfig[]
   trackers: ITrackerConfig[]
   triggers: ITriggerConfig[]
 }
+
+export const DEFAULT_IS_SCHEDULING_ENABLED = false
+
+export const DEFAULT_IS_SESSIONS_AUTO_REFRESH_PAUSED = false
+
+export const DEFAULT_SESSIONS_REFRESH_INTERVAL_SECONDS = 5
+
+export const MIN_SESSIONS_REFRESH_INTERVAL_SECONDS = 2
+
+export const MAX_SESSIONS_REFRESH_INTERVAL_SECONDS = 300
 
 export const MIN_REFRESH_INTERVAL_SECONDS = 60
 

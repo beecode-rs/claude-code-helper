@@ -67,7 +67,7 @@ export class TriggerRunnerService {
         })
       }
 
-      if (!trigger.isEnabled) {
+      if (!settings.isSchedulingEnabled || !trigger.isEnabled) {
         return await this._resolveSkipOutcome({
           eventId,
           skipReason: 'disabled',

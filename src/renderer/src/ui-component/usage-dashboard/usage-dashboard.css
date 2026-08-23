@@ -74,13 +74,20 @@ body {
 }
 
 .button {
+  align-items: center;
   background: transparent;
   border: 1px solid var(--hairline);
   border-radius: 6px;
   color: var(--ink-secondary);
   cursor: pointer;
+  display: inline-flex;
   font-size: 13px;
+  gap: 7px;
   padding: 6px 14px;
+}
+
+.button svg {
+  flex-shrink: 0;
 }
 
 .button:hover:not(:disabled) {
@@ -99,6 +106,24 @@ body {
 }
 
 .button-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.dashboard-add-button {
+  align-items: center;
+  background: var(--meter-accent);
+  border: none;
+  border-radius: 999px;
+  color: var(--ink-primary);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.dashboard-add-button:hover {
   filter: brightness(1.1);
 }
 

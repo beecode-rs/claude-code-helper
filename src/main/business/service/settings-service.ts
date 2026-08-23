@@ -2,12 +2,18 @@ import { objectUtil } from '#src/main/util/object-util'
 import { PROVIDER_CATALOG } from '#src/shared/provider-catalog'
 import {
   ClaudeTokenSource,
+  DEFAULT_IS_SCHEDULING_ENABLED,
+  DEFAULT_IS_SESSIONS_AUTO_REFRESH_PAUSED,
+  DEFAULT_SESSIONS_REFRESH_INTERVAL_SECONDS,
   type IAppSettings,
   type IClaudeTrackerConfig,
+  type ISshHostConfig,
   type ITrackerConfig,
   type IZaiTrackerConfig,
   MAX_REFRESH_INTERVAL_SECONDS,
+  MAX_SESSIONS_REFRESH_INTERVAL_SECONDS,
   MIN_REFRESH_INTERVAL_SECONDS,
+  MIN_SESSIONS_REFRESH_INTERVAL_SECONDS,
 } from '#src/shared/settings-model'
 import {
   DEFAULT_TRIGGER_TIMEOUT_MS,
@@ -23,6 +29,10 @@ import type { ProviderId } from '#src/shared/usage-model'
 export class SettingsService {
   createDefaultSettings(): IAppSettings {
     return {
+      isSchedulingEnabled: DEFAULT_IS_SCHEDULING_ENABLED,
+      isSessionsAutoRefreshPaused: DEFAULT_IS_SESSIONS_AUTO_REFRESH_PAUSED,
+      sessionsRefreshIntervalSeconds: DEFAULT_SESSIONS_REFRESH_INTERVAL_SECONDS,
+      sshHosts: [],
       trackers: [],
       triggers: [],
     }
@@ -39,8 +49,23 @@ export class SettingsService {
     const rawTriggers = rawRecord['triggers']
 
     return {
+      isSchedulingEnabled: this._resolveIsSchedulingEnabled({ value: rawRecord['isSchedulingEnabled'] }),
+      isSessionsAutoRefreshPaused: this._resolveIsSessionsAutoRefreshPaused({
+        value: rawRecord['isSessionsAutoRefreshPaused'],
+      }),
+      sessionsRefreshIntervalSeconds: this._resolveSessionsRefreshIntervalSeconds({
+        value: rawRecord['sessionsRefreshIntervalSeconds'],
+      }),
+      sshHosts: this._resolveSshHosts({ rawSshHosts: rawRecord['sshHosts'] }),
       trackers: this._resolveTrackers({ rawRecord, rawTrackers }),
       triggers: this._resolveTriggers({ rawTriggers }),
+    }
+  }
+
+  setSchedulingEnabled(params: { isEnabled: boolean; settings: IAppSettings }): IAppSettings {
+    return {
+      ...params.settings,
+      isSchedulingEnabled: params.isEnabled,
     }
   }
 
@@ -68,6 +93,35 @@ export class SettingsService {
         return { ...trigger, isEnabled: params.isEnabled }
       }),
     }
+  }
+
+  protected _resolveIsSchedulingEnabled(params: { value: unknown }): boolean {
+    if (typeof params.value !== 'boolean') {
+      return DEFAULT_IS_SCHEDULING_ENABLED
+    }
+
+    return params.value
+  }
+
+  protected _resolveIsSessionsAutoRefreshPaused(params: { value: unknown }): boolean {
+    if (typeof params.value !== 'boolean') {
+      return DEFAULT_IS_SESSIONS_AUTO_REFRESH_PAUSED
+    }
+
+    return params.value
+  }
+
+  protected _resolveSessionsRefreshIntervalSeconds(params: { value: unknown }): number {
+    if (typeof params.value !== 'number' || !Number.isFinite(params.value)) {
+      return DEFAULT_SESSIONS_REFRESH_INTERVAL_SECONDS
+    }
+
+    const clampedIntervalSeconds = Math.min(
+      Math.max(params.value, MIN_SESSIONS_REFRESH_INTERVAL_SECONDS),
+      MAX_SESSIONS_REFRESH_INTERVAL_SECONDS,
+    )
+
+    return Math.round(clampedIntervalSeconds)
   }
 
   protected _resolveTrackers(params: { rawRecord: Record<string, unknown>; rawTrackers: unknown }): ITrackerConfig[] {
@@ -252,6 +306,76 @@ export class SettingsService {
 
       return trigger
     })
+  }
+
+  protected _resolveSshHosts(params: { rawSshHosts: unknown }): ISshHostConfig[] {
+    if (!Array.isArray(params.rawSshHosts)) {
+      return []
+    }
+
+    const sshHosts = params.rawSshHosts
+      .map((rawSshHost) => {
+        return this._sanitizeSshHost({ rawSshHost })
+      })
+      .filter((sshHost): sshHost is ISshHostConfig => {
+        return sshHost !== undefined
+      })
+
+    return this._ensureUniqueSshHostIds({ sshHosts })
+  }
+
+  protected _sanitizeSshHost(params: { rawSshHost: unknown }): ISshHostConfig | undefined {
+    const rawSshHost = objectUtil.asRecord(params.rawSshHost)
+
+    if (rawSshHost === undefined) {
+      return undefined
+    }
+
+    const url = this._resolveSshHostUrl({ value: rawSshHost['url'] })
+
+    if (url === undefined) {
+      return undefined
+    }
+
+    return {
+      id: this._resolveSshHostId({ value: rawSshHost['id'] }),
+      isEnabled: this._resolveIsSshHostEnabled({ value: rawSshHost['isEnabled'] }),
+      url,
+    }
+  }
+
+  protected _ensureUniqueSshHostIds(params: { sshHosts: ISshHostConfig[] }): ISshHostConfig[] {
+    const seenIds = new Set<string>()
+
+    return params.sshHosts.map((sshHost) => {
+      if (seenIds.has(sshHost.id)) {
+        return { ...sshHost, id: crypto.randomUUID() }
+      }
+
+      seenIds.add(sshHost.id)
+
+      return sshHost
+    })
+  }
+
+  protected _resolveSshHostId(params: { value: unknown }): string {
+    if (typeof params.value !== 'string' || params.value === '') {
+      return crypto.randomUUID()
+    }
+
+    return params.value
+  }
+
+  protected _resolveSshHostUrl(params: { value: unknown }): string | undefined {
+    if (typeof params.value !== 'string' || params.value.trim() === '') {
+      return undefined
+    }
+
+    return params.value.trim()
+  }
+
+  protected _resolveIsSshHostEnabled(params: { value: unknown }): boolean {
+    return params.value === true
   }
 
   protected _resolveTriggerCommand(params: { value: unknown }): string | undefined {

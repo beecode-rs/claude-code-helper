@@ -10,9 +10,17 @@
 }
 
 .about-page-title {
+  cursor: pointer;
   font-size: 20px;
   font-weight: 650;
   margin: 0;
+  user-select: none;
+}
+
+.about-page-development-hint {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin: 6px 0 0;
 }
 
 .about-page-tagline {

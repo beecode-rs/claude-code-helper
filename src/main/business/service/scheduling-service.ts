@@ -43,6 +43,13 @@ export class SchedulingService {
     }
 
     const registeredIds = new Set(await this._strategy.listRegistrationIds())
+
+    if (!params.settings.isSchedulingEnabled) {
+      await this._removeRegistrations({ registrationIds: [...registeredIds] })
+
+      return
+    }
+
     const triggerIds = new Set(
       params.settings.triggers.map((trigger) => {
         return trigger.id
@@ -52,15 +59,15 @@ export class SchedulingService {
       return !triggerIds.has(registeredId)
     })
 
-    await this._removeOrphanedRegistrations({ orphanedIds: [...orphanedIds] })
+    await this._removeRegistrations({ registrationIds: orphanedIds })
     await this._syncTriggerRegistrations({ registeredIds, triggers: params.settings.triggers })
   }
 
-  protected async _removeOrphanedRegistrations(params: { orphanedIds: string[] }): Promise<void> {
-    await params.orphanedIds.reduce<Promise<void>>((chain, orphanedId) => {
+  protected async _removeRegistrations(params: { registrationIds: string[] }): Promise<void> {
+    await params.registrationIds.reduce<Promise<void>>((chain, registrationId) => {
       return chain.then(async () => {
-        await this._strategy.removeRegistration({ triggerId: orphanedId })
-        this._fingerprintsByTriggerId.delete(orphanedId)
+        await this._strategy.removeRegistration({ triggerId: registrationId })
+        this._fingerprintsByTriggerId.delete(registrationId)
       })
     }, Promise.resolve())
   }

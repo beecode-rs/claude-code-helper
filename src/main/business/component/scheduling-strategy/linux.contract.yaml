@@ -1,0 +1,451 @@
+# Contract for the systemd user timer scheduling strategy.
+# The subject is a harness subclass living in _linux-contract-harness.ts whose only change is a
+# no-op _assertLinuxOsPlatform override, so the strategy can be constructed on any dev OS.
+# Protected members are addressed directly: the runner resolves them by name at runtime.
+# configDir values for the impure terms are relative to the package root (vitest's working directory).
+subject: SchedulingStrategyLinuxContractHarness
+module: ./_linux-contract-harness.js
+subjectType: class
+constructor:
+  # Constructor terms must compare the whole serialized instance (vitest also rejects an empty
+  # suite), so exactly one shape term is unavoidable; nested objects collapse to {} under the
+  # runner's comparer. The meaningful constructor contract (isSupported override, configDir and
+  # homeDir seams) is asserted via the harness resolveConstructorContract terms below.
+  terms:
+    - params:
+        - configDir: /tmp/usage-pulse-unit-dir
+          homeDir: /home/test-user
+          isSystemdUserAvailable: false
+      result:
+        _homeDir: /home/test-user
+        _systemctlProbeTimeoutMs: 5000
+        _systemctlTimeoutMs: 10000
+        _systemdDayByTriggerDay: {}
+        _systemdExecQuoteTriggerCharacters: {}
+        _systemdUnitNamePrefix: usage-pulse-trigger-
+        _unitDir: /tmp/usage-pulse-unit-dir
+        isSupported: false
+methods:
+  resolveConstructorContract:
+    terms:
+      # The override false is reflected verbatim in isSupported; configDir/homeDir land in unitDir/homeDir.
+      - constructorParams:
+          - configDir: /tmp/usage-pulse-unit-dir
+            homeDir: /home/test-user
+            isSystemdUserAvailable: false
+        params: []
+        result:
+          homeDir: /home/test-user
+          isSupported: false
+          unitDir: /tmp/usage-pulse-unit-dir
+      # The override true is reflected verbatim in isSupported.
+      - constructorParams:
+          - configDir: /tmp/usage-pulse-unit-dir
+            homeDir: /home/test-user
+            isSystemdUserAvailable: true
+        params: []
+        result:
+          homeDir: /home/test-user
+          isSupported: true
+          unitDir: /tmp/usage-pulse-unit-dir
+  _assertRegistrationParams:
+    terms:
+      # Fully valid params pass validation.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [monday]
+            executableArgs: ['--fire-trigger', 'abc-123']
+            executablePath: /usr/lib/usage-pulse/usage-pulse
+            times: ['09:00']
+            triggerId: daily-standup
+        result: !undefined
+      # Trigger id with a space is rejected and the message names the offender.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [monday]
+            executableArgs: ['--fire-trigger', 'abc-123']
+            executablePath: /usr/lib/usage-pulse/usage-pulse
+            times: ['09:00']
+            triggerId: 'tri gger!'
+        result: "new Error(\"Invalid trigger id 'tri gger!': only alphanumerics, underscores and hyphens are allowed\")"
+      # Empty trigger id is rejected the same way.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [monday]
+            executableArgs: ['--fire-trigger', 'abc-123']
+            executablePath: /usr/lib/usage-pulse/usage-pulse
+            times: ['09:00']
+            triggerId: ''
+        result: "new Error(\"Invalid trigger id '': only alphanumerics, underscores and hyphens are allowed\")"
+      # Empty executablePath is rejected.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [monday]
+            executableArgs: ['--fire-trigger', 'abc-123']
+            executablePath: ''
+            times: ['09:00']
+            triggerId: daily-standup
+        result: "new Error(\"Trigger registration requires a non-empty executablePath\")"
+      # Whitespace-only executablePath is treated as empty.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [monday]
+            executableArgs: ['--fire-trigger', 'abc-123']
+            executablePath: '   '
+            times: ['09:00']
+            triggerId: daily-standup
+        result: "new Error(\"Trigger registration requires a non-empty executablePath\")"
+      # Zero executable args are rejected.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [monday]
+            executableArgs: []
+            executablePath: /usr/lib/usage-pulse/usage-pulse
+            times: ['09:00']
+            triggerId: daily-standup
+        result: "new Error(\"Trigger registration requires at least one executable argument\")"
+      # A whitespace-only arg is rejected.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [monday]
+            executableArgs: ['--fire-trigger', '  ']
+            executablePath: /usr/lib/usage-pulse/usage-pulse
+            times: ['09:00']
+            triggerId: daily-standup
+        result: "new Error(\"Trigger registration requires non-empty executable arguments\")"
+      # Zero days are rejected.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: []
+            executableArgs: ['--fire-trigger', 'abc-123']
+            executablePath: /usr/lib/usage-pulse/usage-pulse
+            times: ['09:00']
+            triggerId: daily-standup
+        result: "new Error(\"Trigger registration requires at least one day\")"
+      # Unknown day names are rejected and listed in the message.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [monday, funday]
+            executableArgs: ['--fire-trigger', 'abc-123']
+            executablePath: /usr/lib/usage-pulse/usage-pulse
+            times: ['09:00']
+            triggerId: daily-standup
+        result: "new Error(\"Invalid trigger days: funday\")"
+      # Zero times are rejected.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [monday]
+            executableArgs: ['--fire-trigger', 'abc-123']
+            executablePath: /usr/lib/usage-pulse/usage-pulse
+            times: []
+            triggerId: daily-standup
+        result: "new Error(\"Trigger registration requires at least one time\")"
+      # A time without zero-padded digits fails the HH:mm pattern.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [monday]
+            executableArgs: ['--fire-trigger', 'abc-123']
+            executablePath: /usr/lib/usage-pulse/usage-pulse
+            times: ['9:00']
+            triggerId: daily-standup
+        result: "new Error(\"Invalid trigger time '9:00': expected the HH:mm format\")"
+      # Hour 24 is out of range.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [monday]
+            executableArgs: ['--fire-trigger', 'abc-123']
+            executablePath: /usr/lib/usage-pulse/usage-pulse
+            times: ['24:00']
+            triggerId: daily-standup
+        result: "new Error(\"Invalid trigger time '24:00': hour must be within 00-23 and minute within 00-59\")"
+      # Minute 60 is out of range.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [monday]
+            executableArgs: ['--fire-trigger', 'abc-123']
+            executablePath: /usr/lib/usage-pulse/usage-pulse
+            times: ['09:60']
+            triggerId: daily-standup
+        result: "new Error(\"Invalid trigger time '09:60': hour must be within 00-23 and minute within 00-59\")"
+  _buildOnCalendarValues:
+    terms:
+      # One value per time; days CSV is shared and already in TRIGGER_DAYS order here.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [monday, wednesday, saturday]
+            times: ['09:00', '13:00']
+        result: ['Mon,Wed,Sat 09:00', 'Mon,Wed,Sat 13:00']
+      # Input day order is normalized to TRIGGER_DAYS (monday..sunday) order.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [saturday, monday, wednesday]
+            times: ['09:00']
+        result: ['Mon,Wed,Sat 09:00']
+      # Duplicate days collapse in the shared days CSV.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [friday, tuesday, friday]
+            times: ['08:30']
+        result: ['Tue,Fri 08:30']
+      # One day, one time.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [sunday]
+            times: ['07:15']
+        result: ['Sun 07:15']
+      # All seven days normalize to the full week list; times keep their given (unsorted) order.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [sunday, tuesday, friday, monday, thursday, saturday, wednesday]
+            times: ['18:00', '06:00']
+        result: ['Mon,Tue,Wed,Thu,Fri,Sat,Sun 18:00', 'Mon,Tue,Wed,Thu,Fri,Sat,Sun 06:00']
+  _buildServiceUnitContent:
+    terms:
+      # Happy path: safe path and args pass through bare (percent-free).
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [monday]
+            executableArgs: ['--fire-trigger', d290f1c9-7d44-4fdd-9d95-1b9d45a8f7e3]
+            executablePath: /usr/lib/usage-pulse/usage-pulse
+            times: ['09:00']
+            triggerId: morning-report
+        result: |
+          [Unit]
+          Description=Usage Pulse trigger morning-report
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/lib/usage-pulse/usage-pulse --fire-trigger d290f1c9-7d44-4fdd-9d95-1b9d45a8f7e3
+      # A path with a space and an arg with a space and a percent are double-quoted in ExecStart,
+      # with the percent doubled inside the quotes.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [friday]
+            executableArgs: ['--fire-trigger', 'weekly 50%']
+            executablePath: /opt/Usage Pulse/usage-pulse
+            times: ['17:00']
+            triggerId: disk-cleanup
+        result: |
+          [Unit]
+          Description=Usage Pulse trigger disk-cleanup
+
+          [Service]
+          Type=oneshot
+          ExecStart="/opt/Usage Pulse/usage-pulse" --fire-trigger "weekly 50%%"
+  _buildTimerUnitContent:
+    terms:
+      # Full timer unit structure: one OnCalendar= line per time value, then Persistent and WantedBy.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [monday, wednesday, saturday]
+            executableArgs: ['--fire-trigger', 'abc-123']
+            executablePath: /usr/lib/usage-pulse/usage-pulse
+            times: ['09:00', '13:00']
+            triggerId: morning-report
+        result: |
+          [Unit]
+          Description=Usage Pulse trigger morning-report schedule
+
+          [Timer]
+          OnCalendar=Mon,Wed,Sat 09:00
+          OnCalendar=Mon,Wed,Sat 13:00
+          Persistent=true
+
+          [Install]
+          WantedBy=timers.target
+      # A single day and time produce a single OnCalendar line.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - days: [sunday]
+            executableArgs: ['--fire-trigger', 'abc-123']
+            executablePath: /usr/lib/usage-pulse/usage-pulse
+            times: ['07:15']
+            triggerId: weekly-digest
+        result: |
+          [Unit]
+          Description=Usage Pulse trigger weekly-digest schedule
+
+          [Timer]
+          OnCalendar=Sun 07:15
+          Persistent=true
+
+          [Install]
+          WantedBy=timers.target
+  _formatSystemdExecArg:
+    terms:
+      # UUIDs pass through bare.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params: [d290f1c9-7d44-4fdd-9d95-1b9d45a8f7e3]
+        result: d290f1c9-7d44-4fdd-9d95-1b9d45a8f7e3
+      # CLI flags pass through bare.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params: ['--fire-trigger']
+        result: '--fire-trigger'
+      # Paths pass through bare.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params: [/usr/lib/usage-pulse/usage-pulse]
+        result: /usr/lib/usage-pulse/usage-pulse
+      # A lone percent needs no quoting; it is only doubled.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params: ['50%']
+        result: 50%%
+      # A space triggers double-quoting.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params: ['weekly report']
+        result: '"weekly report"'
+      # A tab triggers double-quoting.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params: ["\t"]
+        result: "\"\t\""
+      # Double quotes trigger quoting and are escaped inside.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params: ['say "hi"']
+        result: '"say \"hi\""'
+      # Single quotes trigger quoting.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params: ["it's"]
+        result: "\"it's\""
+      # Backslashes trigger quoting and are doubled inside.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params: ['a\b']
+        result: '"a\\b"'
+      # Semicolons trigger quoting.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params: ['a;b']
+        result: '"a;b"'
+      # Percent doubling applies inside quotes too.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params: ['100% done']
+        result: '"100%% done"'
+      # Full ordering: percent doubles first, then backslashes double, then quotes escape, then wrap.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params: ['back\slash "50%"']
+        result: '"back\\slash \"50%%\""'
+  _parseTimeOfDay:
+    terms:
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - time: '09:30'
+        result:
+          hour: 9
+          minute: 30
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - time: '00:00'
+        result:
+          hour: 0
+          minute: 0
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - time: '23:59'
+        result:
+          hour: 23
+          minute: 59
+      # Non-zero-padded hour fails the pattern.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - time: '9:30'
+        result: "new Error(\"Invalid trigger time '9:30': expected the HH:mm format\")"
+      # One-digit minute fails the pattern.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - time: '09:5'
+        result: "new Error(\"Invalid trigger time '09:5': expected the HH:mm format\")"
+      # Non-numeric time fails the pattern.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - time: banana
+        result: "new Error(\"Invalid trigger time 'banana': expected the HH:mm format\")"
+      # Hour above 23 fails the range check.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - time: '24:00'
+        result: "new Error(\"Invalid trigger time '24:00': hour must be within 00-23 and minute within 00-59\")"
+      # Minute above 59 fails the range check.
+      - constructorParams:
+          - isSystemdUserAvailable: false
+        params:
+          - time: '09:60'
+        result: "new Error(\"Invalid trigger time '09:60': hour must be within 00-23 and minute within 00-59\")"
+  inspectRegistration:
+    terms:
+      # Timer unit file absent -> not registered regardless of the systemctl answer.
+      - constructorParams:
+          - configDir: src/main/business/component/scheduling-strategy/__fixtures__/unit-dir-empty
+            isSystemdUserAvailable: false
+        params:
+          - triggerId: alpha
+        result:
+          isRegistered: false
+      # Timer unit file present but the unit is not active in systemd -> not registered.
+      # The present-and-active case lives in linux.test.ts (needs a fake systemctl on PATH).
+      - constructorParams:
+          - configDir: src/main/business/component/scheduling-strategy/__fixtures__/unit-dir-mixed
+            isSystemdUserAvailable: false
+        params:
+          - triggerId: alpha
+        result:
+          isRegistered: false
+  listRegistrationIds:
+    terms:
+      # Missing unit dir reads as an empty list.
+      - constructorParams:
+          - configDir: src/main/business/component/scheduling-strategy/__fixtures__/unit-dir-absent
+            isSystemdUserAvailable: false
+        params: []
+        result: []
+      # Dir with only non-matching files yields no ids.
+      - constructorParams:
+          - configDir: src/main/business/component/scheduling-strategy/__fixtures__/unit-dir-empty
+            isSystemdUserAvailable: false
+        params: []
+        result: []
+      # Only prefixed .timer files count; .service files, foreign .timer files and other files are ignored.
+      # Exactly one matching timer on purpose: readdir order is filesystem-dependent, so a two-id
+      # expectation would be flaky on ext4.
+      - constructorParams:
+          - configDir: src/main/business/component/scheduling-strategy/__fixtures__/unit-dir-mixed
+            isSystemdUserAvailable: false
+        params: []
+        result: [alpha]

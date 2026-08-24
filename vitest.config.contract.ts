@@ -17,7 +17,7 @@ const srcAliasPlugin = (): Plugin => ({
 export default defineConfig({
   plugins: [srcAliasPlugin(), contractYamlPlugin()],
   test: {
-    include: ['src/**/*.contract.yaml'],
+    include: ['src/**/*.contract.yaml', 'src/**/*.test.ts'],
     mockReset: true,
     reporters: [new ContractReporter()],
     server: { deps: { inline: [/@beecode[\\/]msh-test-contractor/] } },

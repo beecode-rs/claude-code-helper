@@ -1,6 +1,13 @@
 # Usage Pulse
 
-A small Electron + TypeScript desktop app that continuously pings your coding-plan providers and shows how much of your usage limits you have consumed — the 5-hour window as a ring, and the longer window (weekly for Claude, monthly for z.ai) as a bar.
+A small Electron + TypeScript desktop app for people who run several Claude Code sessions at once. It does two things:
+
+- **Usage limits** — continuously pings your coding-plan providers and shows how much of your limits you have consumed: the 5-hour window as a ring, the longer window (weekly for Claude, monthly for z.ai) as a bar.
+- **Active sessions** — lists your running Claude Code sessions, local and on remote SSH hosts, with their project folder and transcript stats, so you can see what every window is up to at a glance.
+
+## Why this exists
+
+I usually have three or four Claude Code sessions running at the same time, each in its own window. I rotate between them: write a prompt in one, move to the next, read what landed there, repeat — by the time I circle back, the first one is done. That loop only works while two questions stay answerable at a glance: _which session is waiting for me?_ and _how much of my usage window is left?_ Usage Pulse answers both in one place, instead of a terminal here and a provider dashboard there.
 
 ## Trackers
 

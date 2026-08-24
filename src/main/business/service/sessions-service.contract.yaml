@@ -1,0 +1,106 @@
+# Contract for the session-terminal focus path of SessionsService.
+# Declarative terms cover only the synchronous, child-process-free members of the focus path.
+# The contract runner's error strategy asserts synchronous throws only, so every async
+# rejection of the path (the windows platform dispatch, the Linux X11/Wayland and
+# xdotool-install errors), the stubbed xdotool/ps choreography and the macos routing live in
+# sessions-service.test.ts.
+subject: SessionsService
+module: ./sessions-service.js
+subjectType: class
+constructor:
+  # The only own field (_inFlightSnapshot) starts undefined, which the serialized comparison
+  # omits, so a fresh instance compares as an empty object.
+  terms:
+    - params: []
+      result: {}
+methods:
+  _parseFirstWindowId:
+    terms:
+      # Several window ids on separate lines -> the first line is the window to activate.
+      - constructorParams: []
+        params:
+          - stdout: "123456\n789012\n345678\n"
+        result: '123456'
+      # A single window id with a trailing newline.
+      - constructorParams: []
+        params:
+          - stdout: "123456\n"
+        result: '123456'
+      # A single window id without a trailing newline.
+      - constructorParams: []
+        params:
+          - stdout: "123456"
+        result: '123456'
+      # Leading blank lines are trimmed away before the first line is taken.
+      - constructorParams: []
+        params:
+          - stdout: "\n\n123456\n789012\n"
+        result: '123456'
+      # Empty stdout means xdotool found no window.
+      - constructorParams: []
+        params:
+          - stdout: ""
+        result: !undefined
+      # Whitespace-only stdout means xdotool found no window.
+      - constructorParams: []
+        params:
+          - stdout: " \n \n"
+        result: !undefined
+  _isXdotoolMissing:
+    terms:
+      # An ENOENT error code means the xdotool binary is not installed.
+      - constructorParams: []
+        params:
+          - error:
+              code: ENOENT
+        result: true
+      # Any other error code (timeout, non-zero exit) is not a missing binary.
+      - constructorParams: []
+        params:
+          - error:
+              code: ETIMEDOUT
+        result: false
+      # A codeless Error is not a missing-binary signal either.
+      - constructorParams: []
+        params:
+          - error: new Error("spawn xdotool ENOENT")
+        result: false
+      # An object without a code is treated like any other failure.
+      - constructorParams: []
+        params:
+          - error:
+              message: command failed
+        result: false
+  _resolveLinuxWindowId:
+    terms:
+      # The ancestor walk gives up at the hop cap before consulting xdotool or ps.
+      - constructorParams: []
+        params:
+          - hopCount: 12
+            pid: 100
+        result: !undefined
+      # Hops beyond the cap short-circuit the same way.
+      - constructorParams: []
+        params:
+          - hopCount: 20
+            pid: 100
+        result: !undefined
+  _parseProcessLine:
+    terms:
+      # ps ppid/comm output for a live process parses into an entry.
+      - constructorParams: []
+        params:
+          - line: "  777 /usr/bin/usage-pulse-stub"
+        result:
+          comm: /usr/bin/usage-pulse-stub
+          ppid: 777
+      # A line without a leading ppid does not match.
+      - constructorParams: []
+        params:
+          - line: usage-pulse-stub
+        result: !undefined
+      # Empty ps output does not match.
+      - constructorParams: []
+        params:
+          - line: ""
+        result: !undefined

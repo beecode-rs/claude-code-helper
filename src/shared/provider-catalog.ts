@@ -9,13 +9,13 @@ export interface IProviderCatalogEntry {
 
 export const PROVIDER_CATALOG: IProviderCatalogEntry[] = [
   {
-    defaultRefreshIntervalSeconds: 600,
+    defaultRefreshIntervalSeconds: 900,
     description: 'Usage limits from your Claude coding plan',
     id: 'claude',
     name: 'Claude',
   },
   {
-    defaultRefreshIntervalSeconds: 300,
+    defaultRefreshIntervalSeconds: 900,
     description: 'Usage limits from your GLM coding plan',
     id: 'zai',
     name: 'z.ai',

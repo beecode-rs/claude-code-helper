@@ -4,7 +4,7 @@ import { basename } from 'node:path'
 import { promisify } from 'node:util'
 
 import { errorUtil } from '#src/main/util/error-util'
-import { osUtil } from '#src/main/util/os-util'
+import { type OsPlatform, osUtil } from '#src/main/util/os-util'
 import { sessionsUtil } from '#src/main/util/sessions-util'
 import { type ISessionSnapshot } from '#src/shared/session-model'
 
@@ -45,6 +45,8 @@ const PROCESS_LINE_PATTERN = /^\s*(\d+)\s+(.+)$/
 
 const PS_QUERY_TIMEOUT_MS = 5_000
 
+const XDOTOOL_TIMEOUT_MS = 5_000
+
 interface IProcessEntry {
   comm: string
   ppid: number
@@ -62,10 +64,38 @@ export class SessionsService {
   }
 
   async focusSession(params: { cwd: string; pid: number }): Promise<void> {
-    if (osUtil.resolvePlatform() !== 'macos') {
-      throw new Error('focusing a session terminal is only supported on macOS')
-    }
+    await this._focusSessionForPlatform({
+      cwd: params.cwd,
+      pid: params.pid,
+      platform: this._resolveFocusPlatform(),
+    })
+  }
 
+  protected _resolveFocusPlatform(): OsPlatform {
+    return osUtil.resolvePlatform()
+  }
+
+  protected async _focusSessionForPlatform(params: { cwd: string; pid: number; platform: OsPlatform }): Promise<void> {
+    switch (params.platform) {
+      case 'linux': {
+        return this._focusLinuxSession({ pid: params.pid })
+      }
+
+      case 'macos': {
+        return this._focusMacOsSession({ cwd: params.cwd, pid: params.pid })
+      }
+
+      case 'windows': {
+        throw new Error('focusing a session terminal is only supported on macOS and Linux')
+      }
+
+      default: {
+        throw new Error('focusing a session terminal is not supported on the resolved platform')
+      }
+    }
+  }
+
+  protected async _focusMacOsSession(params: { cwd: string; pid: number }): Promise<void> {
     const bundlePath = await this._resolveAppBundlePath({ hopCount: 0, pid: params.pid })
 
     await this._activateAppBundle({ bundlePath })
@@ -73,6 +103,84 @@ export class SessionsService {
     if (params.cwd !== '' && this._isGhosttyBundle({ bundlePath })) {
       await this._focusGhosttyTab({ cwd: params.cwd })
     }
+  }
+
+  protected async _focusLinuxSession(params: { pid: number }): Promise<void> {
+    const windowId = await this._resolveLinuxWindowId({ hopCount: 0, pid: params.pid })
+
+    if (windowId === undefined) {
+      throw new Error(
+        'focusing a session terminal on Linux requires an X11 session with xdotool; Wayland is not supported yet',
+      )
+    }
+
+    await this._activateLinuxWindow({ windowId })
+  }
+
+  protected async _resolveLinuxWindowId(params: { hopCount: number; pid: number }): Promise<string | undefined> {
+    if (params.hopCount >= MAX_ANCESTOR_HOPS) {
+      return undefined
+    }
+
+    const windowId = await this._searchLinuxWindowIdByPid({ pid: params.pid })
+
+    if (windowId !== undefined) {
+      return windowId
+    }
+
+    if (params.pid <= 1) {
+      return undefined
+    }
+
+    const entry = await this._resolveProcessEntry({ pid: params.pid })
+
+    if (entry === undefined) {
+      return undefined
+    }
+
+    return this._resolveLinuxWindowId({ hopCount: params.hopCount + 1, pid: entry.ppid })
+  }
+
+  protected async _searchLinuxWindowIdByPid(params: { pid: number }): Promise<string | undefined> {
+    try {
+      const { stdout } = await execFileAsync('xdotool', ['search', '--pid', String(params.pid)], {
+        timeout: XDOTOOL_TIMEOUT_MS,
+      })
+
+      return this._parseFirstWindowId({ stdout })
+    } catch (error) {
+      if (this._isXdotoolMissing({ error })) {
+        throw new Error(
+          'focusing a session terminal on Linux requires the xdotool tool; install it via the system package manager',
+        )
+      }
+
+      return undefined
+    }
+  }
+
+  protected _parseFirstWindowId(params: { stdout: string }): string | undefined {
+    const firstLine = params.stdout.trim().split('\n')[0]
+
+    if (firstLine === undefined || firstLine === '') {
+      return undefined
+    }
+
+    return firstLine
+  }
+
+  protected async _activateLinuxWindow(params: { windowId: string }): Promise<void> {
+    try {
+      await execFileAsync('xdotool', ['windowactivate', '--sync', params.windowId], {
+        timeout: XDOTOOL_TIMEOUT_MS,
+      })
+    } catch (error) {
+      throw new Error(`activating window ${params.windowId} failed: ${errorUtil.resolveMessage(error)}`)
+    }
+  }
+
+  protected _isXdotoolMissing(params: { error: unknown }): boolean {
+    return (params.error as { code?: unknown }).code === 'ENOENT'
   }
 
   protected _startSnapshotFetch(): Promise<ISessionSnapshot> {

@@ -9,6 +9,21 @@ A small Electron + TypeScript desktop app for people who run several Claude Code
 
 I usually have three or four Claude Code sessions running at the same time, each in its own window. I rotate between them: write a prompt in one, move to the next, read what landed there, repeat — by the time I circle back, the first one is done. That loop only works while two questions stay answerable at a glance: _which session is waiting for me?_ and _how much of my usage window is left?_ Usage Pulse answers both in one place, instead of a terminal here and a provider dashboard there.
 
+## Feature status
+
+Done:
+
+- [x] Usage tracking (Claude, z.ai)
+- [x] Session tracking (local + SSH remote hosts)
+- [x] Session focus (macOS, Linux X11)
+- [x] Scheduler (macOS launchd, Linux systemd)
+- [x] Claude system token (macOS, Linux)
+
+Planned:
+
+- [ ] Windows support (scheduler, focus, system token)
+- [ ] Session focus on Linux Wayland
+
 ## Trackers
 
 The dashboard starts empty. **+ Add** in the header opens a dialog that first asks which provider you want, then configures it. You can add any number of trackers, including several for the same provider (e.g. two Claude accounts with different tokens) — each tracker is a card with its own configuration behind the card's gear button (display name, token, remove).

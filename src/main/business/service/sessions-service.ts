@@ -145,8 +145,7 @@ export class SessionsService {
   }
 
   protected _resolveLinuxWindowNotFoundMessage(): string {
-    const isWaylandSession =
-      process.env.XDG_SESSION_TYPE === 'wayland' || process.env.WAYLAND_DISPLAY !== undefined
+    const isWaylandSession = process.env.XDG_SESSION_TYPE === 'wayland' || process.env.WAYLAND_DISPLAY !== undefined
 
     if (isWaylandSession) {
       return 'focusing a session terminal on Linux is not supported on Wayland yet; the session has no X11 window'

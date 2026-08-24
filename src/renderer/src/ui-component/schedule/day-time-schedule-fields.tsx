@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react'
 
 import '#src/renderer/src/ui-component/schedule/day-time-schedule-fields.css'
+import { DayTimeSelect } from '#src/renderer/src/ui-component/schedule/day-time-select'
 import { TRIGGER_DAYS, type TriggerDay } from '#src/shared/trigger-model'
 
 const TRIGGER_DAY_LABELS: Record<TriggerDay, string> = {
@@ -133,13 +134,11 @@ export const DayTimeScheduleFields = (props: {
         {times.map((time, index) => {
           return (
             <div className="trigger-time-row" key={`${time}-${String(index)}`}>
-              <input
-                className="settings-field-input"
-                onChange={(event) => {
-                  handleTimeChange(index, event.target.value)
+              <DayTimeSelect
+                onChange={(nextTime) => {
+                  handleTimeChange(index, nextTime)
                 }}
-                type="time"
-                value={time}
+                time={time}
               />
               <button
                 className="button"

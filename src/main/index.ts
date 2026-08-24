@@ -50,10 +50,10 @@ const bootstrapTriggerWorker = (params: { triggerId: string }): void => {
 
 const resolveExecutablePrefixArgs = (): string[] => {
   if (app.isPackaged) {
-    return []
+    return ['--no-sandbox']
   }
 
-  return [app.getAppPath()]
+  return ['--no-sandbox', app.getAppPath()]
 }
 
 const bootstrapApp = async (): Promise<void> => {

@@ -1,7 +1,10 @@
 export enum IpcChannelMapper {
+  OS_GET_PLATFORM = 'os:get-platform',
   SCHEDULING_GET_INFO = 'scheduling:get-info',
   SCHEDULING_SET_ENABLED = 'scheduling:set-enabled',
   SESSIONS_FOCUS = 'sessions:focus',
+  SESSIONS_GET_FOCUS_SUPPORT = 'sessions:get-focus-support',
+  SESSIONS_INSTALL_FOCUS_TOOL = 'sessions:install-focus-tool',
   SESSIONS_LIST = 'sessions:list',
   SESSIONS_TEST_SSH_HOST = 'sessions:test-ssh-host',
   SETTINGS_GET = 'settings:get',

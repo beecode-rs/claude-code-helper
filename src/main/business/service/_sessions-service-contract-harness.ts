@@ -2,6 +2,9 @@ import { SessionsService } from '#src/main/business/service/sessions-service'
 import { type OsPlatform } from '#src/main/util/os-util'
 
 export class SessionsServiceContractHarness extends SessionsService {
+  isLinuxFocusToolInstalled: boolean | undefined
+  linuxFocusToolInstallAttemptCount = 0
+  linuxFocusToolInstallError: Error | undefined
   readonly macOsBundleActivateCalls: { bundlePath: string }[] = []
   readonly macOsBundleResolveCalls: { hopCount: number; pid: number }[] = []
   readonly macOsTabFocusCalls: { cwd: string }[] = []
@@ -32,6 +35,24 @@ export class SessionsServiceContractHarness extends SessionsService {
     this.macOsTabFocusCalls.push({ cwd: params.cwd })
 
     return Promise.resolve()
+  }
+
+  protected override _installLinuxFocusTool(): Promise<void> {
+    this.linuxFocusToolInstallAttemptCount += 1
+
+    if (this.linuxFocusToolInstallError !== undefined) {
+      return Promise.reject(this.linuxFocusToolInstallError)
+    }
+
+    return Promise.resolve()
+  }
+
+  protected override _isLinuxFocusToolInstalled(): Promise<boolean> {
+    if (this.isLinuxFocusToolInstalled === undefined) {
+      return super._isLinuxFocusToolInstalled()
+    }
+
+    return Promise.resolve(this.isLinuxFocusToolInstalled)
   }
 
   protected override _resolveAppBundlePath(params: { hopCount: number; pid: number }): Promise<string> {

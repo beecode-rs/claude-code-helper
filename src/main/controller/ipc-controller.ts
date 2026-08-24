@@ -9,8 +9,9 @@ import { SettingsService } from '#src/main/business/service/settings-service'
 import { type SshSessionsService } from '#src/main/business/service/ssh-sessions-service'
 import { type UsagePollService } from '#src/main/business/service/usage-poll-service'
 import { objectUtil } from '#src/main/util/object-util'
+import { type OsPlatform, osUtil } from '#src/main/util/os-util'
 import { IpcChannelMapper } from '#src/shared/ipc-channel'
-import { type ISessionSnapshot } from '#src/shared/session-model'
+import { type ISessionFocusSupport, type ISessionSnapshot } from '#src/shared/session-model'
 import { type IAppSettings } from '#src/shared/settings-model'
 import {
   type ISchedulingInfo,
@@ -30,6 +31,10 @@ export const ipcController = {
     sshSessionsService: SshSessionsService
     triggerRunLogRepo: TriggerRunLogRepo
   }): void => {
+    ipcMain.handle(IpcChannelMapper.OS_GET_PLATFORM, (): OsPlatform => {
+      return osUtil.resolvePlatform()
+    })
+
     ipcMain.handle(IpcChannelMapper.SCHEDULING_GET_INFO, (): ISchedulingInfo => {
       return params.schedulingService.getSchedulingInfo()
     })
@@ -64,6 +69,14 @@ export const ipcController = {
       }
 
       await params.sessionsService.focusSession({ cwd, pid })
+    })
+
+    ipcMain.handle(IpcChannelMapper.SESSIONS_GET_FOCUS_SUPPORT, (): Promise<ISessionFocusSupport> => {
+      return params.sessionsService.getFocusSupport()
+    })
+
+    ipcMain.handle(IpcChannelMapper.SESSIONS_INSTALL_FOCUS_TOOL, (): Promise<ISessionFocusSupport> => {
+      return params.sessionsService.installFocusTool()
     })
 
     ipcMain.handle(IpcChannelMapper.SESSIONS_LIST, async (): Promise<ISessionSnapshot> => {

@@ -1,7 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 import { IpcChannelMapper } from '#src/shared/ipc-channel'
-import { type ISessionSnapshot } from '#src/shared/session-model'
+import type { OsPlatform } from '#src/shared/os-model'
+import { type ISessionFocusSupport, type ISessionSnapshot } from '#src/shared/session-model'
 import { type IAppSettings } from '#src/shared/settings-model'
 import {
   type ISchedulingInfo,
@@ -17,8 +18,14 @@ const usageApi: IUsageApiClient = {
   focusSession: (params: { cwd: string; pid: number }): Promise<void> => {
     return ipcRenderer.invoke(IpcChannelMapper.SESSIONS_FOCUS, params)
   },
+  getPlatform: (): Promise<OsPlatform> => {
+    return ipcRenderer.invoke(IpcChannelMapper.OS_GET_PLATFORM)
+  },
   getSchedulingInfo: (): Promise<ISchedulingInfo> => {
     return ipcRenderer.invoke(IpcChannelMapper.SCHEDULING_GET_INFO)
+  },
+  getSessionFocusSupport: (): Promise<ISessionFocusSupport> => {
+    return ipcRenderer.invoke(IpcChannelMapper.SESSIONS_GET_FOCUS_SUPPORT)
   },
   getSettings: (): Promise<IAppSettings> => {
     return ipcRenderer.invoke(IpcChannelMapper.SETTINGS_GET)
@@ -31,6 +38,9 @@ const usageApi: IUsageApiClient = {
   },
   inspectTriggerRegistrations: (): Promise<ITriggerRegistrationHealth[]> => {
     return ipcRenderer.invoke(IpcChannelMapper.TRIGGER_OS_INSPECT)
+  },
+  installSessionFocusTool: (): Promise<ISessionFocusSupport> => {
+    return ipcRenderer.invoke(IpcChannelMapper.SESSIONS_INSTALL_FOCUS_TOOL)
   },
   listSessions: (): Promise<ISessionSnapshot> => {
     return ipcRenderer.invoke(IpcChannelMapper.SESSIONS_LIST)

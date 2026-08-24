@@ -1,12 +1,14 @@
 // Supplements: ./sessions-service.contract.yaml
 // Covers what contract.yaml cannot express:
 // - async rejections of the focus path: the windows platform dispatch error and the Linux
-//   X11/Wayland and xdotool-install errors (the contract runner's error strategy catches
-//   synchronous throws only)
+//   window-not-found, Wayland and xdotool-install errors (the contract runner's error
+//   strategy catches synchronous throws only)
 // - the real xdotool/ps child-process choreography of the Linux ancestor walk via stub
 //   binaries prepended to PATH, including the exact windowactivate invocation
 // - the macos platform routing with the macOS helpers stubbed on the harness (open and
 //   osascript never run)
+// - the focus-support flow: the once-per-run xdotool presence check, the missing-tool
+//   status, and the install-then-refresh path (pkexec never runs; the harness stubs it)
 
 import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -22,7 +24,22 @@ if [ -n "$USAGE_PULSE_XDOTOOL_ARGS_LOG" ]; then
 fi
 case "$1" in
   search)
-    if [ -n "$USAGE_PULSE_XDOTOOL_WINDOW_PID" ] && [ "$3" = "$USAGE_PULSE_XDOTOOL_WINDOW_PID" ]; then
+    search_pid=
+    is_onlyvisible=false
+    previous_arg=
+    for arg in "$@"; do
+      if [ "$previous_arg" = "--pid" ]; then
+        search_pid="$arg"
+      fi
+      if [ "$arg" = "--onlyvisible" ]; then
+        is_onlyvisible=true
+      fi
+      previous_arg="$arg"
+    done
+    if [ -n "$USAGE_PULSE_XDOTOOL_WINDOW_PID" ] && [ "$search_pid" = "$USAGE_PULSE_XDOTOOL_WINDOW_PID" ]; then
+      if [ "$is_onlyvisible" = true ] && [ "$USAGE_PULSE_XDOTOOL_WINDOW_HIDDEN" = "true" ]; then
+        exit 1
+      fi
       printf '%s\\n' "$USAGE_PULSE_XDOTOOL_WINDOW_ID"
       exit 0
     fi
@@ -53,13 +70,17 @@ fi
 exit 1
 `
 
-const linuxWaylandErrorMessage =
-  'focusing a session terminal on Linux requires an X11 session with xdotool; Wayland is not supported yet'
+const linuxWindowNotFoundMessage =
+  'could not find an X11 window for the session terminal; it may run through a remote VS Code server or tunnel'
+
+const linuxWaylandNotSupportedMessage =
+  'focusing a session terminal on Linux is not supported on Wayland yet; the session has no X11 window'
 
 const focusShimEnvKeys = [
   'USAGE_PULSE_PS_DECREMENT_PPID',
   'USAGE_PULSE_PS_PPID_BY_PID',
   'USAGE_PULSE_XDOTOOL_ARGS_LOG',
+  'USAGE_PULSE_XDOTOOL_WINDOW_HIDDEN',
   'USAGE_PULSE_XDOTOOL_WINDOW_ID',
   'USAGE_PULSE_XDOTOOL_WINDOW_PID',
 ] as const
@@ -71,6 +92,26 @@ const restoreEnvValue = (params: { key: string; value: string | undefined }) => 
   }
 
   process.env[params.key] = params.value
+}
+
+const forceSessionType = (params: { sessionType: 'wayland' | 'x11' }) => {
+  const originalSessionType = process.env.XDG_SESSION_TYPE
+  const originalWaylandDisplay = process.env.WAYLAND_DISPLAY
+
+  process.env.XDG_SESSION_TYPE = params.sessionType
+
+  if (params.sessionType === 'wayland') {
+    process.env.WAYLAND_DISPLAY = 'wayland-0'
+  } else {
+    delete process.env.WAYLAND_DISPLAY
+  }
+
+  return {
+    restoreSessionEnv: () => {
+      restoreEnvValue({ key: 'XDG_SESSION_TYPE', value: originalSessionType })
+      restoreEnvValue({ key: 'WAYLAND_DISPLAY', value: originalWaylandDisplay })
+    },
+  }
 }
 
 const installLinuxFocusShims = async () => {
@@ -111,6 +152,9 @@ const installLinuxFocusShims = async () => {
       process.env.USAGE_PULSE_XDOTOOL_WINDOW_PID = params.pid
       process.env.USAGE_PULSE_XDOTOOL_WINDOW_ID = params.windowId
     },
+    setWindowHidden: () => {
+      process.env.USAGE_PULSE_XDOTOOL_WINDOW_HIDDEN = 'true'
+    },
   }
 }
 
@@ -143,7 +187,35 @@ describe.skipIf(process.platform === 'win32')('SessionsService [contract supplem
       await service.focusSession({ cwd: '/home/user/project', pid: 4242 })
       const invocations = await readXdotoolInvocations({ argsLogPath: shim.argsLogPath })
 
-      expect(invocations).toEqual(['search|--pid|4242', 'search|--pid|777', 'windowactivate|--sync|123456'])
+      expect(invocations).toEqual([
+        'search|--onlyvisible|--pid|4242',
+        'search|--pid|4242',
+        'search|--onlyvisible|--pid|777',
+        'windowactivate|123456',
+      ])
+    } finally {
+      await shim.restoreEnvironment()
+    }
+  })
+
+  it('falls back to the unfiltered search when the window is off the current workspace', async () => {
+    const shim = await installLinuxFocusShims()
+
+    try {
+      shim.setPsPpidByPid({ ppidByPid: { '4242': '777' } })
+      shim.setWindowForPid({ pid: '777', windowId: '123456' })
+      shim.setWindowHidden()
+      const service = new SessionsServiceContractHarness({ focusPlatform: 'linux' })
+      await service.focusSession({ cwd: '/home/user/project', pid: 4242 })
+      const invocations = await readXdotoolInvocations({ argsLogPath: shim.argsLogPath })
+
+      expect(invocations).toEqual([
+        'search|--onlyvisible|--pid|4242',
+        'search|--pid|4242',
+        'search|--onlyvisible|--pid|777',
+        'search|--pid|777',
+        'windowactivate|123456',
+      ])
     } finally {
       await shim.restoreEnvironment()
     }
@@ -163,59 +235,86 @@ describe.skipIf(process.platform === 'win32')('SessionsService [contract supplem
     }
   })
 
-  it('rejects with the X11/Wayland error when the session pid is already dead', async () => {
+  it('rejects with the window-not-found error when the session pid is already dead', async () => {
     const shim = await installLinuxFocusShims()
+    const sessionEnv = forceSessionType({ sessionType: 'x11' })
 
     try {
       const service = new SessionsServiceContractHarness({ focusPlatform: 'linux' })
 
       await expect(service.focusSession({ cwd: '/home/user/project', pid: 4242 })).rejects.toThrow(
-        linuxWaylandErrorMessage,
+        linuxWindowNotFoundMessage,
       )
       const invocations = await readXdotoolInvocations({ argsLogPath: shim.argsLogPath })
 
-      expect(invocations).toEqual(['search|--pid|4242'])
+      expect(invocations).toEqual(['search|--onlyvisible|--pid|4242', 'search|--pid|4242'])
     } finally {
+      sessionEnv.restoreSessionEnv()
       await shim.restoreEnvironment()
     }
   })
 
-  it('rejects with the X11/Wayland error when the walk reaches init without finding a window', async () => {
+  it('rejects with the Wayland-not-supported error on a Wayland session without an X11 window', async () => {
     const shim = await installLinuxFocusShims()
+    const sessionEnv = forceSessionType({ sessionType: 'wayland' })
+
+    try {
+      const service = new SessionsServiceContractHarness({ focusPlatform: 'linux' })
+
+      await expect(service.focusSession({ cwd: '/home/user/project', pid: 4242 })).rejects.toThrow(
+        linuxWaylandNotSupportedMessage,
+      )
+    } finally {
+      sessionEnv.restoreSessionEnv()
+      await shim.restoreEnvironment()
+    }
+  })
+
+  it('rejects with the window-not-found error when the walk reaches init without finding a window', async () => {
+    const shim = await installLinuxFocusShims()
+    const sessionEnv = forceSessionType({ sessionType: 'x11' })
 
     try {
       shim.setPsPpidByPid({ ppidByPid: { '4242': '1' } })
       const service = new SessionsServiceContractHarness({ focusPlatform: 'linux' })
 
       await expect(service.focusSession({ cwd: '/home/user/project', pid: 4242 })).rejects.toThrow(
-        linuxWaylandErrorMessage,
+        linuxWindowNotFoundMessage,
       )
       const invocations = await readXdotoolInvocations({ argsLogPath: shim.argsLogPath })
 
-      expect(invocations).toEqual(['search|--pid|4242', 'search|--pid|1'])
+      expect(invocations).toEqual([
+        'search|--onlyvisible|--pid|4242',
+        'search|--pid|4242',
+        'search|--onlyvisible|--pid|1',
+        'search|--pid|1',
+      ])
     } finally {
+      sessionEnv.restoreSessionEnv()
       await shim.restoreEnvironment()
     }
   })
 
   it('stops the Linux ancestor walk after twelve hops without a window', async () => {
     const shim = await installLinuxFocusShims()
+    const sessionEnv = forceSessionType({ sessionType: 'x11' })
 
     try {
       shim.setPsDecrementMode()
       const service = new SessionsServiceContractHarness({ focusPlatform: 'linux' })
 
       await expect(service.focusSession({ cwd: '/home/user/project', pid: 100 })).rejects.toThrow(
-        linuxWaylandErrorMessage,
+        linuxWindowNotFoundMessage,
       )
       const invocations = await readXdotoolInvocations({ argsLogPath: shim.argsLogPath })
       const firstInvocation = invocations[0]
       const lastInvocation = invocations[invocations.length - 1]
 
-      expect(invocations).toHaveLength(12)
-      expect(firstInvocation).toBe('search|--pid|100')
+      expect(invocations).toHaveLength(24)
+      expect(firstInvocation).toBe('search|--onlyvisible|--pid|100')
       expect(lastInvocation).toBe('search|--pid|89')
     } finally {
+      sessionEnv.restoreSessionEnv()
       await shim.restoreEnvironment()
     }
   })
@@ -259,5 +358,60 @@ describe.skipIf(process.platform === 'win32')('SessionsService [contract supplem
     await service.focusSession({ cwd: '', pid: 4242 })
 
     expect(service.macOsTabFocusCalls).toEqual([])
+  })
+})
+
+describe.skipIf(process.platform === 'win32')('SessionsService focus support [contract supplement]', () => {
+  it('reports ready focus support off linux without touching the install path', async () => {
+    const service = new SessionsServiceContractHarness({ focusPlatform: 'macos' })
+
+    await expect(service.getFocusSupport()).resolves.toEqual({ status: 'ready' })
+    expect(service.linuxFocusToolInstallAttemptCount).toBe(0)
+  })
+
+  it('checks the xdotool binary only once per app run', async () => {
+    const shim = await installLinuxFocusShims()
+
+    try {
+      const service = new SessionsServiceContractHarness({ focusPlatform: 'linux' })
+      await expect(service.getFocusSupport()).resolves.toEqual({ status: 'ready' })
+      await expect(service.getFocusSupport()).resolves.toEqual({ status: 'ready' })
+      const invocations = await readXdotoolInvocations({ argsLogPath: shim.argsLogPath })
+
+      expect(invocations).toEqual(['version'])
+    } finally {
+      await shim.restoreEnvironment()
+    }
+  })
+
+  it('reports missing-tool focus support when the xdotool binary is absent', async () => {
+    const pathOverride = await installBinarylessPath()
+
+    try {
+      const service = new SessionsServiceContractHarness({ focusPlatform: 'linux' })
+
+      await expect(service.getFocusSupport()).resolves.toEqual({ status: 'missing-tool' })
+    } finally {
+      await pathOverride.restoreEnvironment()
+    }
+  })
+
+  it('refreshes the cached focus support after installing the tool', async () => {
+    const service = new SessionsServiceContractHarness({ focusPlatform: 'linux' })
+    service.isLinuxFocusToolInstalled = false
+
+    await expect(service.getFocusSupport()).resolves.toEqual({ status: 'missing-tool' })
+
+    service.isLinuxFocusToolInstalled = true
+
+    await expect(service.installFocusTool()).resolves.toEqual({ status: 'ready' })
+    expect(service.linuxFocusToolInstallAttemptCount).toBe(1)
+  })
+
+  it('rejects with a wrapped message when the focus tool install fails', async () => {
+    const service = new SessionsServiceContractHarness({ focusPlatform: 'linux' })
+    service.linuxFocusToolInstallError = new Error('polkit dismissed the prompt')
+
+    await expect(service.installFocusTool()).rejects.toThrow('installing xdotool failed: polkit dismissed the prompt')
   })
 })

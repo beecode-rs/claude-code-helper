@@ -5,6 +5,7 @@ import { usageClientService } from '#src/renderer/src/business/service/usage-cli
 import { SessionCard } from '#src/renderer/src/ui-component/sessions/session-card'
 import { SessionsAutoRefreshButton } from '#src/renderer/src/ui-component/sessions/sessions-auto-refresh-button'
 import { SessionsAutoRefreshStatus } from '#src/renderer/src/ui-component/sessions/sessions-auto-refresh-status'
+import { SessionsFocusSupportFooter } from '#src/renderer/src/ui-component/sessions/sessions-focus-support-footer'
 import { SessionsRefreshButton } from '#src/renderer/src/ui-component/sessions/sessions-refresh-button'
 import { SessionsRefreshProgressBar } from '#src/renderer/src/ui-component/sessions/sessions-refresh-progress-bar'
 import { SessionsSettingsButton } from '#src/renderer/src/ui-component/sessions/sessions-settings-button'
@@ -282,6 +283,7 @@ export const SessionsPage = (): ReactElement => {
           )
         })}
       </main>
+      <SessionsFocusSupportFooter />
       {isHostsOpen && (
         <SshHostsDialog
           onClose={() => {

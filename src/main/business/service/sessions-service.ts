@@ -6,9 +6,13 @@ import { promisify } from 'node:util'
 import { errorUtil } from '#src/main/util/error-util'
 import { type OsPlatform, osUtil } from '#src/main/util/os-util'
 import { sessionsUtil } from '#src/main/util/sessions-util'
-import { type ISessionSnapshot } from '#src/shared/session-model'
+import { type ISessionFocusSupport, type ISessionSnapshot } from '#src/shared/session-model'
 
 const execFileAsync = promisify(execFile)
+
+const FOCUS_TOOL_CHECK_TIMEOUT_MS = 5_000
+
+const FOCUS_TOOL_INSTALL_TIMEOUT_MS = 300_000
 
 const SESSIONS_QUERY_TIMEOUT_MS = 10_000
 
@@ -53,6 +57,7 @@ interface IProcessEntry {
 }
 
 export class SessionsService {
+  protected _focusSupport: Promise<ISessionFocusSupport> | undefined
   protected _inFlightSnapshot: Promise<ISessionSnapshot> | undefined
 
   async listSessions(): Promise<ISessionSnapshot> {
@@ -69,6 +74,30 @@ export class SessionsService {
       pid: params.pid,
       platform: this._resolveFocusPlatform(),
     })
+  }
+
+  getFocusSupport(): Promise<ISessionFocusSupport> {
+    this._focusSupport ??= this._resolveFocusSupport()
+
+    return this._focusSupport
+  }
+
+  async installFocusTool(): Promise<ISessionFocusSupport> {
+    const platform = this._resolveFocusPlatform()
+
+    if (platform !== 'linux') {
+      return { status: 'ready' }
+    }
+
+    try {
+      await this._installLinuxFocusTool()
+    } catch (error) {
+      throw new Error(`installing xdotool failed: ${errorUtil.resolveMessage(error)}`)
+    }
+
+    this._focusSupport = undefined
+
+    return this.getFocusSupport()
   }
 
   protected _resolveFocusPlatform(): OsPlatform {
@@ -109,12 +138,21 @@ export class SessionsService {
     const windowId = await this._resolveLinuxWindowId({ hopCount: 0, pid: params.pid })
 
     if (windowId === undefined) {
-      throw new Error(
-        'focusing a session terminal on Linux requires an X11 session with xdotool; Wayland is not supported yet',
-      )
+      throw new Error(this._resolveLinuxWindowNotFoundMessage())
     }
 
     await this._activateLinuxWindow({ windowId })
+  }
+
+  protected _resolveLinuxWindowNotFoundMessage(): string {
+    const isWaylandSession =
+      process.env.XDG_SESSION_TYPE === 'wayland' || process.env.WAYLAND_DISPLAY !== undefined
+
+    if (isWaylandSession) {
+      return 'focusing a session terminal on Linux is not supported on Wayland yet; the session has no X11 window'
+    }
+
+    return 'could not find an X11 window for the session terminal; it may run through a remote VS Code server or tunnel'
   }
 
   protected async _resolveLinuxWindowId(params: { hopCount: number; pid: number }): Promise<string | undefined> {
@@ -142,8 +180,20 @@ export class SessionsService {
   }
 
   protected async _searchLinuxWindowIdByPid(params: { pid: number }): Promise<string | undefined> {
+    const visibleWindowId = await this._runLinuxWindowIdSearch({
+      args: ['search', '--onlyvisible', '--pid', String(params.pid)],
+    })
+
+    if (visibleWindowId !== undefined) {
+      return visibleWindowId
+    }
+
+    return this._runLinuxWindowIdSearch({ args: ['search', '--pid', String(params.pid)] })
+  }
+
+  protected async _runLinuxWindowIdSearch(params: { args: string[] }): Promise<string | undefined> {
     try {
-      const { stdout } = await execFileAsync('xdotool', ['search', '--pid', String(params.pid)], {
+      const { stdout } = await execFileAsync('xdotool', params.args, {
         timeout: XDOTOOL_TIMEOUT_MS,
       })
 
@@ -171,7 +221,7 @@ export class SessionsService {
 
   protected async _activateLinuxWindow(params: { windowId: string }): Promise<void> {
     try {
-      await execFileAsync('xdotool', ['windowactivate', '--sync', params.windowId], {
+      await execFileAsync('xdotool', ['windowactivate', params.windowId], {
         timeout: XDOTOOL_TIMEOUT_MS,
       })
     } catch (error) {
@@ -181,6 +231,42 @@ export class SessionsService {
 
   protected _isXdotoolMissing(params: { error: unknown }): boolean {
     return (params.error as { code?: unknown }).code === 'ENOENT'
+  }
+
+  protected async _resolveFocusSupport(): Promise<ISessionFocusSupport> {
+    const platform = this._resolveFocusPlatform()
+
+    if (platform !== 'linux') {
+      return { status: 'ready' }
+    }
+
+    const isToolInstalled = await this._isLinuxFocusToolInstalled()
+
+    if (isToolInstalled) {
+      return { status: 'ready' }
+    }
+
+    return { status: 'missing-tool' }
+  }
+
+  protected async _isLinuxFocusToolInstalled(): Promise<boolean> {
+    try {
+      await execFileAsync('xdotool', ['version'], { timeout: FOCUS_TOOL_CHECK_TIMEOUT_MS })
+
+      return true
+    } catch (error) {
+      if (this._isXdotoolMissing({ error })) {
+        return false
+      }
+
+      return true
+    }
+  }
+
+  protected async _installLinuxFocusTool(): Promise<void> {
+    await execFileAsync('pkexec', ['apt', 'install', '-y', 'xdotool'], {
+      timeout: FOCUS_TOOL_INSTALL_TIMEOUT_MS,
+    })
   }
 
   protected _startSnapshotFetch(): Promise<ISessionSnapshot> {

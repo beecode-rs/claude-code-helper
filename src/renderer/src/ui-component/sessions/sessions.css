@@ -475,3 +475,33 @@
 .ssh-host-test-message.is-error {
   color: var(--meter-critical);
 }
+
+.sessions-focus-footer {
+  align-items: center;
+  background: color-mix(in srgb, var(--meter-warning) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--meter-warning) 30%, transparent);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: auto;
+  padding: 12px 16px;
+}
+
+.sessions-focus-footer-message {
+  color: var(--ink-secondary);
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+  min-width: 220px;
+}
+
+.sessions-focus-footer-error {
+  color: var(--meter-critical);
+  flex-basis: 100%;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  word-break: break-word;
+}

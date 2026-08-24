@@ -1,23 +1,79 @@
 import { execFile } from 'node:child_process'
+import { readFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { promisify } from 'node:util'
 
 import { errorUtil } from '#src/main/util/error-util'
 import { objectUtil } from '#src/main/util/object-util'
+import { type OsPlatform, osUtil } from '#src/main/util/os-util'
 
 const execFileAsync = promisify(execFile)
 
 export class ClaudeSystemTokenService {
-  async resolveAccessToken(): Promise<string> {
-    this._assertMacOsPlatform()
+  protected readonly _homeDir: string
+  protected readonly _keychainSourceName = "'Claude Code-credentials' keychain entry"
+  protected readonly _platform: OsPlatform
 
-    const keychainJson = await this._readKeychainCredentialsJson()
-
-    return this._extractAccessToken({ keychainJson })
+  constructor(params: { homeDir?: string; platform?: OsPlatform } = {}) {
+    this._homeDir = params.homeDir ?? homedir()
+    this._platform = params.platform ?? osUtil.resolvePlatform()
   }
 
-  protected _assertMacOsPlatform(): void {
-    if (process.platform !== 'darwin') {
-      throw new Error('Reading the Claude token from the system is only supported on macOS for now')
+  async resolveAccessToken(): Promise<string> {
+    switch (this._platform) {
+      case 'linux': {
+        const credentialsJson = await this._readLinuxCredentialsJson()
+
+        return this._extractAccessToken({ credentialsJson, sourceName: this._resolveLinuxCredentialsPath() })
+      }
+
+      case 'macos': {
+        const credentialsJson = await this._readKeychainCredentialsJson()
+
+        return this._extractAccessToken({ credentialsJson, sourceName: this._keychainSourceName })
+      }
+
+      default: {
+        throw new Error(`Reading the Claude token from the system is not supported on '${this._platform}'`)
+      }
+    }
+  }
+
+  protected _extractAccessToken(params: { credentialsJson: string; sourceName: string }): string {
+    const credentialsRecord = this._parseCredentialsRecord({
+      credentialsJson: params.credentialsJson,
+      sourceName: params.sourceName,
+    })
+    const oauthRecord = objectUtil.asRecord(credentialsRecord['claudeAiOauth'])
+    const accessToken = oauthRecord?.['accessToken']
+
+    if (typeof accessToken === 'string' && accessToken.trim() !== '') {
+      return accessToken.trim()
+    }
+
+    throw new Error(`${params.sourceName} is missing a usable claudeAiOauth.accessToken`)
+  }
+
+  protected _parseCredentialsRecord(params: { credentialsJson: string; sourceName: string }): Record<string, unknown> {
+    const parsedValue = this._parseCredentialsValue({
+      credentialsJson: params.credentialsJson,
+      sourceName: params.sourceName,
+    })
+    const parsedRecord = objectUtil.asRecord(parsedValue)
+
+    if (parsedRecord === undefined) {
+      throw new Error(`${params.sourceName} is not a JSON object`)
+    }
+
+    return parsedRecord
+  }
+
+  protected _parseCredentialsValue(params: { credentialsJson: string; sourceName: string }): unknown {
+    try {
+      return JSON.parse(params.credentialsJson)
+    } catch {
+      throw new Error(`${params.sourceName} is not valid JSON`)
     }
   }
 
@@ -37,6 +93,20 @@ export class ClaudeSystemTokenService {
     }
   }
 
+  protected async _readLinuxCredentialsJson(): Promise<string> {
+    const credentialsPath = this._resolveLinuxCredentialsPath()
+
+    try {
+      const credentialsJson = await readFile(credentialsPath, 'utf8')
+
+      return credentialsJson.trim()
+    } catch (error) {
+      throw new Error(
+        `reading the Claude Code credentials file '${credentialsPath}' failed: ${errorUtil.resolveMessage(error)}`,
+      )
+    }
+  }
+
   protected _resolveKeychainErrorMessage(error: unknown): string {
     const stderr = (error as { stderr?: unknown }).stderr
 
@@ -47,23 +117,7 @@ export class ClaudeSystemTokenService {
     return errorUtil.resolveMessage(error)
   }
 
-  protected _extractAccessToken(params: { keychainJson: string }): string {
-    const credentialsRecord = this._parseCredentialsRecord({ keychainJson: params.keychainJson })
-    const oauthRecord = objectUtil.asRecord(credentialsRecord['claudeAiOauth'])
-    const accessToken = oauthRecord?.['accessToken']
-
-    if (typeof accessToken === 'string' && accessToken.trim() !== '') {
-      return accessToken.trim()
-    }
-
-    throw new Error("'Claude Code-credentials' keychain entry is missing a usable claudeAiOauth.accessToken")
-  }
-
-  protected _parseCredentialsRecord(params: { keychainJson: string }): Record<string, unknown> {
-    try {
-      return JSON.parse(params.keychainJson) as Record<string, unknown>
-    } catch {
-      throw new Error("'Claude Code-credentials' keychain entry is not valid JSON")
-    }
+  protected _resolveLinuxCredentialsPath(): string {
+    return join(this._homeDir, '.claude', '.credentials.json')
   }
 }

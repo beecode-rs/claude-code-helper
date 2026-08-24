@@ -1,3 +1,5 @@
+export type SessionFocusSupportStatus = 'missing-tool' | 'ready'
+
 export type SessionStatus = 'busy' | 'idle' | 'unknown' | 'waiting'
 
 export interface ISessionTranscriptStats {
@@ -33,6 +35,10 @@ export interface IUnreachableHost {
   errorMessage: string
   hostId: string
   hostLabel: string
+}
+
+export interface ISessionFocusSupport {
+  status: SessionFocusSupportStatus
 }
 
 export interface ISessionSnapshot {

@@ -1,6 +1,8 @@
 import type { ReactElement } from 'react'
 
 import { DayTimeScheduleFields } from '#src/renderer/src/ui-component/schedule/day-time-schedule-fields'
+import { trackerTokenSourceUtil } from '#src/renderer/src/util/tracker-token-source-util'
+import type { OsPlatform } from '#src/shared/os-model'
 import { PROVIDER_CATALOG } from '#src/shared/provider-catalog'
 import {
   ClaudeTokenSource,
@@ -12,12 +14,14 @@ import {
 export const TrackerConfigFields = (props: {
   config: ITrackerConfig
   onChange: (config: ITrackerConfig) => void
+  osPlatform: OsPlatform
 }): ReactElement => {
-  const { config, onChange } = props
+  const { config, onChange, osPlatform } = props
   const catalogEntry = PROVIDER_CATALOG.find((entry) => {
     return entry.id === config.providerId
   })
   const providerDisplayName = catalogEntry?.name ?? config.providerId
+  const { selectedTokenSource, systemTokenOption } = trackerTokenSourceUtil.resolveSelection({ config, osPlatform })
 
   return (
     <>
@@ -39,7 +43,7 @@ export const TrackerConfigFields = (props: {
           <div className="settings-token-source-row">
             <label className="settings-token-source-option">
               <input
-                checked={config.tokenSource === ClaudeTokenSource.MANUAL}
+                checked={selectedTokenSource === ClaudeTokenSource.MANUAL}
                 name={`claude-token-source-${config.id}`}
                 onChange={() => {
                   onChange({ ...config, tokenSource: ClaudeTokenSource.MANUAL })
@@ -48,19 +52,21 @@ export const TrackerConfigFields = (props: {
               />
               Enter manually
             </label>
-            <label className="settings-token-source-option">
-              <input
-                checked={config.tokenSource === ClaudeTokenSource.SYSTEM}
-                name={`claude-token-source-${config.id}`}
-                onChange={() => {
-                  onChange({ ...config, tokenSource: ClaudeTokenSource.SYSTEM })
-                }}
-                type="radio"
-              />
-              Use system token (macOS Keychain)
-            </label>
+            {systemTokenOption !== undefined && (
+              <label className="settings-token-source-option">
+                <input
+                  checked={selectedTokenSource === ClaudeTokenSource.SYSTEM}
+                  name={`claude-token-source-${config.id}`}
+                  onChange={() => {
+                    onChange({ ...config, tokenSource: ClaudeTokenSource.SYSTEM })
+                  }}
+                  type="radio"
+                />
+                {systemTokenOption.label}
+              </label>
+            )}
           </div>
-          {config.tokenSource === ClaudeTokenSource.MANUAL && (
+          {selectedTokenSource === ClaudeTokenSource.MANUAL && (
             <input
               className="settings-field-input"
               onChange={(event) => {
@@ -71,11 +77,8 @@ export const TrackerConfigFields = (props: {
               value={config.accessToken}
             />
           )}
-          {config.tokenSource === ClaudeTokenSource.SYSTEM && (
-            <p className="settings-hint">
-              Reads the OAuth token from the macOS Keychain entry "Claude Code-credentials" on every poll, so it tracks
-              the one Claude Code account logged in on this machine. Not available on Linux or Windows yet.
-            </p>
+          {selectedTokenSource === ClaudeTokenSource.SYSTEM && systemTokenOption !== undefined && (
+            <p className="settings-hint">{systemTokenOption.hint}</p>
           )}
         </div>
       )}

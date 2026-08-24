@@ -1,8 +1,11 @@
 import { type ReactElement, useEffect, useState } from 'react'
 
+import { osClientService } from '#src/renderer/src/business/service/os-client-service'
 import { usageClientService } from '#src/renderer/src/business/service/usage-client-service'
 import { TrackerConfigFields } from '#src/renderer/src/ui-component/tracker/tracker-config-fields'
 import { errorUtil } from '#src/renderer/src/util/error-util'
+import { trackerTokenSourceUtil } from '#src/renderer/src/util/tracker-token-source-util'
+import type { OsPlatform } from '#src/shared/os-model'
 import { type IAppSettings, type ITrackerConfig } from '#src/shared/settings-model'
 
 export const TrackerSettingsDialog = (props: {
@@ -13,19 +16,31 @@ export const TrackerSettingsDialog = (props: {
   const { onClose, onSaved, trackerId } = props
   const [settings, setSettings] = useState<IAppSettings | undefined>(undefined)
   const [tracker, setTracker] = useState<ITrackerConfig | undefined>(undefined)
+  const [osPlatform, setOsPlatform] = useState<OsPlatform | undefined>(undefined)
   const [isSaving, setIsSaving] = useState(false)
   const [isConfirmingRemove, setIsConfirmingRemove] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
     const loadSettings = async (): Promise<void> => {
-      const loadedSettings = await usageClientService.getSettings()
+      const [loadedSettings, loadedOsPlatform] = await Promise.all([
+        usageClientService.getSettings(),
+        osClientService.getPlatform(),
+      ])
       const loadedTracker = loadedSettings.trackers.find((settingsTracker) => {
         return settingsTracker.id === trackerId
       })
 
+      setOsPlatform(loadedOsPlatform)
       setSettings(loadedSettings)
-      setTracker(loadedTracker)
+
+      if (loadedTracker === undefined) {
+        setTracker(undefined)
+
+        return
+      }
+
+      setTracker(trackerTokenSourceUtil.normalizeConfig({ config: loadedTracker, osPlatform: loadedOsPlatform }))
     }
 
     void loadSettings()
@@ -126,7 +141,7 @@ export const TrackerSettingsDialog = (props: {
     return 'Remove tracker'
   }
 
-  if (settings === undefined) {
+  if (settings === undefined || osPlatform === undefined) {
     return (
       <div className="settings-overlay">
         <section className="settings-panel">
@@ -161,7 +176,7 @@ export const TrackerSettingsDialog = (props: {
             Close
           </button>
         </header>
-        <TrackerConfigFields config={tracker} onChange={setTracker} />
+        <TrackerConfigFields config={tracker} onChange={setTracker} osPlatform={osPlatform} />
         {errorMessage !== '' && <p className="settings-error">{errorMessage}</p>}
         <p className="settings-hint">
           The token is stored locally in your user data folder and sent only to the provider this tracker belongs to.

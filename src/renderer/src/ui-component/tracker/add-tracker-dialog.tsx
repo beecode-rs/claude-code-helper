@@ -1,10 +1,12 @@
 import { type ReactElement, useEffect, useState } from 'react'
 
+import { osClientService } from '#src/renderer/src/business/service/os-client-service'
 import { usageClientService } from '#src/renderer/src/business/service/usage-client-service'
 import { ProviderIcon } from '#src/renderer/src/ui-component/provider/provider-icon'
 import { TrackerConfigFields } from '#src/renderer/src/ui-component/tracker/tracker-config-fields'
 import { errorUtil } from '#src/renderer/src/util/error-util'
 import { providerCatalogUtil } from '#src/renderer/src/util/provider-catalog-util'
+import type { OsPlatform } from '#src/shared/os-model'
 import { PROVIDER_CATALOG } from '#src/shared/provider-catalog'
 import {
   ClaudeTokenSource,
@@ -19,6 +21,7 @@ export const AddTrackerDialog = (props: { onClose: () => void; onSaved: () => vo
   const { onClose, onSaved } = props
   const [settings, setSettings] = useState<IAppSettings | undefined>(undefined)
   const [newTracker, setNewTracker] = useState<ITrackerConfig | undefined>(undefined)
+  const [osPlatform, setOsPlatform] = useState<OsPlatform | undefined>(undefined)
   const [isSaving, setIsSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -30,6 +33,16 @@ export const AddTrackerDialog = (props: { onClose: () => void; onSaved: () => vo
     }
 
     void loadSettings()
+  }, [])
+
+  useEffect(() => {
+    const loadOsPlatform = async (): Promise<void> => {
+      const loadedOsPlatform = await osClientService.getPlatform()
+
+      setOsPlatform(loadedOsPlatform)
+    }
+
+    void loadOsPlatform()
   }, [])
 
   const resolveDefaultRefreshIntervalSeconds = (providerId: ProviderId): number => {
@@ -149,7 +162,7 @@ export const AddTrackerDialog = (props: { onClose: () => void; onSaved: () => vo
     onClose()
   }
 
-  if (settings === undefined) {
+  if (settings === undefined || osPlatform === undefined) {
     return (
       <div className="settings-overlay">
         <section className="settings-panel">
@@ -202,7 +215,7 @@ export const AddTrackerDialog = (props: { onClose: () => void; onSaved: () => vo
             Close
           </button>
         </header>
-        <TrackerConfigFields config={newTracker} onChange={setNewTracker} />
+        <TrackerConfigFields config={newTracker} onChange={setNewTracker} osPlatform={osPlatform} />
         {errorMessage !== '' && <p className="settings-error">{errorMessage}</p>}
         <div className="settings-dialog-actions">
           <button

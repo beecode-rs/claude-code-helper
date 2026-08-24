@@ -17,6 +17,11 @@ export default defineConfig({
   renderer: {
     define: { appVersion: JSON.stringify(appVersion) },
     plugins: [react()],
-    resolve: { alias: [{ find: '#src', replacement: resolve('src') }] },
+    resolve: {
+      alias: [
+        { find: '#resource', replacement: resolve('resource') },
+        { find: '#src', replacement: resolve('src') },
+      ],
+    },
   },
 })

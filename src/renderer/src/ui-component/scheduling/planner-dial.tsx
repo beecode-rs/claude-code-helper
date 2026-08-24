@@ -19,6 +19,16 @@ const DIAL_KNOB_RADIUS = 3.5
 
 const DIAL_RADIUS = DIAL_SIZE / 2 - 7
 
+type PlannerDialTone = 'lunch' | 'work'
+
+const resolveDialClassName = (tone: PlannerDialTone | undefined): string => {
+  if (tone === undefined) {
+    return 'planner-dial'
+  }
+
+  return `planner-dial is-${tone}`
+}
+
 const resolvePointOnCircle = (params: {
   angleDegrees: number
   center: number
@@ -73,6 +83,7 @@ export const PlannerDial = (props: {
   min: number
   onChange: (value: number) => void
   step: number
+  tone?: PlannerDialTone
   value: number
 }): ReactElement => {
   const svgRef = useRef<SVGSVGElement | null>(null)
@@ -157,7 +168,7 @@ export const PlannerDial = (props: {
   }
 
   return (
-    <div className="planner-dial">
+    <div className={resolveDialClassName(props.tone)}>
       <span className="planner-dial-label">{props.label}</span>
       <svg
         aria-label={props.label}

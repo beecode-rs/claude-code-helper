@@ -9,6 +9,13 @@
   width: 100%;
 }
 
+.about-page-icon {
+  display: block;
+  height: 96px;
+  margin-bottom: 14px;
+  width: 96px;
+}
+
 .about-page-title {
   cursor: pointer;
   font-size: 20px;

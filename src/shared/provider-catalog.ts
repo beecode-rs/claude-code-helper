@@ -20,4 +20,10 @@ export const PROVIDER_CATALOG: IProviderCatalogEntry[] = [
     id: 'zai',
     name: 'z.ai',
   },
+  {
+    defaultRefreshIntervalSeconds: 3600,
+    description: 'Dev-only test tracker that shows a native popup when its schedule fires',
+    id: 'dummy',
+    name: 'Dummy',
+  },
 ]

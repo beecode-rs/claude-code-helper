@@ -12,6 +12,9 @@
 		"moduleResolution": "Bundler",
 		"noUncheckedIndexedAccess": true,
 		"paths": {
+			"#resource/*": [
+				"./resource/*"
+			],
 			"#src/*": [
 				"./src/*"
 			]

@@ -6,6 +6,10 @@
   color: #d97757;
 }
 
+.provider-icon-dummy {
+  color: var(--meter-accent, #3987e5);
+}
+
 .provider-icon-zai {
   color: var(--ink-primary, #ffffff);
 }

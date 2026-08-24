@@ -1,11 +1,17 @@
 import type { ISchedulingStrategy } from '#src/main/business/component/scheduling-strategy/scheduling-strategy'
-import type { IAppSettings } from '#src/shared/settings-model'
-import type { ISchedulingInfo, ITriggerConfig, ITriggerRegistrationHealth } from '#src/shared/trigger-model'
+import type { IAppSettings, IDummyTrackerConfig } from '#src/shared/settings-model'
+import type { ISchedulingInfo, ITriggerRegistrationHealth, TriggerDay } from '#src/shared/trigger-model'
+
+interface ISchedulableRegistration {
+  days: TriggerDay[]
+  id: string
+  times: string[]
+}
 
 export class SchedulingService {
   protected readonly _executablePrefixArgs: string[]
   protected readonly _executablePath: string
-  protected readonly _fingerprintsByTriggerId = new Map<string, string>()
+  protected readonly _fingerprintsByRegistrationId = new Map<string, string>()
   protected readonly _strategy: ISchedulingStrategy
 
   constructor(params: { executablePrefixArgs?: string[]; executablePath?: string; strategy: ISchedulingStrategy }) {
@@ -50,93 +56,95 @@ export class SchedulingService {
       return
     }
 
-    const triggerIds = new Set(
-      params.settings.triggers.map((trigger) => {
-        return trigger.id
+    const schedulables = this._resolveSchedulables({ settings: params.settings })
+    const desiredIds = new Set(
+      schedulables.map((schedulable) => {
+        return schedulable.id
       }),
     )
     const orphanedIds = [...registeredIds].filter((registeredId) => {
-      return !triggerIds.has(registeredId)
+      return !desiredIds.has(registeredId)
     })
 
     await this._removeRegistrations({ registrationIds: orphanedIds })
-    await this._syncTriggerRegistrations({ registeredIds, triggers: params.settings.triggers })
+    await this._syncSchedulableRegistrations({ registeredIds, schedulables })
+  }
+
+  protected _resolveSchedulables(params: { settings: IAppSettings }): ISchedulableRegistration[] {
+    const enabledTriggers = params.settings.triggers
+      .filter((trigger) => {
+        return trigger.isEnabled
+      })
+      .map((trigger) => {
+        return { days: trigger.days, id: trigger.id, times: trigger.times }
+      })
+    const activeDummyTrackers = params.settings.trackers
+      .filter((tracker): tracker is IDummyTrackerConfig => {
+        return tracker.providerId === 'dummy' && !tracker.isAutoRefreshPaused
+      })
+      .map((tracker) => {
+        return { days: tracker.days, id: tracker.id, times: tracker.times }
+      })
+
+    return [...enabledTriggers, ...activeDummyTrackers]
   }
 
   protected async _removeRegistrations(params: { registrationIds: string[] }): Promise<void> {
     await params.registrationIds.reduce<Promise<void>>((chain, registrationId) => {
       return chain.then(async () => {
         await this._strategy.removeRegistration({ triggerId: registrationId })
-        this._fingerprintsByTriggerId.delete(registrationId)
+        this._fingerprintsByRegistrationId.delete(registrationId)
       })
     }, Promise.resolve())
   }
 
-  protected async _syncTriggerRegistrations(params: {
+  protected async _syncSchedulableRegistrations(params: {
     registeredIds: Set<string>
-    triggers: ITriggerConfig[]
+    schedulables: ISchedulableRegistration[]
   }): Promise<void> {
-    await params.triggers.reduce<Promise<void>>((chain, trigger) => {
+    await params.schedulables.reduce<Promise<void>>((chain, schedulable) => {
       return chain.then(async () => {
-        await this._syncTriggerRegistration({ registeredIds: params.registeredIds, trigger })
+        await this._syncSchedulableRegistration({ registeredIds: params.registeredIds, schedulable })
       })
     }, Promise.resolve())
   }
 
-  protected async _syncTriggerRegistration(params: {
+  protected async _syncSchedulableRegistration(params: {
     registeredIds: Set<string>
-    trigger: ITriggerConfig
+    schedulable: ISchedulableRegistration
   }): Promise<void> {
-    if (!params.trigger.isEnabled) {
-      await this._removeRegistrationIfPresent({
-        isRegistered: params.registeredIds.has(params.trigger.id),
-        triggerId: params.trigger.id,
-      })
-
-      return
-    }
-
-    const executableArgs = this._resolveExecutableArgs({ triggerId: params.trigger.id })
-    const fingerprint = this._resolveRegistrationFingerprint({
-      executableArgs,
-      trigger: params.trigger,
-    })
-    const syncedFingerprint = this._fingerprintsByTriggerId.get(params.trigger.id)
-    const isRegistrationCurrent = params.registeredIds.has(params.trigger.id) && syncedFingerprint === fingerprint
+    const executableArgs = this._resolveExecutableArgs({ triggerId: params.schedulable.id })
+    const fingerprint = this._resolveRegistrationFingerprint({ executableArgs, schedulable: params.schedulable })
+    const syncedFingerprint = this._fingerprintsByRegistrationId.get(params.schedulable.id)
+    const isRegistrationCurrent = params.registeredIds.has(params.schedulable.id) && syncedFingerprint === fingerprint
 
     if (isRegistrationCurrent) {
       return
     }
 
     await this._strategy.upsertRegistration({
-      days: params.trigger.days,
+      days: params.schedulable.days,
       executableArgs,
       executablePath: this._executablePath,
-      times: params.trigger.times,
-      triggerId: params.trigger.id,
+      times: params.schedulable.times,
+      triggerId: params.schedulable.id,
     })
-    this._fingerprintsByTriggerId.set(params.trigger.id, fingerprint)
-  }
-
-  protected async _removeRegistrationIfPresent(params: { isRegistered: boolean; triggerId: string }): Promise<void> {
-    if (!params.isRegistered) {
-      return
-    }
-
-    await this._strategy.removeRegistration({ triggerId: params.triggerId })
-    this._fingerprintsByTriggerId.delete(params.triggerId)
+    this._fingerprintsByRegistrationId.set(params.schedulable.id, fingerprint)
   }
 
   protected _resolveExecutableArgs(params: { triggerId: string }): string[] {
     return [...this._executablePrefixArgs, '--fire-trigger', params.triggerId]
   }
 
-  protected _resolveRegistrationFingerprint(params: { executableArgs: string[]; trigger: ITriggerConfig }): string {
+  protected _resolveRegistrationFingerprint(params: {
+    executableArgs: string[]
+    schedulable: ISchedulableRegistration
+  }): string {
     return JSON.stringify({
-      days: [...params.trigger.days].sort(),
+      days: [...params.schedulable.days].sort(),
       executableArgs: params.executableArgs,
       executablePath: this._executablePath,
-      times: [...params.trigger.times].sort(),
+      times: [...params.schedulable.times].sort(),
     })
   }
 }

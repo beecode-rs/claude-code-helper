@@ -1,0 +1,36 @@
+.trigger-card-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  transition: opacity 0.2s ease;
+}
+
+.trigger-chip {
+  background: var(--meter-track);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 3px 10px;
+}
+
+.trigger-chip.is-active {
+  background: color-mix(in srgb, var(--meter-accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--meter-accent) 45%, transparent);
+  color: var(--ink-primary);
+}
+
+.trigger-quick-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.trigger-time-row {
+  display: flex;
+  gap: 8px;
+}
+
+.trigger-time-row .settings-field-input {
+  flex: 1;
+}

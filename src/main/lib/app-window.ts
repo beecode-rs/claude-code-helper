@@ -1,8 +1,25 @@
 import { BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
 
+export type WindowVisibilityChangeListener = (params: { isVisible: boolean }) => void
+
 export const appWindow = {
-  create: (): BrowserWindow => {
+  _watchVisibility(params: { browserWindow: BrowserWindow; onVisibilityChange: WindowVisibilityChangeListener }): void {
+    const notifyVisible = (): void => {
+      params.onVisibilityChange({ isVisible: true })
+    }
+
+    const notifyHidden = (): void => {
+      params.onVisibilityChange({ isVisible: false })
+    }
+
+    params.browserWindow.on('show', notifyVisible)
+    params.browserWindow.on('restore', notifyVisible)
+    params.browserWindow.on('hide', notifyHidden)
+    params.browserWindow.on('minimize', notifyHidden)
+  },
+
+  create: (params?: { onVisibilityChange?: WindowVisibilityChangeListener }): BrowserWindow => {
     const browserWindow = new BrowserWindow({
       height: 680,
       minHeight: 560,
@@ -20,6 +37,10 @@ export const appWindow = {
     browserWindow.on('ready-to-show', () => {
       browserWindow.show()
     })
+
+    if (params?.onVisibilityChange !== undefined) {
+      appWindow._watchVisibility({ browserWindow, onVisibilityChange: params.onVisibilityChange })
+    }
 
     browserWindow.webContents.setWindowOpenHandler((details) => {
       void shell.openExternal(details.url)

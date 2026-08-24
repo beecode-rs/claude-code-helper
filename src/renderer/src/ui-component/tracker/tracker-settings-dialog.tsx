@@ -31,8 +31,32 @@ export const TrackerSettingsDialog = (props: {
     void loadSettings()
   }, [trackerId])
 
+  const resolveTrackerValidationError = (candidate: ITrackerConfig): string | undefined => {
+    if (candidate.providerId !== 'dummy') {
+      return undefined
+    }
+
+    if (candidate.days.length === 0) {
+      return 'Pick at least one day for this tracker.'
+    }
+
+    if (candidate.times.length === 0) {
+      return 'Add at least one time for this tracker.'
+    }
+
+    return undefined
+  }
+
   const handleSave = async (): Promise<void> => {
     if (settings === undefined || tracker === undefined) {
+      return
+    }
+
+    const validationError = resolveTrackerValidationError(tracker)
+
+    if (validationError !== undefined) {
+      setErrorMessage(validationError)
+
       return
     }
 

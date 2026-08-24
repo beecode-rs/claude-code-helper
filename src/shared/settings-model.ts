@@ -1,4 +1,4 @@
-import type { ITriggerConfig } from '#src/shared/trigger-model'
+import type { ITriggerConfig, TriggerDay } from '#src/shared/trigger-model'
 
 export enum ClaudeTokenSource {
   MANUAL = 'manual',
@@ -18,11 +18,17 @@ export interface IClaudeTrackerConfig extends ITrackerConfigBase {
   tokenSource: ClaudeTokenSource
 }
 
+export interface IDummyTrackerConfig extends ITrackerConfigBase {
+  days: TriggerDay[]
+  providerId: 'dummy'
+  times: string[]
+}
+
 export interface IZaiTrackerConfig extends ITrackerConfigBase {
   providerId: 'zai'
 }
 
-export type ITrackerConfig = IClaudeTrackerConfig | IZaiTrackerConfig
+export type ITrackerConfig = IClaudeTrackerConfig | IDummyTrackerConfig | IZaiTrackerConfig
 
 export interface ISshHostConfig {
   id: string

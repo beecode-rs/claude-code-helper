@@ -7,6 +7,7 @@ import {
   DEFAULT_SESSIONS_REFRESH_INTERVAL_SECONDS,
   type IAppSettings,
   type IClaudeTrackerConfig,
+  type IDummyTrackerConfig,
   type ISshHostConfig,
   type ITrackerConfig,
   type IZaiTrackerConfig,
@@ -184,9 +185,36 @@ export class SettingsService {
         }
       }
 
+      case 'dummy': {
+        return this._sanitizeDummyTracker({ rawTracker: params.rawTracker })
+      }
+
       default: {
         return undefined
       }
+    }
+  }
+
+  protected _sanitizeDummyTracker(params: { rawTracker: Record<string, unknown> }): IDummyTrackerConfig | undefined {
+    const days = this._resolveTriggerDays({ value: params.rawTracker['days'] })
+    const times = this._resolveTriggerTimes({ value: params.rawTracker['times'] })
+
+    if (days.length === 0 || times.length === 0) {
+      return undefined
+    }
+
+    return {
+      accessToken: '',
+      days,
+      id: this._resolveTrackerId({ value: params.rawTracker['id'] }),
+      isAutoRefreshPaused: this._resolveIsAutoRefreshPaused({ value: params.rawTracker['isAutoRefreshPaused'] }),
+      name: this._resolveTrackerName({ providerId: 'dummy', value: params.rawTracker['name'] }),
+      providerId: 'dummy',
+      refreshIntervalSeconds: this._resolveRefreshIntervalSeconds({
+        providerId: 'dummy',
+        value: params.rawTracker['refreshIntervalSeconds'],
+      }),
+      times,
     }
   }
 
@@ -194,7 +222,7 @@ export class SettingsService {
     const claudeConfig = this._migrateLegacyClaudeTracker({ rawRecord: params.rawRecord })
     const zaiConfig = this._migrateLegacyZaiTracker({ rawRecord: params.rawRecord })
 
-    return [claudeConfig, zaiConfig].filter((tracker): tracker is ITrackerConfig => {
+    return [claudeConfig, zaiConfig].filter((tracker): tracker is IClaudeTrackerConfig | IZaiTrackerConfig => {
       return tracker !== undefined
     })
   }

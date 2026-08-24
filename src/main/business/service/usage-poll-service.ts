@@ -1,6 +1,7 @@
 import { type UsageSnapshotRepo } from '#src/main/business/repo/usage-snapshot-repo'
 import { ClaudeSystemTokenService } from '#src/main/business/service/claude-system-token-service'
 import { UsageProviderClaude } from '#src/main/business/service/usage-provider/claude'
+import { UsageProviderDummy } from '#src/main/business/service/usage-provider/dummy'
 import { type IUsageProvider } from '#src/main/business/service/usage-provider/usage-provider'
 import { UsageProviderZai } from '#src/main/business/service/usage-provider/zai'
 import { errorUtil } from '#src/main/util/error-util'
@@ -15,6 +16,7 @@ import {
 
 export class UsagePollService {
   protected _generationByTrackerId = new Map<string, number>()
+  protected _isWindowVisible = false
   protected _listeners: UsageUpdateListener[] = []
   protected _nextPollAtByTrackerId = new Map<string, number>()
   protected _settings: IAppSettings | undefined
@@ -44,6 +46,11 @@ export class UsagePollService {
     this._settings = params.settings
 
     await this._hydratePersistedSnapshots()
+
+    if (!this._isWindowVisible) {
+      return
+    }
+
     await this._resumeTrackers()
   }
 
@@ -58,6 +65,22 @@ export class UsagePollService {
       clearTimeout(timer)
     })
     this._timerByTrackerId.clear()
+  }
+
+  setWindowVisibility(params: { isVisible: boolean }): void {
+    if (params.isVisible === this._isWindowVisible) {
+      return
+    }
+
+    this._isWindowVisible = params.isVisible
+
+    if (!params.isVisible) {
+      this.stop()
+
+      return
+    }
+
+    void this._resumeTrackers()
   }
 
   async refreshNow(): Promise<void> {
@@ -126,7 +149,7 @@ export class UsagePollService {
   }
 
   protected _createDefaultProviders(): Record<ProviderId, IUsageProvider> {
-    return { claude: new UsageProviderClaude(), zai: new UsageProviderZai() }
+    return { claude: new UsageProviderClaude(), dummy: new UsageProviderDummy(), zai: new UsageProviderZai() }
   }
 
   protected _resolveTracker(params: { trackerId: string }): ITrackerConfig | undefined {
@@ -174,8 +197,9 @@ export class UsagePollService {
 
     return settings.trackers.reduce<Record<string, IProviderSnapshot>>((snapshotsByTrackerId, tracker) => {
       const snapshot = this._snapshotByTrackerId.get(tracker.id)
+      const isPersistable = tracker.providerId !== 'dummy'
 
-      if (snapshot?.status === UsageStatus.OK) {
+      if (isPersistable && snapshot?.status === UsageStatus.OK) {
         snapshotsByTrackerId[tracker.id] = {
           fetchedAt: snapshot.fetchedAt,
           providerId: snapshot.providerId,
@@ -320,8 +344,9 @@ export class UsagePollService {
 
     try {
       const accessToken = await this._resolveAccessToken({ tracker })
+      const isAccessTokenRequired = tracker.providerId !== 'dummy'
 
-      if (accessToken === '') {
+      if (isAccessTokenRequired && accessToken === '') {
         return {
           providerId: tracker.providerId,
           status: UsageStatus.UNCONFIGURED,
@@ -361,6 +386,10 @@ export class UsagePollService {
 
   protected _rescheduleTrackerAfterPoll(params: { isPollApplied: boolean; trackerId: string }): void {
     if (!params.isPollApplied) {
+      return
+    }
+
+    if (!this._isWindowVisible) {
       return
     }
 

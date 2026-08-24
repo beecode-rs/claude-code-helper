@@ -55,6 +55,32 @@
   font-variant-numeric: tabular-nums;
 }
 
+.planner-dial.is-lunch .planner-dial-fill,
+.planner-dial.is-lunch .planner-dial-needle {
+  stroke: var(--meter-good);
+}
+
+.planner-dial.is-lunch .planner-dial-knob {
+  fill: var(--meter-good);
+}
+
+.planner-dial.is-lunch .planner-dial-svg:focus-visible {
+  outline-color: var(--meter-good);
+}
+
+.planner-dial.is-work .planner-dial-fill,
+.planner-dial.is-work .planner-dial-needle {
+  stroke: var(--meter-warning);
+}
+
+.planner-dial.is-work .planner-dial-knob {
+  fill: var(--meter-warning);
+}
+
+.planner-dial.is-work .planner-dial-svg:focus-visible {
+  outline-color: var(--meter-warning);
+}
+
 .scheduling {
   display: flex;
   flex-direction: column;
@@ -210,13 +236,6 @@
   margin-left: auto;
 }
 
-.trigger-card-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  transition: opacity 0.2s ease;
-}
-
 .trigger-card-command {
   color: var(--ink-secondary);
   display: block;
@@ -269,22 +288,6 @@
 .trigger-card.is-paused .trigger-card-chips,
 .trigger-card.is-paused .trigger-card-footer {
   opacity: 0.45;
-}
-
-.trigger-chip {
-  background: var(--meter-track);
-  border: 1px solid transparent;
-  border-radius: 999px;
-  color: var(--ink-muted);
-  cursor: pointer;
-  font-size: 11px;
-  padding: 3px 10px;
-}
-
-.trigger-chip.is-active {
-  background: color-mix(in srgb, var(--meter-accent) 18%, transparent);
-  border-color: color-mix(in srgb, var(--meter-accent) 45%, transparent);
-  color: var(--ink-primary);
 }
 
 .trigger-command-input {
@@ -368,11 +371,6 @@
 .trigger-icon-button.is-danger:hover {
   background: color-mix(in srgb, var(--meter-critical) 14%, transparent);
   color: var(--meter-critical);
-}
-
-.trigger-quick-actions {
-  display: flex;
-  gap: 8px;
 }
 
 .trigger-run-badge {
@@ -519,15 +517,6 @@
   position: relative;
   transition: background 0.2s ease;
   width: 36px;
-}
-
-.trigger-time-row {
-  display: flex;
-  gap: 8px;
-}
-
-.trigger-time-row .settings-field-input {
-  flex: 1;
 }
 
 .trigger-toggle {

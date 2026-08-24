@@ -1,7 +1,8 @@
 import { type ReactElement, useState } from 'react'
 
+import appIconUrl from '#resource/icon/app-icon.png'
 import '#src/renderer/src/ui-component/about/about-page.css'
-import { PROVIDER_CATALOG } from '#src/shared/provider-catalog'
+import { providerCatalogUtil } from '#src/renderer/src/util/provider-catalog-util'
 
 const TITLE_CLICKS_TO_TOGGLE_DEVELOPMENT = 7
 
@@ -35,6 +36,7 @@ export const AboutPage = (props: { onToggleDevelopmentUnlock: () => void }): Rea
   return (
     <div className="about-page">
       <header>
+        <img alt="Usage Pulse app icon" className="about-page-icon" src={appIconUrl} />
         <h1 className="about-page-title" onClick={handleTitleClick}>
           Usage Pulse
         </h1>
@@ -54,7 +56,7 @@ export const AboutPage = (props: { onToggleDevelopmentUnlock: () => void }): Rea
       <section className="about-page-section">
         <h2 className="about-page-section-title">Supported providers</h2>
         <ul className="about-page-provider-list">
-          {PROVIDER_CATALOG.map((catalogEntry) => {
+          {providerCatalogUtil.resolveVisibleCatalogEntries().map((catalogEntry) => {
             return (
               <li className="about-page-provider" key={catalogEntry.id}>
                 <span className="about-page-provider-name">{catalogEntry.name}</span>

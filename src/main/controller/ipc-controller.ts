@@ -188,6 +188,9 @@ export const ipcController = {
 
         await params.settingsRepo.save({ settings: nextSettings })
         await params.pollService.applyTrackerAutoRefresh({ settings: nextSettings, trackerId })
+        void params.schedulingService.syncRegistrations({ settings: nextSettings }).catch(() => {
+          return undefined
+        })
 
         return nextSettings
       },

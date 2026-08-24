@@ -11,10 +11,16 @@ const CLAUDE_ICON_PATH =
 const ZAI_ICON_PATH =
   'M12.105 2L9.927 4.953H.653L2.83 2h9.276zM23.254 19.048L21.078 22h-9.242l2.174-2.952h9.244zM24 2L9.264 22H0L14.736 2H24z'
 
+const DUMMY_ICON_PATH = 'M13 2 3 14 12 14 11 22 21 10 12 10Z'
+
 const resolveIconPath = (providerId: ProviderId): string => {
   switch (providerId) {
     case 'claude': {
       return CLAUDE_ICON_PATH
+    }
+
+    case 'dummy': {
+      return DUMMY_ICON_PATH
     }
 
     case 'zai': {

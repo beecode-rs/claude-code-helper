@@ -2,7 +2,7 @@ import type { ISessionSnapshot } from '#src/shared/session-model'
 import type { IAppSettings } from '#src/shared/settings-model'
 import type { ISchedulingInfo, ITriggerRegistrationHealth, ITriggerRunLogEntry } from '#src/shared/trigger-model'
 
-export type ProviderId = 'claude' | 'zai'
+export type ProviderId = 'claude' | 'dummy' | 'zai'
 
 export const FIVE_HOUR_WINDOW_MS = 5 * 60 * 60 * 1000
 

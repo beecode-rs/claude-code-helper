@@ -83,7 +83,11 @@ const bootstrapApp = async (): Promise<void> => {
   await schedulingService.syncRegistrations({ settings }).catch(() => {
     return undefined
   })
-  const browserWindow = appWindow.create()
+  const browserWindow = appWindow.create({
+    onVisibilityChange: ({ isVisible }) => {
+      pollService.setWindowVisibility({ isVisible })
+    },
+  })
 
   ipcController.register({
     getWindow: () => {

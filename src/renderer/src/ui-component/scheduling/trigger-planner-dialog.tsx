@@ -172,6 +172,7 @@ export const TriggerPlannerDialog = (props: {
               min={0}
               onChange={handleWorkStartHourChange}
               step={1}
+              tone="work"
               value={workStartMinutes / 60}
             />
             <PlannerDial
@@ -181,6 +182,7 @@ export const TriggerPlannerDialog = (props: {
               min={1}
               onChange={handleWorkDurationHoursChange}
               step={1}
+              tone="work"
               value={workDurationMinutes / 60}
             />
             <PlannerDial
@@ -190,6 +192,7 @@ export const TriggerPlannerDialog = (props: {
               min={0}
               onChange={handleLunchStartHourChange}
               step={1}
+              tone="lunch"
               value={lunchStartMinutes / 60}
             />
           </div>

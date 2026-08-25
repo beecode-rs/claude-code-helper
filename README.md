@@ -48,6 +48,7 @@ Done:
 
 Planned:
 
+- [ ] Installable release builds (packaged app you download and install — no build from source needed)
 - [ ] Windows support (scheduler, focus, system token)
 
 ## Trackers

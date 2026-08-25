@@ -4,7 +4,10 @@ import { dirname } from 'node:path'
 import { SettingsService } from '#src/main/business/service/settings-service'
 import { type IAppSettings } from '#src/shared/settings-model'
 
+export type SettingsSaveListener = (params: { settings: IAppSettings }) => void
+
 export class SettingsRepo {
+  protected readonly _saveListeners: SettingsSaveListener[] = []
   protected readonly _settingsFilePath: string
 
   constructor(params: { settingsFilePath: string }) {
@@ -21,9 +24,20 @@ export class SettingsRepo {
     return new SettingsService().sanitizeSettings({ rawSettings: this._parseJsonContent({ content: fileContent }) })
   }
 
+  onSave(params: { listener: SettingsSaveListener }): void {
+    this._saveListeners.push(params.listener)
+  }
+
   async save(params: { settings: IAppSettings }): Promise<void> {
     await mkdir(dirname(this._settingsFilePath), { recursive: true })
     await writeFile(this._settingsFilePath, `${JSON.stringify(params.settings, null, 2)}\n`, 'utf8')
+    this._notifySaveListeners({ settings: params.settings })
+  }
+
+  protected _notifySaveListeners(params: { settings: IAppSettings }): void {
+    this._saveListeners.forEach((listener) => {
+      listener({ settings: params.settings })
+    })
   }
 
   protected async _readFileContent(): Promise<string | undefined> {

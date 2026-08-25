@@ -1,5 +1,5 @@
 import type { IAppSettings } from '#src/shared/settings-model'
-import type { IUsageSnapshot, UsageUpdateListener } from '#src/shared/usage-model'
+import type { IUsageSnapshot, SettingsUpdateListener, UsageUpdateListener } from '#src/shared/usage-model'
 
 export const usageClientService = {
   getSettings: (): Promise<IAppSettings> => {
@@ -22,6 +22,9 @@ export const usageClientService = {
       isAutoRefreshPaused: params.isAutoRefreshPaused,
       trackerId: params.trackerId,
     })
+  },
+  subscribeToSettingsUpdates: (params: { onUpdate: SettingsUpdateListener }): (() => void) => {
+    return window.usageApi.onSettingsUpdate(params.onUpdate)
   },
   subscribeToUsageUpdates: (params: { onUpdate: UsageUpdateListener }): (() => void) => {
     return window.usageApi.onUsageUpdate(params.onUpdate)

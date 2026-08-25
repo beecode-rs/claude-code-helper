@@ -1,5 +1,6 @@
-import { type ReactElement, useState } from 'react'
+import { type ReactElement, useEffect, useState } from 'react'
 
+import { usageClientService } from '#src/renderer/src/business/service/usage-client-service'
 import { AboutPage } from '#src/renderer/src/ui-component/about/about-page'
 import '#src/renderer/src/ui-component/app-shell/app-shell.css'
 import { DevelopmentPage } from '#src/renderer/src/ui-component/development/development-page'
@@ -9,6 +10,7 @@ import { type ISideMenuItem, SideMenu } from '#src/renderer/src/ui-component/sid
 import { UsageDashboard } from '#src/renderer/src/ui-component/usage-dashboard/usage-dashboard'
 import { developmentPrefsUtil } from '#src/renderer/src/util/development-prefs-util'
 import { sideMenuPrefsUtil } from '#src/renderer/src/util/side-menu-prefs-util'
+import type { IAppSettings } from '#src/shared/settings-model'
 
 type AppViewId = 'about' | 'development' | 'scheduling' | 'sessions' | 'usage'
 
@@ -81,25 +83,65 @@ const MENU_ICONS: Record<AppViewId, ReactElement> = {
   ),
 }
 
-const BASE_MENU_ITEMS: ISideMenuItem<AppViewId>[] = [
-  { icon: MENU_ICONS.usage, id: 'usage', label: 'Usage' },
-  { icon: MENU_ICONS.scheduling, id: 'scheduling', label: 'Scheduling' },
-  { icon: MENU_ICONS.sessions, id: 'sessions', label: 'Sessions' },
-  { icon: MENU_ICONS.about, id: 'about', label: 'About' },
-]
+const resolveMenuItems = (params: {
+  isDevelopmentUnlocked: boolean
+  isSchedulingLive: boolean
+  isSessionsLive: boolean
+  isUsageLive: boolean
+}): ISideMenuItem<AppViewId>[] => {
+  const menuItems: ISideMenuItem<AppViewId>[] = [
+    { icon: MENU_ICONS.usage, id: 'usage', isLive: params.isUsageLive, label: 'Usage' },
+    { icon: MENU_ICONS.scheduling, id: 'scheduling', isLive: params.isSchedulingLive, label: 'Scheduling' },
+    { icon: MENU_ICONS.sessions, id: 'sessions', isLive: params.isSessionsLive, label: 'Sessions' },
+    { icon: MENU_ICONS.about, id: 'about', label: 'About' },
+  ]
 
-const resolveMenuItems = (params: { isDevelopmentUnlocked: boolean }): ISideMenuItem<AppViewId>[] => {
   if (!params.isDevelopmentUnlocked) {
-    return BASE_MENU_ITEMS
+    return menuItems
   }
 
-  return [...BASE_MENU_ITEMS, { icon: MENU_ICONS.development, id: 'development', label: 'Development' }]
+  return [...menuItems, { icon: MENU_ICONS.development, id: 'development', label: 'Development' }]
+}
+
+const resolveIsUsageLive = (params: { settings?: IAppSettings }): boolean => {
+  const trackers = params.settings?.trackers ?? []
+
+  return trackers.some((tracker) => {
+    return !tracker.isAutoRefreshPaused
+  })
+}
+
+const resolveIsSchedulingLive = (params: { settings?: IAppSettings }): boolean => {
+  return params.settings?.isSchedulingEnabled === true
+}
+
+const resolveIsSessionsLive = (params: { settings?: IAppSettings }): boolean => {
+  return params.settings?.isSessionsAutoRefreshPaused === false
 }
 
 export const AppShell = (): ReactElement => {
   const [activeViewId, setActiveViewId] = useState<AppViewId>('usage')
   const [isCollapsed, setIsCollapsed] = useState<boolean>(sideMenuPrefsUtil.loadIsCollapsed)
   const [isDevelopmentUnlocked, setIsDevelopmentUnlocked] = useState<boolean>(developmentPrefsUtil.loadIsUnlocked)
+  const [settings, setSettings] = useState<IAppSettings | undefined>(undefined)
+
+  useEffect(() => {
+    const loadSettings = async (): Promise<void> => {
+      try {
+        setSettings(await usageClientService.getSettings())
+      } catch {
+        return
+      }
+    }
+
+    void loadSettings()
+
+    return usageClientService.subscribeToSettingsUpdates({
+      onUpdate: (nextSettings) => {
+        setSettings(nextSettings)
+      },
+    })
+  }, [])
 
   const handleSelectItem = (viewId: AppViewId): void => {
     setActiveViewId(viewId)
@@ -152,7 +194,12 @@ export const AppShell = (): ReactElement => {
       <SideMenu
         activeItemId={activeViewId}
         isCollapsed={isCollapsed}
-        items={resolveMenuItems({ isDevelopmentUnlocked })}
+        items={resolveMenuItems({
+          isDevelopmentUnlocked,
+          isSchedulingLive: resolveIsSchedulingLive({ settings }),
+          isSessionsLive: resolveIsSessionsLive({ settings }),
+          isUsageLive: resolveIsUsageLive({ settings }),
+        })}
         onSelectItem={handleSelectItem}
         onToggleCollapse={handleToggleCollapse}
         title="Usage Pulse"

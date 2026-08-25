@@ -12,6 +12,16 @@
   --meter-warning: #fab219;
   --meter-serious: #ec835a;
   --meter-critical: #d03b3b;
+  --pace-green-1: #2aa2c1;
+  --pace-green-2: #28b89b;
+  --pace-green-3: #27b079;
+  --pace-green-4: #1fad3b;
+  --pace-green-5: var(--meter-good);
+  --pace-red-1: #423bde;
+  --pace-red-2: #863bdb;
+  --pace-red-3: #d73ad4;
+  --pace-red-4: #d33a85;
+  --pace-red-5: var(--meter-critical);
 }
 
 * {

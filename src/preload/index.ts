@@ -9,7 +9,12 @@ import {
   type ITriggerRegistrationHealth,
   type ITriggerRunLogEntry,
 } from '#src/shared/trigger-model'
-import { type IUsageApiClient, type IUsageSnapshot, type UsageUpdateListener } from '#src/shared/usage-model'
+import {
+  type IUsageApiClient,
+  type IUsageSnapshot,
+  type SettingsUpdateListener,
+  type UsageUpdateListener,
+} from '#src/shared/usage-model'
 
 const usageApi: IUsageApiClient = {
   clearTriggerRunLogs: (params: { triggerId: string }): Promise<void> => {
@@ -44,6 +49,17 @@ const usageApi: IUsageApiClient = {
   },
   listSessions: (): Promise<ISessionSnapshot> => {
     return ipcRenderer.invoke(IpcChannelMapper.SESSIONS_LIST)
+  },
+  onSettingsUpdate: (listener: SettingsUpdateListener): (() => void) => {
+    const settingsUpdateListener = (_event: Electron.IpcRendererEvent, settings: IAppSettings): void => {
+      listener(settings)
+    }
+
+    ipcRenderer.on(IpcChannelMapper.SETTINGS_UPDATE, settingsUpdateListener)
+
+    return () => {
+      ipcRenderer.removeListener(IpcChannelMapper.SETTINGS_UPDATE, settingsUpdateListener)
+    }
   },
   onUsageUpdate: (listener: UsageUpdateListener): (() => void) => {
     const usageUpdateListener = (_event: Electron.IpcRendererEvent, snapshot: IUsageSnapshot): void => {

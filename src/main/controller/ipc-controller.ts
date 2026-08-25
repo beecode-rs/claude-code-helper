@@ -220,5 +220,17 @@ export const ipcController = {
         browserWindow.webContents.send(IpcChannelMapper.USAGE_UPDATE, snapshot)
       },
     })
+
+    params.settingsRepo.onSave({
+      listener: ({ settings }) => {
+        const browserWindow = params.getWindow()
+
+        if (browserWindow.isDestroyed()) {
+          return
+        }
+
+        browserWindow.webContents.send(IpcChannelMapper.SETTINGS_UPDATE, settings)
+      },
+    })
   },
 }

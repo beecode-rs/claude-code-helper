@@ -9,6 +9,7 @@ export enum IpcChannelMapper {
   SESSIONS_TEST_SSH_HOST = 'sessions:test-ssh-host',
   SETTINGS_GET = 'settings:get',
   SETTINGS_SAVE = 'settings:save',
+  SETTINGS_UPDATE = 'settings:update',
   TRIGGER_CLEAR_RUN_LOGS = 'trigger:clear-run-logs',
   TRIGGER_GET_RUN_LOGS = 'trigger:get-run-logs',
   TRIGGER_OS_INSPECT = 'trigger:os-inspect',

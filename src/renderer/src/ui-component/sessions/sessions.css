@@ -466,6 +466,12 @@
   gap: 6px;
 }
 
+.sessions-settings-range {
+  accent-color: var(--meter-accent);
+  margin: 0;
+  width: 100%;
+}
+
 .ssh-host-test-message {
   color: var(--meter-good);
   font-size: 12px;

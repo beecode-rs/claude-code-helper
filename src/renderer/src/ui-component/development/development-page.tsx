@@ -5,19 +5,17 @@ import { SelectField } from '#src/renderer/src/ui-component/development/select-f
 import { SliderField } from '#src/renderer/src/ui-component/development/slider-field'
 import { ProviderUsageCard } from '#src/renderer/src/ui-component/usage-dashboard/provider-usage-card'
 import { dateUtil } from '#src/renderer/src/util/date-util'
+import { MONTH_WINDOW_MS } from '#src/renderer/src/util/menu-status-util'
 import { usageResetUtil } from '#src/renderer/src/util/usage-reset-util'
 import { usageSeverityUtil } from '#src/renderer/src/util/usage-severity-util'
 import { type IProviderSnapshot, UsageStatus } from '#src/shared/usage-model'
 
-const DEFAULT_ELAPSED_MINUTES = 60
 const DEFAULT_FETCHED_ELAPSED_MINUTES = 1
-const DEFAULT_USED_PERCENT = 45
 const MAX_ELAPSED_MINUTES = 300
 const MAX_FETCHED_ELAPSED_MINUTES = 3 * 24 * 60
 const MAX_MINUTE_OF_DAY = 23 * 60 + 59
 const MAX_USED_PERCENT = 100
 const MINUTES_PER_HOUR = 60
-const MONTH_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
 const PREVIEW_MCP_TOTAL_CALLS = 1000
 const PREVIEW_NEXT_REFRESH_OFFSET_MS = 150_000
 const PREVIEW_REFRESH_INTERVAL_SECONDS = 300
@@ -42,9 +40,14 @@ const SEVERITY_BANDS = [
   { colorVar: 'var(--meter-critical)', label: 'Limit reached', range: '95–100%' },
 ]
 
-export const DevelopmentPage = (): ReactElement => {
-  const [usedPercent, setUsedPercent] = useState(DEFAULT_USED_PERCENT)
-  const [elapsedMinutes, setElapsedMinutes] = useState(DEFAULT_ELAPSED_MINUTES)
+export const DevelopmentPage = (props: {
+  elapsedMinutes: number
+  onElapsedMinutesChange: (elapsedMinutes: number) => void
+  onUsedPercentChange: (usedPercent: number) => void
+  usedPercent: number
+}): ReactElement => {
+  const { elapsedMinutes, onElapsedMinutesChange, onUsedPercentChange, usedPercent } = props
+
   const [fetchedElapsedMinutes, setFetchedElapsedMinutes] = useState(DEFAULT_FETCHED_ELAPSED_MINUTES)
   const [minuteOfDay, setMinuteOfDay] = useState((): number => {
     const now = new Date()
@@ -193,14 +196,14 @@ export const DevelopmentPage = (): ReactElement => {
         <SliderField
           label="Usage"
           max={MAX_USED_PERCENT}
-          onChange={setUsedPercent}
+          onChange={onUsedPercentChange}
           value={usedPercent}
           valueText={resolveUsageValueText()}
         />
         <SliderField
           label="Reset"
           max={MAX_ELAPSED_MINUTES}
-          onChange={setElapsedMinutes}
+          onChange={onElapsedMinutesChange}
           value={elapsedMinutes}
           valueText={resolveElapsedValueText()}
         />

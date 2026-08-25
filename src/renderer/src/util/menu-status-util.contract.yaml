@@ -1,0 +1,458 @@
+# Contract for menuStatusUtil.
+# Terms pin the side-menu status dots. The usage dot is 'error' when any provider
+# snapshot reports UsageStatus.ERROR, else 'warning' when any usage window is either
+# nearing expiry (remaining time <= 5% of windowMs) or outpacing the window (usage
+# percent more than 45 points ahead of the elapsed-window percent, i.e. red pace step 3
+# or deeper). The sessions dot is
+# 'error' when loading failed or the snapshot carries an error message, else 'waiting'
+# when any session waits. The combined dot ranks error > warning > waiting.
+# All terms use now: 0 and windowMs: 3600000 unless stated, so resetAt encodes the
+# remaining share directly (resetAt 180000 is exactly the 5% expiry threshold).
+subject: menuStatusUtil
+module: ./menu-status-util.js
+subjectType: function
+methods:
+  resolveCombinedStatusDot:
+    terms:
+      # Error outranks waiting.
+      - params:
+          - dots:
+              - waiting
+              - error
+        result: error
+      # Warning outranks waiting.
+      - params:
+          - dots:
+              - waiting
+              - warning
+        result: warning
+      # Warning survives undefined entries from areas without a dot.
+      - params:
+          - dots:
+              - !undefined
+              - warning
+              - !undefined
+        result: warning
+      # A lone waiting dot passes through.
+      - params:
+          - dots:
+              - !undefined
+              - waiting
+        result: waiting
+      # Neither area produced a dot.
+      - params:
+          - dots:
+              - !undefined
+              - !undefined
+        result: !undefined
+      # No dots at all.
+      - params:
+          - dots: []
+        result: !undefined
+  resolveDevelopmentStatusDot:
+    terms:
+      # The development playground builds a synthetic snapshot from the elapsed-minutes
+      # dial (0-300 spans the whole window, so elapsed percent = elapsedMinutes / 3 for
+      # both the 5-hour and the 30-day window) and reuses the usage warning rules. The
+      # provider is always OK, so 'error' is unreachable.
+      # All terms use now: 0.
+      #
+      # Step-3 pace warning: 85% used at 60 elapsed minutes is drift +65, into red pace
+      # step 3 where outpacing starts (drift beyond 45).
+      - params:
+          - elapsedMinutes: 60
+            now: 0
+            usedPercent: 85
+        result: warning
+      # Just below the outpacing threshold: 65% used at 60 elapsed minutes lands on
+      # exactly drift +45 and does not warn.
+      - params:
+          - elapsedMinutes: 60
+            now: 0
+            usedPercent: 65
+        result: !undefined
+      # One minute above the 285-minute expiry threshold (5.33% remaining) with usage
+      # far under pace: just-above-expiry alone does not warn.
+      - params:
+          - elapsedMinutes: 284
+            now: 0
+            usedPercent: 10
+        result: !undefined
+      # Drift +2 (62% used at 180 elapsed = 60% elapsed) stays inside the band.
+      - params:
+          - elapsedMinutes: 180
+            now: 0
+            usedPercent: 62
+        result: !undefined
+      # Drift +6 (the first red pace step) is no longer enough to warn.
+      - params:
+          - elapsedMinutes: 180
+            now: 0
+            usedPercent: 66
+        result: !undefined
+      # Expiry boundary: 285 elapsed minutes leaves exactly 5% remaining in BOTH windows
+      # (900000 of 18000000 and 129600000 of 2592000000), pinning the integer-exact
+      # multiply-before-divide resetAt derivation.
+      - params:
+          - elapsedMinutes: 285
+            now: 0
+            usedPercent: 10
+        result: warning
+      # Max dials: full quota on a fresh window warns via pace; empty fresh window is clean.
+      - params:
+          - elapsedMinutes: 0
+            now: 0
+            usedPercent: 100
+        result: warning
+      - params:
+          - elapsedMinutes: 0
+            now: 0
+            usedPercent: 0
+        result: !undefined
+      # Fully elapsed window (300 minutes) warns via expiry even with zero usage.
+      - params:
+          - elapsedMinutes: 300
+            now: 0
+            usedPercent: 0
+        result: warning
+  resolveIsWindowNearingExpiry:
+    terms:
+      # A window without a reset time never nears expiry.
+      - params:
+          - now: 0
+            windowMs: 3600000
+        result: false
+      # Remaining exactly at the 5% threshold (180000 of 3600000) counts as nearing.
+      - params:
+          - now: 0
+            resetAt: 180000
+            windowMs: 3600000
+        result: true
+      # One millisecond above the threshold is not nearing.
+      - params:
+          - now: 0
+            resetAt: 180001
+            windowMs: 3600000
+        result: false
+      # Half the window remaining is comfortably healthy.
+      - params:
+          - now: 0
+            resetAt: 1800000
+            windowMs: 3600000
+        result: false
+      # A window whose reset time already passed (no remaining time) still counts.
+      - params:
+          - now: 4000000
+            resetAt: 3600000
+            windowMs: 3600000
+        result: true
+  resolveSessionsStatusDot:
+    terms:
+      # No snapshot at all (sessions view not loaded yet).
+      - params:
+          - {}
+        result: !undefined
+      # Healthy snapshot: no error message and only active sessions.
+      - params:
+          - snapshot:
+              fetchedAt: 0
+              sessions:
+                - cwd: /a
+                  kind: claude
+                  name: s1
+                  pid: 1
+                  sessionId: sid-1
+                  startedAt: 0
+                  status: busy
+              unreachableHosts: []
+        result: !undefined
+      # Empty sessions list with no error message.
+      - params:
+          - snapshot:
+              fetchedAt: 0
+              sessions: []
+              unreachableHosts: []
+        result: !undefined
+      # A waiting session anywhere in the list (here: middle of three) waits.
+      - params:
+          - snapshot:
+              fetchedAt: 0
+              sessions:
+                - cwd: /a
+                  kind: claude
+                  name: s1
+                  pid: 1
+                  sessionId: sid-1
+                  startedAt: 0
+                  status: busy
+                - cwd: /b
+                  kind: claude
+                  name: s2
+                  pid: 2
+                  sessionId: sid-2
+                  startedAt: 0
+                  status: waiting
+                - cwd: /c
+                  kind: claude
+                  name: s3
+                  pid: 3
+                  sessionId: sid-3
+                  startedAt: 0
+                  status: idle
+              unreachableHosts: []
+        result: waiting
+      # An empty-string error message is not an error: the waiting session still wins.
+      - params:
+          - snapshot:
+              errorMessage: ''
+              fetchedAt: 0
+              sessions:
+                - cwd: /a
+                  kind: claude
+                  name: s1
+                  pid: 1
+                  sessionId: sid-1
+                  startedAt: 0
+                  status: waiting
+              unreachableHosts: []
+        result: waiting
+      # A snapshot error message outranks a waiting session.
+      - params:
+          - snapshot:
+              errorMessage: ssh unreachable
+              fetchedAt: 0
+              sessions:
+                - cwd: /a
+                  kind: claude
+                  name: s1
+                  pid: 1
+                  sessionId: sid-1
+                  startedAt: 0
+                  status: waiting
+              unreachableHosts: []
+        result: error
+      # A load failure flags error even when the snapshot itself looks healthy.
+      - params:
+          - hasLoadError: true
+            snapshot:
+              fetchedAt: 0
+              sessions: []
+              unreachableHosts: []
+        result: error
+  resolveUsageStatusDot:
+    terms:
+      # No snapshot at all (usage not loaded yet).
+      - params:
+          - now: 0
+        result: !undefined
+      # Snapshot with no providers.
+      - params:
+          - now: 0
+            snapshot:
+              providers: []
+        result: !undefined
+      # Single healthy provider: mid-window and on pace.
+      - params:
+          - now: 0
+            snapshot:
+              providers:
+                - providerId: claude
+                  status: OK
+                  trackerId: t-claude
+                  trackerName: Claude
+                  usage:
+                    - label: 5h
+                      resetAt: 1800000
+                      usedPercent: 50
+                      windowMs: 3600000
+        result: !undefined
+      # One errored tracker among healthy ones flags error.
+      - params:
+          - now: 0
+            snapshot:
+              providers:
+                - providerId: claude
+                  status: OK
+                  trackerId: t-claude
+                  trackerName: Claude
+                  usage:
+                    - label: 5h
+                      resetAt: 1800000
+                      usedPercent: 50
+                      windowMs: 3600000
+                - providerId: zai
+                  status: ERROR
+                  trackerId: t-zai
+                  trackerName: z.ai
+                - providerId: dummy
+                  status: OK
+                  trackerId: t-dummy
+                  trackerName: Dummy
+                  usage:
+                    - label: 5h
+                      resetAt: 1800000
+                      usedPercent: 50
+                      windowMs: 3600000
+        result: error
+      # An errored provider outranks a warning window on another provider.
+      - params:
+          - now: 0
+            snapshot:
+              providers:
+                - providerId: zai
+                  status: ERROR
+                  trackerId: t-zai
+                  trackerName: z.ai
+                - providerId: claude
+                  status: OK
+                  trackerId: t-claude
+                  trackerName: Claude
+                  usage:
+                    - label: 5h
+                      resetAt: 180000
+                      usedPercent: 50
+                      windowMs: 3600000
+        result: error
+      # Warning via expiry: remaining exactly at the 5% threshold on the second provider.
+      - params:
+          - now: 0
+            snapshot:
+              providers:
+                - providerId: claude
+                  status: OK
+                  trackerId: t-claude
+                  trackerName: Claude
+                  usage:
+                    - label: 5h
+                      resetAt: 1800000
+                      usedPercent: 50
+                      windowMs: 3600000
+                - providerId: zai
+                  status: OK
+                  trackerId: t-zai
+                  trackerName: z.ai
+                  usage:
+                    - label: 5h
+                      resetAt: 180000
+                      usedPercent: 50
+                      windowMs: 3600000
+        result: warning
+      # One millisecond above the threshold: healthy again (usage far under pace here).
+      - params:
+          - now: 0
+            snapshot:
+              providers:
+                - providerId: claude
+                  status: OK
+                  trackerId: t-claude
+                  trackerName: Claude
+                  usage:
+                    - label: 5h
+                      resetAt: 180001
+                      usedPercent: 50
+                      windowMs: 3600000
+        result: !undefined
+      # Warning via pace: 80% used at 20% elapsed is drift +60, into red pace step 3
+      # where outpacing starts (drift beyond 45).
+      - params:
+          - now: 0
+            snapshot:
+              providers:
+                - providerId: claude
+                  status: OK
+                  trackerId: t-claude
+                  trackerName: Claude
+                  usage:
+                    - label: 5h
+                      resetAt: 2880000
+                      usedPercent: 80
+                      windowMs: 3600000
+        result: warning
+      # Drift +20 (40% used at 20% elapsed, red pace step 1) is no longer enough to warn.
+      - params:
+          - now: 0
+            snapshot:
+              providers:
+                - providerId: claude
+                  status: OK
+                  trackerId: t-claude
+                  trackerName: Claude
+                  usage:
+                    - label: 5h
+                      resetAt: 2880000
+                      usedPercent: 40
+                      windowMs: 3600000
+        result: !undefined
+      # Drift +3 (23% used at 20% elapsed) stays inside the on-pace band.
+      - params:
+          - now: 0
+            snapshot:
+              providers:
+                - providerId: claude
+                  status: OK
+                  trackerId: t-claude
+                  trackerName: Claude
+                  usage:
+                    - label: 5h
+                      resetAt: 2880000
+                      usedPercent: 23
+                      windowMs: 3600000
+        result: !undefined
+      # Under pace (drift -30: 10% used at 40% elapsed) never warns.
+      - params:
+          - now: 0
+            snapshot:
+              providers:
+                - providerId: claude
+                  status: OK
+                  trackerId: t-claude
+                  trackerName: Claude
+                  usage:
+                    - label: 5h
+                      resetAt: 2160000
+                      usedPercent: 10
+                      windowMs: 3600000
+        result: !undefined
+      # A window without resetAt never warns, however much of the quota is used.
+      - params:
+          - now: 0
+            snapshot:
+              providers:
+                - providerId: claude
+                  status: OK
+                  trackerId: t-claude
+                  trackerName: Claude
+                  usage:
+                    - label: 5h
+                      usedPercent: 90
+                      windowMs: 3600000
+        result: !undefined
+      # A window without windowMs never warns either.
+      - params:
+          - now: 0
+            snapshot:
+              providers:
+                - providerId: claude
+                  status: OK
+                  trackerId: t-claude
+                  trackerName: Claude
+                  usage:
+                    - label: 5h
+                      resetAt: 3600000
+                      usedPercent: 90
+        result: !undefined
+      # A window already past its reset time (now after resetAt) still warns via expiry.
+      - params:
+          - now: 4000000
+            snapshot:
+              providers:
+                - providerId: claude
+                  status: OK
+                  trackerId: t-claude
+                  trackerName: Claude
+                  usage:
+                    - label: 5h
+                      resetAt: 3600000
+                      usedPercent: 0
+                      windowMs: 3600000
+        result: warning

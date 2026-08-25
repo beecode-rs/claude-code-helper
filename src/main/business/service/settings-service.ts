@@ -4,7 +4,9 @@ import {
   ClaudeTokenSource,
   DEFAULT_IS_SCHEDULING_ENABLED,
   DEFAULT_IS_SESSIONS_AUTO_REFRESH_PAUSED,
+  DEFAULT_IS_WAITING_SOUND_ENABLED,
   DEFAULT_SESSIONS_REFRESH_INTERVAL_SECONDS,
+  DEFAULT_WAITING_SOUND_VOLUME_PERCENT,
   type IAppSettings,
   type IClaudeTrackerConfig,
   type IDummyTrackerConfig,
@@ -13,8 +15,10 @@ import {
   type IZaiTrackerConfig,
   MAX_REFRESH_INTERVAL_SECONDS,
   MAX_SESSIONS_REFRESH_INTERVAL_SECONDS,
+  MAX_WAITING_SOUND_VOLUME_PERCENT,
   MIN_REFRESH_INTERVAL_SECONDS,
   MIN_SESSIONS_REFRESH_INTERVAL_SECONDS,
+  MIN_WAITING_SOUND_VOLUME_PERCENT,
 } from '#src/shared/settings-model'
 import {
   DEFAULT_TRIGGER_TIMEOUT_MS,
@@ -32,10 +36,12 @@ export class SettingsService {
     return {
       isSchedulingEnabled: DEFAULT_IS_SCHEDULING_ENABLED,
       isSessionsAutoRefreshPaused: DEFAULT_IS_SESSIONS_AUTO_REFRESH_PAUSED,
+      isWaitingSoundEnabled: DEFAULT_IS_WAITING_SOUND_ENABLED,
       sessionsRefreshIntervalSeconds: DEFAULT_SESSIONS_REFRESH_INTERVAL_SECONDS,
       sshHosts: [],
       trackers: [],
       triggers: [],
+      waitingSoundVolumePercent: DEFAULT_WAITING_SOUND_VOLUME_PERCENT,
     }
   }
 
@@ -54,12 +60,16 @@ export class SettingsService {
       isSessionsAutoRefreshPaused: this._resolveIsSessionsAutoRefreshPaused({
         value: rawRecord['isSessionsAutoRefreshPaused'],
       }),
+      isWaitingSoundEnabled: this._resolveIsWaitingSoundEnabled({ value: rawRecord['isWaitingSoundEnabled'] }),
       sessionsRefreshIntervalSeconds: this._resolveSessionsRefreshIntervalSeconds({
         value: rawRecord['sessionsRefreshIntervalSeconds'],
       }),
       sshHosts: this._resolveSshHosts({ rawSshHosts: rawRecord['sshHosts'] }),
       trackers: this._resolveTrackers({ rawRecord, rawTrackers }),
       triggers: this._resolveTriggers({ rawTriggers }),
+      waitingSoundVolumePercent: this._resolveWaitingSoundVolumePercent({
+        value: rawRecord['waitingSoundVolumePercent'],
+      }),
     }
   }
 
@@ -123,6 +133,27 @@ export class SettingsService {
     )
 
     return Math.round(clampedIntervalSeconds)
+  }
+
+  protected _resolveIsWaitingSoundEnabled(params: { value: unknown }): boolean {
+    if (typeof params.value !== 'boolean') {
+      return DEFAULT_IS_WAITING_SOUND_ENABLED
+    }
+
+    return params.value
+  }
+
+  protected _resolveWaitingSoundVolumePercent(params: { value: unknown }): number {
+    if (typeof params.value !== 'number' || !Number.isFinite(params.value)) {
+      return DEFAULT_WAITING_SOUND_VOLUME_PERCENT
+    }
+
+    const clampedVolumePercent = Math.min(
+      Math.max(params.value, MIN_WAITING_SOUND_VOLUME_PERCENT),
+      MAX_WAITING_SOUND_VOLUME_PERCENT,
+    )
+
+    return Math.round(clampedVolumePercent)
   }
 
   protected _resolveTrackers(params: { rawRecord: Record<string, unknown>; rawTrackers: unknown }): ITrackerConfig[] {

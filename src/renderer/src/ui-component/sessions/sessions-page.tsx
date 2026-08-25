@@ -53,6 +53,17 @@ const resolveRefreshProgressPercent = (params: {
   return (elapsedMs / intervalMs) * 100
 }
 
+const resolveDisplayedErrorMessage = (params: {
+  fetchErrorMessage: string
+  snapshot: ISessionSnapshot | undefined
+}): string => {
+  if (params.fetchErrorMessage !== '') {
+    return params.fetchErrorMessage
+  }
+
+  return params.snapshot?.errorMessage ?? ''
+}
+
 const resolveSummaryLabel = (sessions: ISessionInfo[]): string => {
   const counts = sessions.reduce<{ busy: number; idle: number; unknown: number; waiting: number }>(
     (statusCounts, session) => {
@@ -104,11 +115,21 @@ export const SessionsPage = (): ReactElement => {
     return Date.now()
   })
   const [expandedSessionKeys, setExpandedSessionKeys] = useState<Set<string>>(new Set<string>())
-  const [autoRefreshCycleStartedAtMs, setAutoRefreshCycleStartedAtMs] = useState<number | undefined>(undefined)
 
   const loadSessions = async (): Promise<void> => {
     try {
       const nextSnapshot = await sessionsClientService.listSessions()
+
+      setSnapshot(nextSnapshot)
+      setErrorMessage('')
+    } catch (error) {
+      setErrorMessage(errorUtil.resolveMessage(error))
+    }
+  }
+
+  const loadSessionsSnapshot = async (): Promise<void> => {
+    try {
+      const nextSnapshot = await sessionsClientService.resolveSessionsSnapshot()
 
       setSnapshot(nextSnapshot)
       setErrorMessage('')
@@ -173,25 +194,17 @@ export const SessionsPage = (): ReactElement => {
   }, [])
 
   useEffect(() => {
-    void loadSessions()
+    void loadSessionsSnapshot()
+  }, [])
 
-    if (isAutoRefreshPaused) {
-      setAutoRefreshCycleStartedAtMs(undefined)
-
-      return
-    }
-
-    setAutoRefreshCycleStartedAtMs(Date.now())
-
-    const refreshIntervalId = setInterval(() => {
-      setAutoRefreshCycleStartedAtMs(Date.now())
-      void loadSessions()
-    }, refreshIntervalSeconds * 1000)
-
-    return () => {
-      clearInterval(refreshIntervalId)
-    }
-  }, [refreshIntervalSeconds, isAutoRefreshPaused])
+  useEffect(() => {
+    return sessionsClientService.subscribeToSessionsUpdates({
+      onUpdate: (nextSnapshot) => {
+        setSnapshot(nextSnapshot)
+        setErrorMessage('')
+      },
+    })
+  }, [])
 
   useEffect(() => {
     const tickIntervalId = setInterval(() => {
@@ -206,6 +219,7 @@ export const SessionsPage = (): ReactElement => {
   const sessions = snapshot?.sessions ?? []
   const hasSnapshot = snapshot !== undefined
   const isEmpty = hasSnapshot && sessions.length === 0
+  const displayedErrorMessage = resolveDisplayedErrorMessage({ fetchErrorMessage: errorMessage, snapshot })
 
   return (
     <div className="sessions">
@@ -256,13 +270,13 @@ export const SessionsPage = (): ReactElement => {
           Idle
         </span>
       </div>
-      {errorMessage !== '' && <p className="sessions-error">{errorMessage}</p>}
+      {displayedErrorMessage !== '' && <p className="sessions-error">{displayedErrorMessage}</p>}
       {snapshot !== undefined && snapshot.unreachableHosts.length > 0 && (
         <p className="sessions-warning">{resolveUnreachableHostsLabel(snapshot.unreachableHosts)}</p>
       )}
       <main className="sessions-grid">
-        {!hasSnapshot && errorMessage === '' && <p className="sessions-empty">Loading sessions…</p>}
-        {!hasSnapshot && errorMessage !== '' && <p className="sessions-empty">Could not load sessions</p>}
+        {!hasSnapshot && displayedErrorMessage === '' && <p className="sessions-empty">Loading sessions…</p>}
+        {!hasSnapshot && displayedErrorMessage !== '' && <p className="sessions-empty">Could not load sessions</p>}
         {isEmpty && <p className="sessions-empty">No active sessions</p>}
         {sessions.map((session) => {
           const sessionKey = resolveSessionKey(session)
@@ -290,7 +304,7 @@ export const SessionsPage = (): ReactElement => {
             setIsHostsOpen(false)
           }}
           onSaved={() => {
-            void loadSessions()
+            void loadSessionsSnapshot()
           }}
         />
       )}
@@ -301,14 +315,14 @@ export const SessionsPage = (): ReactElement => {
           }}
           onSaved={() => {
             void loadSessionsSettings()
-            void loadSessions()
+            void loadSessionsSnapshot()
           }}
         />
       )}
-      {autoRefreshCycleStartedAtMs !== undefined && (
+      {!isAutoRefreshPaused && snapshot !== undefined && (
         <SessionsRefreshProgressBar
           percent={resolveRefreshProgressPercent({
-            cycleStartedAtMs: autoRefreshCycleStartedAtMs,
+            cycleStartedAtMs: snapshot.fetchedAt,
             intervalSeconds: refreshIntervalSeconds,
             nowMs,
           })}

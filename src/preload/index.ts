@@ -2,7 +2,11 @@ import { contextBridge, ipcRenderer } from 'electron'
 
 import { IpcChannelMapper } from '#src/shared/ipc-channel'
 import type { OsPlatform } from '#src/shared/os-model'
-import { type ISessionFocusSupport, type ISessionSnapshot } from '#src/shared/session-model'
+import {
+  type ISessionFocusSupport,
+  type ISessionSnapshot,
+  type SessionsUpdateListener,
+} from '#src/shared/session-model'
 import { type IAppSettings } from '#src/shared/settings-model'
 import {
   type ISchedulingInfo,
@@ -32,6 +36,9 @@ const usageApi: IUsageApiClient = {
   getSessionFocusSupport: (): Promise<ISessionFocusSupport> => {
     return ipcRenderer.invoke(IpcChannelMapper.SESSIONS_GET_FOCUS_SUPPORT)
   },
+  getSessionsSnapshot: (): Promise<ISessionSnapshot | undefined> => {
+    return ipcRenderer.invoke(IpcChannelMapper.SESSIONS_GET_SNAPSHOT)
+  },
   getSettings: (): Promise<IAppSettings> => {
     return ipcRenderer.invoke(IpcChannelMapper.SETTINGS_GET)
   },
@@ -49,6 +56,17 @@ const usageApi: IUsageApiClient = {
   },
   listSessions: (): Promise<ISessionSnapshot> => {
     return ipcRenderer.invoke(IpcChannelMapper.SESSIONS_LIST)
+  },
+  onSessionsUpdate: (listener: SessionsUpdateListener): (() => void) => {
+    const sessionsUpdateListener = (_event: Electron.IpcRendererEvent, snapshot: ISessionSnapshot): void => {
+      listener(snapshot)
+    }
+
+    ipcRenderer.on(IpcChannelMapper.SESSIONS_UPDATE, sessionsUpdateListener)
+
+    return () => {
+      ipcRenderer.removeListener(IpcChannelMapper.SESSIONS_UPDATE, sessionsUpdateListener)
+    }
   },
   onSettingsUpdate: (listener: SettingsUpdateListener): (() => void) => {
     const settingsUpdateListener = (_event: Electron.IpcRendererEvent, settings: IAppSettings): void => {

@@ -3,7 +3,7 @@ import { type BrowserWindow, ipcMain } from 'electron'
 import { type SettingsRepo } from '#src/main/business/repo/settings-repo'
 import { type TriggerRunLogRepo } from '#src/main/business/repo/trigger-run-log-repo'
 import { type SchedulingService } from '#src/main/business/service/scheduling-service'
-import { type SessionTranscriptService } from '#src/main/business/service/session-transcript-service'
+import { type SessionsPollService } from '#src/main/business/service/sessions-poll-service'
 import { type SessionsService } from '#src/main/business/service/sessions-service'
 import { SettingsService } from '#src/main/business/service/settings-service'
 import { type SshSessionsService } from '#src/main/business/service/ssh-sessions-service'
@@ -25,7 +25,7 @@ export const ipcController = {
     getWindow: () => BrowserWindow
     pollService: UsagePollService
     schedulingService: SchedulingService
-    sessionTranscriptService: SessionTranscriptService
+    sessionsPollService: SessionsPollService
     sessionsService: SessionsService
     settingsRepo: SettingsRepo
     sshSessionsService: SshSessionsService
@@ -75,24 +75,16 @@ export const ipcController = {
       return params.sessionsService.getFocusSupport()
     })
 
+    ipcMain.handle(IpcChannelMapper.SESSIONS_GET_SNAPSHOT, (): ISessionSnapshot | undefined => {
+      return params.sessionsPollService.getSnapshot()
+    })
+
     ipcMain.handle(IpcChannelMapper.SESSIONS_INSTALL_FOCUS_TOOL, (): Promise<ISessionFocusSupport> => {
       return params.sessionsService.installFocusTool()
     })
 
     ipcMain.handle(IpcChannelMapper.SESSIONS_LIST, async (): Promise<ISessionSnapshot> => {
-      const settings = await params.settingsRepo.load()
-      const [localSnapshot, remoteResults] = await Promise.all([
-        params.sessionsService.listSessions(),
-        params.sshSessionsService.listRemoteSessions({ hosts: settings.sshHosts }),
-      ])
-      const mergedSnapshot = params.sshSessionsService.mergeSessionSnapshots({ localSnapshot, remoteResults })
-      const sessions = await params.sessionTranscriptService
-        .enrichSessions({ sessions: mergedSnapshot.sessions })
-        .catch(() => {
-          return mergedSnapshot.sessions
-        })
-
-      return { ...mergedSnapshot, sessions }
+      return await params.sessionsPollService.refreshNow()
     })
 
     ipcMain.handle(IpcChannelMapper.SESSIONS_TEST_SSH_HOST, async (_event, rawParams: unknown): Promise<void> => {
@@ -115,6 +107,7 @@ export const ipcController = {
 
       await params.settingsRepo.save({ settings })
       await params.pollService.restart({ settings })
+      await params.sessionsPollService.restart({ settings })
       await params.schedulingService.syncRegistrations({ settings })
 
       return settings
@@ -218,6 +211,18 @@ export const ipcController = {
         }
 
         browserWindow.webContents.send(IpcChannelMapper.USAGE_UPDATE, snapshot)
+      },
+    })
+
+    params.sessionsPollService.onUpdate({
+      listener: (snapshot) => {
+        const browserWindow = params.getWindow()
+
+        if (browserWindow.isDestroyed()) {
+          return
+        }
+
+        browserWindow.webContents.send(IpcChannelMapper.SESSIONS_UPDATE, snapshot)
       },
     })
 

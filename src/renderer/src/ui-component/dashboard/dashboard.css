@@ -1,0 +1,207 @@
+.dashboard-error {
+  background: color-mix(in srgb, var(--meter-critical) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--meter-critical) 35%, transparent);
+  border-radius: 8px;
+  color: var(--meter-critical);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+  padding: 10px 14px;
+  word-break: break-word;
+}
+
+.dashboard-page .dashboard-grid {
+  grid-auto-rows: 1fr;
+}
+
+.dashboard-usage-box {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.dashboard-empty-box {
+  align-items: center;
+  background: transparent;
+  border: 1.5px dashed color-mix(in srgb, var(--ink-muted) 45%, transparent);
+  border-radius: 12px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  gap: 6px;
+  justify-content: center;
+  min-height: 120px;
+  padding: 20px;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.dashboard-empty-box:hover,
+.dashboard-empty-box:focus-visible {
+  border-color: var(--meter-accent);
+  color: var(--ink-secondary);
+}
+
+.dashboard-empty-box-icon {
+  align-items: center;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  margin-bottom: 4px;
+  width: 34px;
+}
+
+.dashboard-empty-box-title {
+  color: var(--ink-secondary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dashboard-empty-box-label {
+  font-size: 12px;
+}
+
+.dashboard-usage-box-header {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.dashboard-usage-box-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-usage-box-window {
+  color: var(--ink-muted);
+  flex-shrink: 0;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.dashboard-usage-box-message {
+  color: var(--ink-secondary);
+  font-size: 13px;
+  margin: 0;
+}
+
+.dashboard-box-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dashboard-usage-box .usage-bar-header {
+  margin-bottom: 4px;
+}
+
+.dashboard-usage-box .usage-bar-label,
+.dashboard-usage-box .usage-bar-value {
+  font-size: 11px;
+}
+
+.dashboard-usage-box .usage-bar-track {
+  border-radius: 0 3px 3px 0;
+  height: 6px;
+}
+
+.dashboard-usage-box .usage-bar-fill {
+  border-radius: 0 3px 3px 0;
+}
+
+.dashboard-session-box {
+  --session-remote: var(--meter-accent);
+  --session-waiting: #a78bfa;
+
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--ink-muted);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.dashboard-session-box.is-busy {
+  border-left-color: var(--meter-good);
+}
+
+.dashboard-session-box.is-waiting {
+  border-left-color: var(--session-waiting);
+}
+
+.dashboard-session-box.is-remote {
+  background: color-mix(in srgb, var(--session-remote) 6%, var(--surface));
+}
+
+.dashboard-session-box-header {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.dashboard-session-box-heading {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dashboard-session-box-host {
+  color: var(--ink-muted);
+  font-size: 12px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-session-box-header-actions {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.dashboard-session-box-origin {
+  color: var(--ink-muted);
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.dashboard-session-box.is-remote .dashboard-session-box-origin {
+  color: var(--session-remote);
+}
+
+.dashboard-session-box-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: auto 0;
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-session-box .session-card-chips {
+  margin-top: 0;
+}

@@ -1,5 +1,5 @@
 import type { OsPlatform } from '#src/shared/os-model'
-import type { ISessionFocusSupport, ISessionSnapshot } from '#src/shared/session-model'
+import type { ISessionFocusSupport, ISessionSnapshot, SessionsUpdateListener } from '#src/shared/session-model'
 import type { IAppSettings } from '#src/shared/settings-model'
 import type { ISchedulingInfo, ITriggerRegistrationHealth, ITriggerRunLogEntry } from '#src/shared/trigger-model'
 
@@ -49,6 +49,7 @@ export interface IUsageApiClient {
   focusSession: (params: { cwd: string; pid: number }) => Promise<void>
   getPlatform: () => Promise<OsPlatform>
   getSessionFocusSupport: () => Promise<ISessionFocusSupport>
+  getSessionsSnapshot: () => Promise<ISessionSnapshot | undefined>
   getSettings: () => Promise<IAppSettings>
   getSchedulingInfo: () => Promise<ISchedulingInfo>
   getSnapshot: () => Promise<IUsageSnapshot>
@@ -56,8 +57,9 @@ export interface IUsageApiClient {
   inspectTriggerRegistrations: () => Promise<ITriggerRegistrationHealth[]>
   installSessionFocusTool: () => Promise<ISessionFocusSupport>
   listSessions: () => Promise<ISessionSnapshot>
-  onUsageUpdate: (listener: UsageUpdateListener) => () => void
+  onSessionsUpdate: (listener: SessionsUpdateListener) => () => void
   onSettingsUpdate: (listener: SettingsUpdateListener) => () => void
+  onUsageUpdate: (listener: UsageUpdateListener) => () => void
   refreshNow: () => Promise<void>
   refreshTracker: (params: { trackerId: string }) => Promise<void>
   saveSettings: (settings: IAppSettings) => Promise<IAppSettings>

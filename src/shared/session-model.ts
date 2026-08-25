@@ -42,7 +42,10 @@ export interface ISessionFocusSupport {
 }
 
 export interface ISessionSnapshot {
+  errorMessage?: string
   fetchedAt: number
   sessions: ISessionInfo[]
   unreachableHosts: IUnreachableHost[]
 }
+
+export type SessionsUpdateListener = (snapshot: ISessionSnapshot) => void

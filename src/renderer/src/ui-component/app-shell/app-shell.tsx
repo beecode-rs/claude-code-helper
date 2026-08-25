@@ -3,6 +3,7 @@ import { type ReactElement, useEffect, useState } from 'react'
 import { usageClientService } from '#src/renderer/src/business/service/usage-client-service'
 import { AboutPage } from '#src/renderer/src/ui-component/about/about-page'
 import '#src/renderer/src/ui-component/app-shell/app-shell.css'
+import { DashboardPage } from '#src/renderer/src/ui-component/dashboard/dashboard-page'
 import { DevelopmentPage } from '#src/renderer/src/ui-component/development/development-page'
 import { SchedulingPage } from '#src/renderer/src/ui-component/scheduling/scheduling-page'
 import { SessionsPage } from '#src/renderer/src/ui-component/sessions/sessions-page'
@@ -12,7 +13,7 @@ import { developmentPrefsUtil } from '#src/renderer/src/util/development-prefs-u
 import { sideMenuPrefsUtil } from '#src/renderer/src/util/side-menu-prefs-util'
 import type { IAppSettings } from '#src/shared/settings-model'
 
-type AppViewId = 'about' | 'development' | 'scheduling' | 'sessions' | 'usage'
+type AppViewId = 'about' | 'dashboard' | 'development' | 'scheduling' | 'sessions' | 'usage'
 
 const MENU_ICONS: Record<AppViewId, ReactElement> = {
   about: (
@@ -27,6 +28,21 @@ const MENU_ICONS: Record<AppViewId, ReactElement> = {
       <circle cx="12" cy="12" r="10" />
       <line x1="12" x2="12" y1="16" y2="12" />
       <line x1="12" x2="12.01" y1="8" y2="8" />
+    </svg>
+  ),
+  dashboard: (
+    <svg
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.8}
+      viewBox="0 0 24 24"
+    >
+      <rect height="7" rx="1" width="7" x="3" y="3" />
+      <rect height="7" rx="1" width="7" x="14" y="3" />
+      <rect height="7" rx="1" width="7" x="14" y="14" />
+      <rect height="7" rx="1" width="7" x="3" y="14" />
     </svg>
   ),
   development: (
@@ -90,6 +106,7 @@ const resolveMenuItems = (params: {
   isUsageLive: boolean
 }): ISideMenuItem<AppViewId>[] => {
   const menuItems: ISideMenuItem<AppViewId>[] = [
+    { icon: MENU_ICONS.dashboard, id: 'dashboard', label: 'Dashboard' },
     { icon: MENU_ICONS.usage, id: 'usage', isLive: params.isUsageLive, label: 'Usage' },
     { icon: MENU_ICONS.scheduling, id: 'scheduling', isLive: params.isSchedulingLive, label: 'Scheduling' },
     { icon: MENU_ICONS.sessions, id: 'sessions', isLive: params.isSessionsLive, label: 'Sessions' },
@@ -120,7 +137,7 @@ const resolveIsSessionsLive = (params: { settings?: IAppSettings }): boolean => 
 }
 
 export const AppShell = (): ReactElement => {
-  const [activeViewId, setActiveViewId] = useState<AppViewId>('usage')
+  const [activeViewId, setActiveViewId] = useState<AppViewId>('dashboard')
   const [isCollapsed, setIsCollapsed] = useState<boolean>(sideMenuPrefsUtil.loadIsCollapsed)
   const [isDevelopmentUnlocked, setIsDevelopmentUnlocked] = useState<boolean>(developmentPrefsUtil.loadIsUnlocked)
   const [settings, setSettings] = useState<IAppSettings | undefined>(undefined)
@@ -165,6 +182,10 @@ export const AppShell = (): ReactElement => {
     switch (activeViewId) {
       case 'about': {
         return <AboutPage onToggleDevelopmentUnlock={handleToggleDevelopmentUnlock} />
+      }
+
+      case 'dashboard': {
+        return <DashboardPage onNavigate={handleSelectItem} />
       }
 
       case 'development': {

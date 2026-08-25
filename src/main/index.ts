@@ -7,6 +7,7 @@ import { TriggerRunLogRepo } from '#src/main/business/repo/trigger-run-log-repo'
 import { UsageSnapshotRepo } from '#src/main/business/repo/usage-snapshot-repo'
 import { SchedulingService } from '#src/main/business/service/scheduling-service'
 import { SessionTranscriptService } from '#src/main/business/service/session-transcript-service'
+import { SessionsPollService } from '#src/main/business/service/sessions-poll-service'
 import { SessionsService } from '#src/main/business/service/sessions-service'
 import { SshSessionsService } from '#src/main/business/service/ssh-sessions-service'
 import { TriggerRunnerService } from '#src/main/business/service/trigger-runner-service'
@@ -95,6 +96,11 @@ const bootstrapApp = async (): Promise<void> => {
   const sessionTranscriptService = new SessionTranscriptService()
   const sessionsService = new SessionsService()
   const sshSessionsService = new SshSessionsService()
+  const sessionsPollService = new SessionsPollService({
+    sessionsService,
+    sessionTranscriptService,
+    sshSessionsService,
+  })
   const triggerRunLogRepo = new TriggerRunLogRepo({
     logFilePath: join(app.getPath('userData'), 'usage-pulse-trigger-log.jsonl'),
   })
@@ -106,6 +112,7 @@ const bootstrapApp = async (): Promise<void> => {
   const browserWindow = appWindow.create({
     onVisibilityChange: ({ isVisible }) => {
       pollService.setWindowVisibility({ isVisible })
+      sessionsPollService.setWindowVisibility({ isVisible })
     },
   })
 
@@ -115,13 +122,14 @@ const bootstrapApp = async (): Promise<void> => {
     },
     pollService,
     schedulingService,
+    sessionsPollService,
     sessionsService,
-    sessionTranscriptService,
     settingsRepo,
     sshSessionsService,
     triggerRunLogRepo,
   })
   await pollService.start({ settings })
+  await sessionsPollService.start({ settings })
 }
 
 const handleBootstrapError = (error: unknown): void => {

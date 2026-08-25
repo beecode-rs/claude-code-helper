@@ -4,6 +4,7 @@ import { UsageBar } from '#src/renderer/src/ui-component/usage-dashboard/usage-b
 import { dateUtil } from '#src/renderer/src/util/date-util'
 import { usagePaceUtil } from '#src/renderer/src/util/usage-pace-util'
 import { usageResetUtil } from '#src/renderer/src/util/usage-reset-util'
+import { usageWindowUtil } from '#src/renderer/src/util/usage-window-util'
 
 const TICK_INTERVAL_MS = 30_000
 
@@ -52,14 +53,6 @@ export const UsageWindowBox = (props: {
     )
   }
 
-  const resolveUsageValueText = (): string | undefined => {
-    if (usedAmount === undefined || totalAmount === undefined) {
-      return undefined
-    }
-
-    return `${String(Math.round(usedPercent))}% · ${String(usedAmount)} / ${String(totalAmount)}`
-  }
-
   return (
     <div className="usage-window-box">
       <span className="usage-window-box-title">{title}</span>
@@ -68,7 +61,7 @@ export const UsageWindowBox = (props: {
         fillColor={paceFillColor}
         label="Usage"
         percent={usedPercent}
-        valueText={resolveUsageValueText()}
+        valueText={usageWindowUtil.resolveValueText({ totalAmount, usedAmount, usedPercent })}
       />
       {renderResetBar()}
     </div>

@@ -30,6 +30,7 @@ jobs:
       - run: pnpm test:contract
 
   build-mac:
+    needs: quality
     runs-on: macos-latest
     timeout-minutes: 30
     env:
@@ -58,6 +59,7 @@ jobs:
           if-no-files-found: error
 
   build-linux:
+    needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

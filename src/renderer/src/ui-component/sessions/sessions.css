@@ -472,6 +472,22 @@
   width: 100%;
 }
 
+.sessions-settings-volume-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.sessions-settings-volume-row .sessions-settings-range {
+  flex: 1;
+  width: auto;
+}
+
+.sessions-settings-test-button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .ssh-host-test-message {
   color: var(--meter-good);
   font-size: 12px;

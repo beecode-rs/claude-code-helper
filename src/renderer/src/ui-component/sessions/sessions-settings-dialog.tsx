@@ -1,4 +1,4 @@
-import { type ReactElement, useEffect, useState } from 'react'
+import { type ReactElement, useEffect, useRef, useState } from 'react'
 
 import { usageClientService } from '#src/renderer/src/business/service/usage-client-service'
 import { errorUtil } from '#src/renderer/src/util/error-util'
@@ -13,6 +13,8 @@ import {
   MIN_SESSIONS_REFRESH_INTERVAL_SECONDS,
   MIN_WAITING_SOUND_VOLUME_PERCENT,
 } from '#src/shared/settings-model'
+
+const PREVIEW_BEEP_DELAY_MS = 200
 
 const renderCloseIcon = (): ReactElement => {
   return (
@@ -42,6 +44,7 @@ export const SessionsSettingsDialog = (props: { onClose: () => void; onSaved: ()
   )
   const [isSaving, setIsSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const previewBeepTimeoutRef = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     const loadSettings = async (): Promise<void> => {
@@ -55,6 +58,18 @@ export const SessionsSettingsDialog = (props: { onClose: () => void; onSaved: ()
 
     void loadSettings()
   }, [])
+
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(previewBeepTimeoutRef.current)
+    }
+  }, [])
+
+  const handleTestWaitingSound = (): void => {
+    window.clearTimeout(previewBeepTimeoutRef.current)
+
+    sessionWaitingSoundUtil.playWaitingBeep({ volumePercent: waitingSoundVolumePercent })
+  }
 
   const handleSave = async (): Promise<void> => {
     if (settings === undefined) {
@@ -148,34 +163,47 @@ export const SessionsSettingsDialog = (props: { onClose: () => void; onSaved: ()
             A single soft beep plays once when a Claude session starts waiting for you.
           </span>
         </div>
-        <label className="settings-field">
+        <div className="settings-field">
           <span className="settings-field-label">Waiting sound volume (%)</span>
-          <input
-            className="sessions-settings-range"
-            disabled={!isWaitingSoundEnabled}
-            max={MAX_WAITING_SOUND_VOLUME_PERCENT}
-            min={MIN_WAITING_SOUND_VOLUME_PERCENT}
-            onChange={(event) => {
-              const volumePercent = Number.parseInt(event.target.value, 10)
+          <div className="sessions-settings-volume-row">
+            <input
+              className="sessions-settings-range"
+              disabled={!isWaitingSoundEnabled}
+              max={MAX_WAITING_SOUND_VOLUME_PERCENT}
+              min={MIN_WAITING_SOUND_VOLUME_PERCENT}
+              onChange={(event) => {
+                const volumePercent = Number.parseInt(event.target.value, 10)
 
-              if (!Number.isFinite(volumePercent)) {
-                return
-              }
+                if (!Number.isFinite(volumePercent)) {
+                  return
+                }
 
-              setWaitingSoundVolumePercent(volumePercent)
+                setWaitingSoundVolumePercent(volumePercent)
 
-              if (isWaitingSoundEnabled) {
-                sessionWaitingSoundUtil.playWaitingBeep({ volumePercent })
-              }
-            }}
-            type="range"
-            value={waitingSoundVolumePercent}
-          />
+                if (isWaitingSoundEnabled) {
+                  window.clearTimeout(previewBeepTimeoutRef.current)
+                  previewBeepTimeoutRef.current = window.setTimeout(() => {
+                    sessionWaitingSoundUtil.playWaitingBeep({ volumePercent })
+                  }, PREVIEW_BEEP_DELAY_MS)
+                }
+              }}
+              type="range"
+              value={waitingSoundVolumePercent}
+            />
+            <button
+              className="button sessions-settings-test-button"
+              disabled={!isWaitingSoundEnabled}
+              onClick={handleTestWaitingSound}
+              type="button"
+            >
+              Test sound
+            </button>
+          </div>
           <span className="settings-hint">
             Loudness of the waiting beep, between {String(MIN_WAITING_SOUND_VOLUME_PERCENT)} and{' '}
-            {String(MAX_WAITING_SOUND_VOLUME_PERCENT)} percent. Move the slider to hear a preview.
+            {String(MAX_WAITING_SOUND_VOLUME_PERCENT)} percent. Move the slider or press Test sound to hear a preview.
           </span>
-        </label>
+        </div>
         {errorMessage !== '' && <p className="settings-error">{errorMessage}</p>}
         <button
           className="button button-primary"

@@ -16,7 +16,11 @@ import { type MenuStatusDot, menuStatusUtil } from '#src/renderer/src/util/menu-
 import { sessionWaitingSoundUtil } from '#src/renderer/src/util/session-waiting-sound-util'
 import { sideMenuPrefsUtil } from '#src/renderer/src/util/side-menu-prefs-util'
 import type { ISessionInfo, ISessionSnapshot } from '#src/shared/session-model'
-import { DEFAULT_WAITING_SOUND_VOLUME_PERCENT, type IAppSettings } from '#src/shared/settings-model'
+import {
+  DEFAULT_IS_WAITING_SOUND_ENABLED,
+  DEFAULT_WAITING_SOUND_VOLUME_PERCENT,
+  type IAppSettings,
+} from '#src/shared/settings-model'
 import type { IUsageSnapshot } from '#src/shared/usage-model'
 
 type AppViewId = 'about' | 'dashboard' | 'development' | 'scheduling' | 'sessions' | 'usage'
@@ -223,16 +227,23 @@ export const AppShell = (): ReactElement => {
 
   useEffect(() => {
     const handleSessionsSnapshot = (nextSnapshot: ISessionSnapshot): void => {
+      setSessionSnapshot(nextSnapshot)
+      setSessionsErrorMessage('')
+
+      const hasSnapshotError = nextSnapshot.errorMessage !== undefined && nextSnapshot.errorMessage !== ''
+
+      if (hasSnapshotError) {
+        return
+      }
+
       const newlyWaitingSessionIds = sessionWaitingSoundUtil.resolveNewlyWaitingSessionIds({
         currentSessions: nextSnapshot.sessions,
         previousSessions: previousSessionsRef.current,
       })
 
       previousSessionsRef.current = nextSnapshot.sessions
-      setSessionSnapshot(nextSnapshot)
-      setSessionsErrorMessage('')
 
-      const isWaitingSoundEnabled = settingsRef.current?.isWaitingSoundEnabled !== false
+      const isWaitingSoundEnabled = settingsRef.current?.isWaitingSoundEnabled ?? DEFAULT_IS_WAITING_SOUND_ENABLED
 
       if (isWaitingSoundEnabled && newlyWaitingSessionIds.length > 0) {
         sessionWaitingSoundUtil.playWaitingBeep({

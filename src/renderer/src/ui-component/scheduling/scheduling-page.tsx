@@ -2,6 +2,7 @@ import { type ReactElement, useEffect, useState } from 'react'
 
 import { schedulingClientService } from '#src/renderer/src/business/service/scheduling-client-service'
 import { usageClientService } from '#src/renderer/src/business/service/usage-client-service'
+import { TerminalIcon } from '#src/renderer/src/ui-component/icon/terminal-icon'
 import { AddTriggerDialog } from '#src/renderer/src/ui-component/scheduling/add-trigger-dialog'
 import { ClearRunsDialog } from '#src/renderer/src/ui-component/scheduling/clear-runs-dialog'
 import '#src/renderer/src/ui-component/scheduling/scheduling.css'
@@ -244,24 +245,6 @@ const renderPlusIcon = (): ReactElement => {
     >
       <path d="M12 5v14" />
       <path d="M5 12h14" />
-    </svg>
-  )
-}
-
-const renderTerminalIcon = (): ReactElement => {
-  return (
-    <svg
-      fill="none"
-      height="15"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="2"
-      viewBox="0 0 24 24"
-      width="15"
-    >
-      <polyline points="4 17 10 11 4 5" />
-      <line x1="12" x2="20" y1="19" y2="19" />
     </svg>
   )
 }
@@ -642,7 +625,7 @@ export const SchedulingPage = (): ReactElement => {
                     title={resolveRunsButtonTitle({ isExpanded })}
                     type="button"
                   >
-                    {renderTerminalIcon()}
+                    <TerminalIcon />
                   </button>
                   <button
                     aria-label="Edit trigger"

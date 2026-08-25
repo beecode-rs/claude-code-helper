@@ -1,0 +1,28 @@
+appId: com.usage-pulse.app
+productName: Usage Pulse
+directories:
+  output: dist
+files:
+  - out/**
+asar: true
+mac:
+  category: public.app-category.developer-tools
+  icon: resource/icon/app-icon.png
+  identity: null
+  artifactName: Usage-Pulse-${version}-${arch}.dmg
+  target:
+    - target: dmg
+      arch:
+        - universal
+linux:
+  category: Utility
+  icon: resource/icon/app-icon.png
+  maintainer: milos
+  executableName: usage-pulse
+  target:
+    - AppImage
+    - deb
+appImage:
+  artifactName: Usage-Pulse-${version}.${ext}
+deb:
+  artifactName: usage-pulse_${version}_${arch}.deb

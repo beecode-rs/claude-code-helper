@@ -31,7 +31,7 @@ export const UsageWindowBox = (props: {
   }, [])
 
   const remainingMs = usageResetUtil.resolveRemainingMs({ now, resetAt })
-  const elapsedPercent = usageResetUtil.resolveElapsedPercent({ remainingMs, windowMs })
+  const remainingPercent = usageResetUtil.resolveRemainingPercent({ remainingMs, windowMs })
   const paceFillColor = usagePaceUtil.resolvePaceColor({ now, resetAt, usedPercent, windowMs })
 
   const renderResetBar = (): ReactElement => {
@@ -42,9 +42,10 @@ export const UsageWindowBox = (props: {
     return (
       <UsageBar
         ariaLabel={`time until ${title} reset`}
+        fillAnchor="right"
         fillColor={paceFillColor}
         label="Reset"
-        percent={elapsedPercent}
+        percent={remainingPercent}
         valueText={usageResetUtil.resolveRemainingText({ remainingMs })}
         valueTooltip={`Resets at ${dateUtil.formatDateTime(resetAt)}`}
       />

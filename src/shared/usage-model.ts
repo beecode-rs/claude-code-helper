@@ -42,6 +42,8 @@ export interface IUsageSnapshot {
 
 export type UsageUpdateListener = (snapshot: IUsageSnapshot) => void
 
+export type SettingsUpdateListener = (settings: IAppSettings) => void
+
 export interface IUsageApiClient {
   clearTriggerRunLogs: (params: { triggerId: string }) => Promise<void>
   focusSession: (params: { cwd: string; pid: number }) => Promise<void>
@@ -55,6 +57,7 @@ export interface IUsageApiClient {
   installSessionFocusTool: () => Promise<ISessionFocusSupport>
   listSessions: () => Promise<ISessionSnapshot>
   onUsageUpdate: (listener: UsageUpdateListener) => () => void
+  onSettingsUpdate: (listener: SettingsUpdateListener) => () => void
   refreshNow: () => Promise<void>
   refreshTracker: (params: { trackerId: string }) => Promise<void>
   saveSettings: (settings: IAppSettings) => Promise<IAppSettings>

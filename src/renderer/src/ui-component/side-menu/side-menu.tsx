@@ -5,6 +5,7 @@ import '#src/renderer/src/ui-component/side-menu/side-menu.css'
 export type ISideMenuItem<ItemId extends string> = {
   icon: ReactElement
   id: ItemId
+  isLive?: boolean
   label: string
 }
 
@@ -40,6 +41,14 @@ export const SideMenu = <ItemId extends string>(props: {
     }
 
     return undefined
+  }
+
+  const resolveItemIconClassName = (params: { isLive: boolean }): string => {
+    if (params.isLive) {
+      return 'side-menu-item-icon side-menu-item-icon-live'
+    }
+
+    return 'side-menu-item-icon'
   }
 
   const renderCollapseIcon = (): ReactElement => {
@@ -90,7 +99,7 @@ export const SideMenu = <ItemId extends string>(props: {
               title={resolveItemTitle({ label: item.label })}
               type="button"
             >
-              <span className="side-menu-item-icon">{item.icon}</span>
+              <span className={resolveItemIconClassName({ isLive: item.isLive === true })}>{item.icon}</span>
               {!isCollapsed && <span className="side-menu-item-label">{item.label}</span>}
             </button>
           )

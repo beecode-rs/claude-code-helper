@@ -1,45 +1,34 @@
 import { usageResetUtil } from '#src/renderer/src/util/usage-reset-util'
 
-const PACE_RATIO_FULL_RED = 2
-const PACE_RATIO_FULL_GREEN = 0.5
+const PACE_ON_PACE_BAND_PERCENT = 5
+const PACE_STEP_MAX_COUNT = 5
+const PACE_STEP_PERCENT = 20
 
 export const usagePaceUtil = {
-  _resolvePaceColorForRatio: (params: { paceRatio: number }): string => {
-    const { paceRatio } = params
+  _resolvePaceColorForDiff: (params: { diffPercent: number }): string => {
+    const { diffPercent } = params
 
-    if (paceRatio >= PACE_RATIO_FULL_RED) {
-      return 'var(--meter-critical)'
+    if (Math.abs(diffPercent) <= PACE_ON_PACE_BAND_PERCENT) {
+      return 'var(--meter-accent)'
     }
 
-    if (paceRatio > 1) {
-      const criticalShare = Math.round((paceRatio - 1) * 100)
+    const stepCount = usagePaceUtil._resolvePaceStepCount({ diffPercent })
 
-      return `color-mix(in srgb, var(--meter-critical) ${String(criticalShare)}%, var(--meter-accent))`
+    if (diffPercent > 0) {
+      return usagePaceUtil._resolvePaceStepColorVar({ paceDirection: 'red', stepCount })
     }
 
-    if (paceRatio <= PACE_RATIO_FULL_GREEN) {
-      return 'var(--meter-good)'
-    }
-
-    if (paceRatio < 1) {
-      const goodShare = Math.round(((1 - paceRatio) / (1 - PACE_RATIO_FULL_GREEN)) * 100)
-
-      return `color-mix(in srgb, var(--meter-good) ${String(goodShare)}%, var(--meter-accent))`
-    }
-
-    return 'var(--meter-accent)'
+    return usagePaceUtil._resolvePaceStepColorVar({ paceDirection: 'green', stepCount })
   },
 
-  _resolvePaceRatio: (params: { elapsedPercent: number; usedPercent: number }): number => {
-    if (params.elapsedPercent <= 0) {
-      if (params.usedPercent <= 0) {
-        return 1
-      }
+  _resolvePaceStepColorVar: (params: { paceDirection: 'green' | 'red'; stepCount: number }): string => {
+    return `var(--pace-${params.paceDirection}-${String(params.stepCount)})`
+  },
 
-      return PACE_RATIO_FULL_RED
-    }
+  _resolvePaceStepCount: (params: { diffPercent: number }): number => {
+    const driftBeyondBandPercent = Math.abs(params.diffPercent) - PACE_ON_PACE_BAND_PERCENT
 
-    return params.usedPercent / params.elapsedPercent
+    return Math.min(Math.ceil(driftBeyondBandPercent / PACE_STEP_PERCENT), PACE_STEP_MAX_COUNT)
   },
 
   resolvePaceColor: (params: {
@@ -54,8 +43,8 @@ export const usagePaceUtil = {
 
     const remainingMs = usageResetUtil.resolveRemainingMs({ now: params.now, resetAt: params.resetAt })
     const elapsedPercent = usageResetUtil.resolveElapsedPercent({ remainingMs, windowMs: params.windowMs })
-    const paceRatio = usagePaceUtil._resolvePaceRatio({ elapsedPercent, usedPercent: params.usedPercent })
+    const diffPercent = params.usedPercent - elapsedPercent
 
-    return usagePaceUtil._resolvePaceColorForRatio({ paceRatio })
+    return usagePaceUtil._resolvePaceColorForDiff({ diffPercent })
   },
 }

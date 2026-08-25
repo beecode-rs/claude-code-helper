@@ -103,6 +103,10 @@
   width: 20px;
 }
 
+.side-menu-item-icon-live {
+  color: var(--meter-good);
+}
+
 .side-menu-item-icon svg {
   display: block;
   height: 18px;

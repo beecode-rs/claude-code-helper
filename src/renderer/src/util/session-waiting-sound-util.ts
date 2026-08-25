@@ -7,7 +7,7 @@ const BEEP_FREQUENCY_HZ = 830
 const BEEP_MAX_GAIN = 0.4
 const BEEP_SILENCE_GAIN = 0.0001
 
-let audioContext: AudioContext | undefined
+const audioContextCache: { context?: AudioContext } = {}
 
 export const sessionWaitingSoundUtil = {
   playWaitingBeep: (params: { volumePercent: number }): void => {
@@ -17,7 +17,9 @@ export const sessionWaitingSoundUtil = {
       return
     }
 
-    audioContext = audioContext ?? new AudioContext()
+    audioContextCache.context = audioContextCache.context ?? new AudioContext()
+
+    const audioContext = audioContextCache.context
 
     if (audioContext.state === 'suspended') {
       void audioContext.resume()

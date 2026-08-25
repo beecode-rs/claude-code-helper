@@ -1,0 +1,217 @@
+# Contract for sessionWaitingSoundUtil.
+# Terms pin the waiting-session beep triggers (playWaitingBeep itself drives the Web
+# Audio API and stays untested here). resolveNewlyWaitingSessionIds answers "which
+# sessions just entered the waiting state": with no previous snapshot (first poll)
+# nobody is new, otherwise a session is newly waiting when it is 'waiting' now and
+# was anything else before — including sessions absent from the previous snapshot
+# entirely. Sessions that stay waiting or stop waiting never beep. resolveBeepGain
+# clamps the volume percent to [0, 100] and maps it linearly onto gain [0, 0.4].
+# Volume 40 (the app default) divides before multiplying, so the exact double is
+# 0.16000000000000003 — the nearest representable neighbor of 0.16.
+subject: sessionWaitingSoundUtil
+module: ./session-waiting-sound-util.js
+subjectType: function
+methods:
+  resolveBeepGain:
+    terms:
+      # Muted volume maps to silence (playWaitingBeep skips gain <= 0).
+      - params:
+          - volumePercent: 0
+        result: 0
+      # A quarter volume: 25 / 100 * 0.4.
+      - params:
+          - volumePercent: 25
+        result: 0.1
+      # The app default volume: 40 / 100 * 0.4, which lands one ULP above 0.16
+      # because 40 / 100 rounds before the multiply by 0.4.
+      - params:
+          - volumePercent: 40
+        result: 0.16000000000000003
+      # Half volume maps to half the max gain.
+      - params:
+          - volumePercent: 50
+        result: 0.2
+      # Full volume maps to the max gain.
+      - params:
+          - volumePercent: 100
+        result: 0.4
+      # Below the minimum clamps to silence.
+      - params:
+          - volumePercent: -5
+        result: 0
+      # Above the maximum clamps to the max gain.
+      - params:
+          - volumePercent: 120
+        result: 0.4
+  resolveNewlyWaitingSessionIds:
+    terms:
+      # First snapshot (no previous sessions yet): nobody is newly waiting, even
+      # when sessions are already waiting.
+      - params:
+          - currentSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: waiting
+            previousSessions: !undefined
+        result: []
+      # Both snapshots empty.
+      - params:
+          - currentSessions: []
+            previousSessions: []
+        result: []
+      # Empty previous snapshot (as opposed to missing): every currently waiting
+      # session counts as new.
+      - params:
+          - currentSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: waiting
+            previousSessions: []
+        result:
+          - sid-1
+      # Simplest transition: idle becomes waiting.
+      - params:
+          - currentSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: waiting
+            previousSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: idle
+        result:
+          - sid-1
+      # The full matrix: sid-1 stays waiting (no beep), sid-2 goes busy to waiting
+      # (beep), sid-3 leaves waiting (no beep), sid-4 is new but idle (no beep),
+      # sid-5 is new and waiting (beep).
+      - params:
+          - currentSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: waiting
+              - cwd: /b
+                kind: claude
+                name: s2
+                pid: 2
+                sessionId: sid-2
+                startedAt: 0
+                status: waiting
+              - cwd: /c
+                kind: claude
+                name: s3
+                pid: 3
+                sessionId: sid-3
+                startedAt: 0
+                status: busy
+              - cwd: /d
+                kind: claude
+                name: s4
+                pid: 4
+                sessionId: sid-4
+                startedAt: 0
+                status: idle
+              - cwd: /e
+                kind: claude
+                name: s5
+                pid: 5
+                sessionId: sid-5
+                startedAt: 0
+                status: waiting
+            previousSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: waiting
+              - cwd: /b
+                kind: claude
+                name: s2
+                pid: 2
+                sessionId: sid-2
+                startedAt: 0
+                status: busy
+              - cwd: /c
+                kind: claude
+                name: s3
+                pid: 3
+                sessionId: sid-3
+                startedAt: 0
+                status: waiting
+        result:
+          - sid-2
+          - sid-5
+      # 'unknown' before is "not waiting", so unknown to waiting still beeps.
+      - params:
+          - currentSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: waiting
+            previousSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: unknown
+        result:
+          - sid-1
+      # Nothing waiting anymore, however many waited before.
+      - params:
+          - currentSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: busy
+              - cwd: /b
+                kind: claude
+                name: s2
+                pid: 2
+                sessionId: sid-2
+                startedAt: 0
+                status: idle
+            previousSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: waiting
+              - cwd: /b
+                kind: claude
+                name: s2
+                pid: 2
+                sessionId: sid-2
+                startedAt: 0
+                status: waiting
+        result: []

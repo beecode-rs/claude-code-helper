@@ -18,6 +18,12 @@ export const usageResetUtil = {
     return Math.max(0, params.resetAt - params.now)
   },
 
+  resolveRemainingPercent: (params: { remainingMs: number; windowMs: number }): number => {
+    const remainingFraction = params.remainingMs / params.windowMs
+
+    return Math.min(Math.max(remainingFraction, 0), 1) * 100
+  },
+
   resolveRemainingText: (params: { remainingMs: number }): string => {
     if (params.remainingMs <= 0) {
       return 'now'

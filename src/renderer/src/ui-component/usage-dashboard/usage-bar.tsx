@@ -1,20 +1,31 @@
-import type { ReactElement } from 'react'
+import { type CSSProperties, type ReactElement } from 'react'
 
 import { usageSeverityUtil } from '#src/renderer/src/util/usage-severity-util'
 
 export const UsageBar = (props: {
   ariaLabel?: string
+  fillAnchor?: 'left' | 'right'
   fillColor?: string
   label: string
   percent: number
   valueText?: string
   valueTooltip?: string
 }): ReactElement => {
-  const { ariaLabel, fillColor, label, percent, valueText, valueTooltip } = props
+  const { ariaLabel, fillAnchor, fillColor, label, percent, valueText, valueTooltip } = props
   const clampedPercent = Math.min(Math.max(percent, 0), 100)
   const resolvedAriaLabel = ariaLabel ?? `${label} usage`
   const resolvedFillColor = fillColor ?? usageSeverityUtil.resolveSeverityColorVar(clampedPercent)
   const resolvedValueText = valueText ?? `${String(Math.round(clampedPercent))}%`
+
+  const resolveFillStyle = (): CSSProperties => {
+    const fillWidth = `${String(clampedPercent)}%`
+
+    if (fillAnchor === 'right') {
+      return { backgroundColor: resolvedFillColor, marginLeft: 'auto', width: fillWidth }
+    }
+
+    return { backgroundColor: resolvedFillColor, width: fillWidth }
+  }
 
   return (
     <div
@@ -32,10 +43,7 @@ export const UsageBar = (props: {
         </span>
       </div>
       <div className="usage-bar-track">
-        <div
-          className="usage-bar-fill"
-          style={{ backgroundColor: resolvedFillColor, width: `${String(clampedPercent)}%` }}
-        />
+        <div className="usage-bar-fill" style={resolveFillStyle()} />
       </div>
     </div>
   )

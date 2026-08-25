@@ -1,10 +1,25 @@
-# Usage Pulse
+<p align="center">
+  <img src="resource/icon/app-icon.png" width="140" alt="Usage Pulse icon" />
+</p>
+
+<h1 align="center">Usage Pulse</h1>
+
+<p align="center">
+  <img src="https://img.shields.io/github/package-json/v/beecode-rs/usage-pulse?label=version" alt="Version badge" />
+  <img src="https://img.shields.io/badge/status-proof%20of%20concept-orange" alt="Proof of concept badge" />
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-blue" alt="Platform badge" />
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="License badge" />
+</p>
 
 A small Electron + TypeScript desktop app for people who run several Claude Code sessions at once. It does three things:
 
 - **Usage limits** — continuously pings your coding-plan providers and shows how much of your limits you have consumed: the 5-hour window as a ring, the longer window (weekly for Claude, monthly for z.ai) as a bar.
 - **Active sessions** — lists your running Claude Code sessions, local and on remote SSH hosts, with their project folder and transcript stats, so you can see what every window is up to at a glance.
 - **Scheduling** — registers a Claude command trigger with your OS scheduler (launchd/systemd) timed to the start of each 5-hour usage window. A provider's window opens when your first prompt lands, so a tiny scheduled prompt at 07:00, 12:02 and 17:05 deliberately opens fresh windows that together cover an 8-hour workday — instead of one window that starts whenever you happen to begin and runs out mid-afternoon.
+
+## Status: Proof of Concept
+
+Usage Pulse is at **v0.1.0** and still a proof of concept. It was built through rapid AI-assisted iteration ("vibe coding") rather than carefully reviewed engineering, so expect rough edges, missing pieces, and breaking changes without notice. While it remains a POC the version stays on `0.x`; the move out of the POC phase coincides with the major version moving to `1`.
 
 ## Why this exists
 
@@ -55,9 +70,15 @@ Planned:
 
 Any number of provider trackers — Claude, z.ai, or several of each — each with its own token and settings behind the card's gear button. See [resource/doc/trackers.md](resource/doc/trackers.md) for how trackers are stored, the endpoints each provider polls, and how to get a token for each provider.
 
+Tokens stay on your machine: they are stored only in `usage-pulse-settings.json` inside the app's userData folder and are sent exclusively to the provider their tracker belongs to. Nothing is telemetry'd anywhere.
+
 ## Development
 
+Requires [Node.js](https://nodejs.org) and [pnpm](https://pnpm.io).
+
 ```bash
+git clone https://github.com/beecode-rs/usage-pulse.git
+cd usage-pulse
 pnpm install
 pnpm dev
 ```
@@ -72,3 +93,15 @@ Other scripts:
 ## Architecture
 
 Electron's three-process layout: shared cross-process models, a main process with repos, services, and per-OS scheduler strategies, and a React renderer. The full source tree with per-file notes lives in [resource/doc/architecture.md](resource/doc/architecture.md).
+
+## Disclaimer
+
+Usage Pulse relies on an undocumented Claude usage endpoint, and its scheduler deliberately fires small prompts to open fresh 5-hour usage windows. Both are use-at-your-own-risk: providers may change or restrict this behavior at any time, and how you use the app is your responsibility under each provider's terms of service.
+
+## Contributing
+
+Issues and pull requests are welcome on [GitHub](https://github.com/beecode-rs/usage-pulse/issues). Keep the [feature status](#feature-status) in mind — help is most useful on the planned items (installable builds, Windows support).
+
+## License
+
+[MIT](LICENSE)

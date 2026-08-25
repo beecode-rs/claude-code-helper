@@ -12,6 +12,72 @@ subject: usagePaceUtil
 module: ./usage-pace-util.js
 subjectType: function
 methods:
+  resolveIsUsageOutpacingWindow:
+    terms:
+      # Outpacing fires only from red pace step 3 upward: drift must exceed 45 points
+      # (the 5-point band plus two full 20-point steps), strictly, in the red direction.
+      # Drift +46 is the first point that counts.
+      - params:
+          - now: 0
+            resetAt: 3600000
+            usedPercent: 46
+            windowMs: 3600000
+        result: true
+      # Deep in step 4: 90% used at 20% elapsed is drift +70.
+      - params:
+          - now: 0
+            resetAt: 2880000
+            usedPercent: 90
+            windowMs: 3600000
+        result: true
+      # Drift +45 sits exactly on the step-3 threshold: strict > means not outpacing.
+      - params:
+          - now: 0
+            resetAt: 3600000
+            usedPercent: 45
+            windowMs: 3600000
+        result: false
+      # Drift +20 (40% used at 20% elapsed, red step 1) is no longer enough.
+      - params:
+          - now: 0
+            resetAt: 2880000
+            usedPercent: 40
+            windowMs: 3600000
+        result: false
+      # Drift +6, the first point beyond the on-pace band, is no longer enough either.
+      - params:
+          - now: 0
+            resetAt: 3600000
+            usedPercent: 6
+            windowMs: 3600000
+        result: false
+      # Drift +5 is the outer edge of the on-pace band: not outpacing.
+      - params:
+          - now: 0
+            resetAt: 3600000
+            usedPercent: 5
+            windowMs: 3600000
+        result: false
+      # Drift +3 stays inside the band.
+      - params:
+          - now: 0
+            resetAt: 2880000
+            usedPercent: 23
+            windowMs: 3600000
+        result: false
+      # Green direction (drift -30: 10% used at 40% elapsed) is never outpacing.
+      - params:
+          - now: 0
+            resetAt: 2160000
+            usedPercent: 10
+            windowMs: 3600000
+        result: false
+      # Without a reset time there is no elapsed baseline to compare against.
+      - params:
+          - now: 0
+            usedPercent: 90
+            windowMs: 3600000
+        result: false
   resolvePaceColor:
     terms:
       # Fresh window with no usage: used and elapsed are both 0, squarely in the blue band.

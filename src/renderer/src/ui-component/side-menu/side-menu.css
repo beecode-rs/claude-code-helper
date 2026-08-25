@@ -1,4 +1,6 @@
 .side-menu {
+  --session-waiting: #a78bfa;
+
   background: var(--surface);
   border-right: 1px solid var(--hairline);
   display: flex;
@@ -100,11 +102,34 @@
   display: flex;
   flex-shrink: 0;
   justify-content: center;
+  position: relative;
   width: 20px;
 }
 
 .side-menu-item-icon-live {
   color: var(--meter-good);
+}
+
+.side-menu-item-status-dot {
+  border: 1px solid var(--surface);
+  border-radius: 999px;
+  height: 7px;
+  position: absolute;
+  right: -3px;
+  top: -3px;
+  width: 7px;
+}
+
+.side-menu-item-status-dot.is-error {
+  background: var(--meter-critical);
+}
+
+.side-menu-item-status-dot.is-warning {
+  background: var(--meter-warning);
+}
+
+.side-menu-item-status-dot.is-waiting {
+  background: var(--session-waiting);
 }
 
 .side-menu-item-icon svg {

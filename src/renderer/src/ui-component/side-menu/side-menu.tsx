@@ -1,12 +1,14 @@
 import { type ReactElement } from 'react'
 
 import '#src/renderer/src/ui-component/side-menu/side-menu.css'
+import { type MenuStatusDot } from '#src/renderer/src/util/menu-status-util'
 
 export type ISideMenuItem<ItemId extends string> = {
   icon: ReactElement
   id: ItemId
   isLive?: boolean
   label: string
+  statusDot?: MenuStatusDot
 }
 
 export const SideMenu = <ItemId extends string>(props: {
@@ -49,6 +51,10 @@ export const SideMenu = <ItemId extends string>(props: {
     }
 
     return 'side-menu-item-icon'
+  }
+
+  const resolveStatusDotClassName = (params: { statusDot: MenuStatusDot }): string => {
+    return `side-menu-item-status-dot is-${params.statusDot}`
   }
 
   const renderCollapseIcon = (): ReactElement => {
@@ -99,7 +105,12 @@ export const SideMenu = <ItemId extends string>(props: {
               title={resolveItemTitle({ label: item.label })}
               type="button"
             >
-              <span className={resolveItemIconClassName({ isLive: item.isLive === true })}>{item.icon}</span>
+              <span className={resolveItemIconClassName({ isLive: item.isLive === true })}>
+                {item.icon}
+                {item.statusDot !== undefined && (
+                  <span className={resolveStatusDotClassName({ statusDot: item.statusDot })} />
+                )}
+              </span>
               {!isCollapsed && <span className="side-menu-item-label">{item.label}</span>}
             </button>
           )

@@ -1,5 +1,6 @@
-import { type ReactElement, useEffect, useState } from 'react'
+import { type ReactElement, useEffect, useRef, useState } from 'react'
 
+import { sessionsClientService } from '#src/renderer/src/business/service/sessions-client-service'
 import { usageClientService } from '#src/renderer/src/business/service/usage-client-service'
 import { AboutPage } from '#src/renderer/src/ui-component/about/about-page'
 import '#src/renderer/src/ui-component/app-shell/app-shell.css'
@@ -10,10 +11,19 @@ import { SessionsPage } from '#src/renderer/src/ui-component/sessions/sessions-p
 import { type ISideMenuItem, SideMenu } from '#src/renderer/src/ui-component/side-menu/side-menu'
 import { UsageDashboard } from '#src/renderer/src/ui-component/usage-dashboard/usage-dashboard'
 import { developmentPrefsUtil } from '#src/renderer/src/util/development-prefs-util'
+import { errorUtil } from '#src/renderer/src/util/error-util'
+import { type MenuStatusDot, menuStatusUtil } from '#src/renderer/src/util/menu-status-util'
+import { sessionWaitingSoundUtil } from '#src/renderer/src/util/session-waiting-sound-util'
 import { sideMenuPrefsUtil } from '#src/renderer/src/util/side-menu-prefs-util'
-import type { IAppSettings } from '#src/shared/settings-model'
+import type { ISessionInfo, ISessionSnapshot } from '#src/shared/session-model'
+import { DEFAULT_WAITING_SOUND_VOLUME_PERCENT, type IAppSettings } from '#src/shared/settings-model'
+import type { IUsageSnapshot } from '#src/shared/usage-model'
 
 type AppViewId = 'about' | 'dashboard' | 'development' | 'scheduling' | 'sessions' | 'usage'
+
+const DEFAULT_ELAPSED_MINUTES = 60
+const DEFAULT_USED_PERCENT = 45
+const NOW_TICK_INTERVAL_MS = 30_000
 
 const MENU_ICONS: Record<AppViewId, ReactElement> = {
   about: (
@@ -100,16 +110,32 @@ const MENU_ICONS: Record<AppViewId, ReactElement> = {
 }
 
 const resolveMenuItems = (params: {
+  dashboardStatusDot: MenuStatusDot | undefined
+  developmentStatusDot: MenuStatusDot | undefined
   isDevelopmentUnlocked: boolean
   isSchedulingLive: boolean
   isSessionsLive: boolean
   isUsageLive: boolean
+  sessionsStatusDot: MenuStatusDot | undefined
+  usageStatusDot: MenuStatusDot | undefined
 }): ISideMenuItem<AppViewId>[] => {
   const menuItems: ISideMenuItem<AppViewId>[] = [
-    { icon: MENU_ICONS.dashboard, id: 'dashboard', label: 'Dashboard' },
-    { icon: MENU_ICONS.usage, id: 'usage', isLive: params.isUsageLive, label: 'Usage' },
+    { icon: MENU_ICONS.dashboard, id: 'dashboard', label: 'Dashboard', statusDot: params.dashboardStatusDot },
+    {
+      icon: MENU_ICONS.usage,
+      id: 'usage',
+      isLive: params.isUsageLive,
+      label: 'Usage',
+      statusDot: params.usageStatusDot,
+    },
     { icon: MENU_ICONS.scheduling, id: 'scheduling', isLive: params.isSchedulingLive, label: 'Scheduling' },
-    { icon: MENU_ICONS.sessions, id: 'sessions', isLive: params.isSessionsLive, label: 'Sessions' },
+    {
+      icon: MENU_ICONS.sessions,
+      id: 'sessions',
+      isLive: params.isSessionsLive,
+      label: 'Sessions',
+      statusDot: params.sessionsStatusDot,
+    },
     { icon: MENU_ICONS.about, id: 'about', label: 'About' },
   ]
 
@@ -117,7 +143,10 @@ const resolveMenuItems = (params: {
     return menuItems
   }
 
-  return [...menuItems, { icon: MENU_ICONS.development, id: 'development', label: 'Development' }]
+  return [
+    ...menuItems,
+    { icon: MENU_ICONS.development, id: 'development', label: 'Development', statusDot: params.developmentStatusDot },
+  ]
 }
 
 const resolveIsUsageLive = (params: { settings?: IAppSettings }): boolean => {
@@ -138,9 +167,19 @@ const resolveIsSessionsLive = (params: { settings?: IAppSettings }): boolean => 
 
 export const AppShell = (): ReactElement => {
   const [activeViewId, setActiveViewId] = useState<AppViewId>('dashboard')
+  const [elapsedMinutes, setElapsedMinutes] = useState<number>(DEFAULT_ELAPSED_MINUTES)
   const [isCollapsed, setIsCollapsed] = useState<boolean>(sideMenuPrefsUtil.loadIsCollapsed)
   const [isDevelopmentUnlocked, setIsDevelopmentUnlocked] = useState<boolean>(developmentPrefsUtil.loadIsUnlocked)
+  const [nowMs, setNowMs] = useState<number>((): number => {
+    return Date.now()
+  })
+  const [sessionSnapshot, setSessionSnapshot] = useState<ISessionSnapshot | undefined>(undefined)
+  const [sessionsErrorMessage, setSessionsErrorMessage] = useState('')
   const [settings, setSettings] = useState<IAppSettings | undefined>(undefined)
+  const [usageSnapshot, setUsageSnapshot] = useState<IUsageSnapshot | undefined>(undefined)
+  const [usedPercent, setUsedPercent] = useState<number>(DEFAULT_USED_PERCENT)
+  const previousSessionsRef = useRef<ISessionInfo[] | undefined>(undefined)
+  const settingsRef = useRef<IAppSettings | undefined>(undefined)
 
   useEffect(() => {
     const loadSettings = async (): Promise<void> => {
@@ -159,6 +198,81 @@ export const AppShell = (): ReactElement => {
       },
     })
   }, [])
+
+  useEffect(() => {
+    settingsRef.current = settings
+  }, [settings])
+
+  useEffect(() => {
+    const loadUsageSnapshot = async (): Promise<void> => {
+      try {
+        setUsageSnapshot(await usageClientService.getSnapshot())
+      } catch {
+        return
+      }
+    }
+
+    void loadUsageSnapshot()
+
+    return usageClientService.subscribeToUsageUpdates({
+      onUpdate: (nextSnapshot) => {
+        setUsageSnapshot(nextSnapshot)
+      },
+    })
+  }, [])
+
+  useEffect(() => {
+    const handleSessionsSnapshot = (nextSnapshot: ISessionSnapshot): void => {
+      const newlyWaitingSessionIds = sessionWaitingSoundUtil.resolveNewlyWaitingSessionIds({
+        currentSessions: nextSnapshot.sessions,
+        previousSessions: previousSessionsRef.current,
+      })
+
+      previousSessionsRef.current = nextSnapshot.sessions
+      setSessionSnapshot(nextSnapshot)
+      setSessionsErrorMessage('')
+
+      const isWaitingSoundEnabled = settingsRef.current?.isWaitingSoundEnabled !== false
+
+      if (isWaitingSoundEnabled && newlyWaitingSessionIds.length > 0) {
+        sessionWaitingSoundUtil.playWaitingBeep({
+          volumePercent: settingsRef.current?.waitingSoundVolumePercent ?? DEFAULT_WAITING_SOUND_VOLUME_PERCENT,
+        })
+      }
+    }
+
+    const loadSessions = async (): Promise<void> => {
+      try {
+        handleSessionsSnapshot(await sessionsClientService.resolveSessionsSnapshot())
+      } catch (error) {
+        setSessionsErrorMessage(errorUtil.resolveMessage(error))
+      }
+    }
+
+    void loadSessions()
+
+    return sessionsClientService.subscribeToSessionsUpdates({ onUpdate: handleSessionsSnapshot })
+  }, [])
+
+  useEffect(() => {
+    const tickIntervalId = setInterval(() => {
+      setNowMs(Date.now())
+    }, NOW_TICK_INTERVAL_MS)
+
+    return () => {
+      clearInterval(tickIntervalId)
+    }
+  }, [])
+
+  const usageStatusDot = menuStatusUtil.resolveUsageStatusDot({ now: nowMs, snapshot: usageSnapshot })
+  const sessionsStatusDot = menuStatusUtil.resolveSessionsStatusDot({
+    hasLoadError: sessionsErrorMessage !== '',
+    snapshot: sessionSnapshot,
+  })
+  const dashboardStatusDot = menuStatusUtil.resolveCombinedStatusDot({
+    dots: [usageStatusDot, sessionsStatusDot],
+  })
+  const developmentStatusDot = menuStatusUtil.resolveDevelopmentStatusDot({ elapsedMinutes, now: nowMs, usedPercent })
 
   const handleSelectItem = (viewId: AppViewId): void => {
     setActiveViewId(viewId)
@@ -189,7 +303,14 @@ export const AppShell = (): ReactElement => {
       }
 
       case 'development': {
-        return <DevelopmentPage />
+        return (
+          <DevelopmentPage
+            elapsedMinutes={elapsedMinutes}
+            onElapsedMinutesChange={setElapsedMinutes}
+            onUsedPercentChange={setUsedPercent}
+            usedPercent={usedPercent}
+          />
+        )
       }
 
       case 'scheduling': {
@@ -216,10 +337,14 @@ export const AppShell = (): ReactElement => {
         activeItemId={activeViewId}
         isCollapsed={isCollapsed}
         items={resolveMenuItems({
+          dashboardStatusDot,
+          developmentStatusDot,
           isDevelopmentUnlocked,
           isSchedulingLive: resolveIsSchedulingLive({ settings }),
           isSessionsLive: resolveIsSessionsLive({ settings }),
           isUsageLive: resolveIsUsageLive({ settings }),
+          sessionsStatusDot,
+          usageStatusDot,
         })}
         onSelectItem={handleSelectItem}
         onToggleCollapse={handleToggleCollapse}

@@ -39,21 +39,31 @@ export interface ISshHostConfig {
 export interface IAppSettings {
   isSchedulingEnabled: boolean
   isSessionsAutoRefreshPaused: boolean
+  isWaitingSoundEnabled: boolean
   sessionsRefreshIntervalSeconds: number
   sshHosts: ISshHostConfig[]
   trackers: ITrackerConfig[]
   triggers: ITriggerConfig[]
+  waitingSoundVolumePercent: number
 }
 
 export const DEFAULT_IS_SCHEDULING_ENABLED = false
 
 export const DEFAULT_IS_SESSIONS_AUTO_REFRESH_PAUSED = false
 
+export const DEFAULT_IS_WAITING_SOUND_ENABLED = true
+
 export const DEFAULT_SESSIONS_REFRESH_INTERVAL_SECONDS = 5
+
+export const DEFAULT_WAITING_SOUND_VOLUME_PERCENT = 40
 
 export const MIN_SESSIONS_REFRESH_INTERVAL_SECONDS = 2
 
 export const MAX_SESSIONS_REFRESH_INTERVAL_SECONDS = 300
+
+export const MIN_WAITING_SOUND_VOLUME_PERCENT = 0
+
+export const MAX_WAITING_SOUND_VOLUME_PERCENT = 100
 
 export const MIN_REFRESH_INTERVAL_SECONDS = 60
 

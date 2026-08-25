@@ -2,6 +2,10 @@
 	"name": "usage-pulse",
 	"version": "0.1.0",
 	"description": "Desktop tracker for Claude and z.ai coding-plan usage limits",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/beecode-rs/usage-pulse.git"
+	},
 	"license": "MIT",
 	"author": "milos",
 	"type": "module",
@@ -9,6 +13,8 @@
 	"scripts": {
 		"build": "electron-vite build",
 		"dev": "electron-vite dev",
+		"dist:linux": "electron-vite build && electron-builder --linux --publish never",
+		"dist:mac": "electron-vite build && electron-builder --mac --publish never",
 		"lint": "pnpm lint:prettier && pnpm lint:eslint && pnpm lint:json",
 		"lint-fix": "pnpm lint-fix:prettier && pnpm lint-fix:eslint && pnpm lint-fix:json",
 		"lint-fix:eslint": "eslint ./ --fix",
@@ -17,15 +23,15 @@
 		"lint:eslint": "eslint ./ --quiet --no-error-on-unmatched-pattern",
 		"lint:json": "pnpm lint-fix:json -c",
 		"lint:prettier": "prettier --check '**/*.{js,ts,tsx,html,css}'",
+		"pack:dir": "electron-vite build && electron-builder --dir --publish never",
+		"release:major": "pnpm version major && git push origin HEAD --follow-tags",
+		"release:minor": "pnpm version minor && git push origin HEAD --follow-tags",
+		"release:patch": "pnpm version patch && git push origin HEAD --follow-tags",
 		"start": "electron-vite preview",
 		"test:contract": "vitest --config=./vitest.config.contract.ts",
 		"typecheck": "pnpm typecheck:node && pnpm typecheck:web",
 		"typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
 		"typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false"
-	},
-	"dependencies": {
-		"react": "^19.2.8",
-		"react-dom": "^19.2.8"
 	},
 	"devDependencies": {
 		"@beecode/msh-test-contractor": "^1.0.2",
@@ -35,6 +41,7 @@
 		"@types/react-dom": "^19.2.4",
 		"@vitejs/plugin-react": "^5.2.0",
 		"electron": "^43.4.1",
+		"electron-builder": "^26.15.3",
 		"electron-vite": "^5.0.0",
 		"eslint": "^9.39.5",
 		"eslint-plugin-import": "^2.32.0",
@@ -45,11 +52,14 @@
 		"globals": "^16.5.0",
 		"json-sort-cli": "^4.2.1",
 		"prettier": "^3.9.6",
+		"react": "^19.2.8",
+		"react-dom": "^19.2.8",
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.67.0",
 		"vite": "^7.3.6",
 		"vitest": "^4.1.11"
 	},
+	"packageManager": "pnpm@10.18.1",
 	"pnpm": {
 		"onlyBuiltDependencies": [
 			"electron",

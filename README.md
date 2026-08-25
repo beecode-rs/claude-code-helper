@@ -21,6 +21,31 @@ A small Electron + TypeScript desktop app for people who run several Claude Code
 
 Usage Pulse is at **v0.1.0** and still a proof of concept. It was built through rapid AI-assisted iteration ("vibe coding") rather than carefully reviewed engineering, so expect rough edges, missing pieces, and breaking changes without notice. While it remains a POC the version stays on `0.x`; the move out of the POC phase coincides with the major version moving to `1`.
 
+## Download & install
+
+Downloads live on the [GitHub Releases](https://github.com/beecode-rs/usage-pulse/releases) page.
+
+**macOS** (Apple Silicon & Intel, one universal build): download `Usage-Pulse-<version>-universal.dmg` and drag **Usage Pulse** to Applications. The app is unsigned, so macOS blocks the first launch — after one failed open attempt, go to **System Settings → Privacy & Security → Open Anyway**, or clear the quarantine flag from a Terminal:
+
+```bash
+xattr -cr '/Applications/Usage Pulse.app'
+```
+
+**Ubuntu — AppImage**: make it executable and run it (no install needed):
+
+```bash
+chmod +x Usage-Pulse-<version>.AppImage
+./Usage-Pulse-<version>.AppImage
+```
+
+**Ubuntu — deb package**:
+
+```bash
+sudo apt install ./usage-pulse_<version>_amd64.deb
+```
+
+Scheduled triggers registered from the AppImage re-invoke the AppImage file itself, so they keep working after reboots.
+
 ## Why this exists
 
 I usually have three or four Claude Code sessions running at the same time, each in its own window. I rotate between them: write a prompt in one, move to the next, read what landed there, repeat — by the time I circle back, the first one is done. That loop only works while two questions stay answerable at a glance: _which session is waiting for me?_ and _how much of my usage window is left?_ Usage Pulse answers both in one place, instead of a terminal here and a provider dashboard there.
@@ -60,11 +85,13 @@ Done:
 - [x] Session focus (macOS, Linux X11)
 - [x] Scheduler (macOS launchd, Linux systemd)
 - [x] Claude system token (macOS, Linux)
+- [x] Installable release builds (macOS dmg, Linux AppImage/deb via GitHub Releases)
 
 Planned:
 
-- [ ] Installable release builds (packaged app you download and install — no build from source needed)
 - [ ] Windows support (scheduler, focus, system token)
+- [ ] Usage notifications (when a window's utilization turns red or is used up)
+- [ ] Header semaphores (per-provider usage indicators and a count of sessions waiting for a response)
 
 ## Trackers
 
@@ -89,6 +116,18 @@ Other scripts:
 - `pnpm start` — run the built app
 - `pnpm typecheck` — typecheck the node and web projects
 - `pnpm lint` / `pnpm lint-fix` — ESLint + Prettier + json-sort-cli
+- `pnpm dist:mac` / `pnpm dist:linux` — build installers into `dist/` (universal dmg; AppImage + deb)
+- `pnpm pack:dir` — unpacked build into `dist/` for a quick local smoke test
+
+### Releasing
+
+Releases are tag-driven. From `main` (after merging what you want to ship):
+
+```bash
+pnpm release:patch   # or release:minor / release:major
+```
+
+That bumps `package.json`, commits, tags `v<version>`, and pushes. GitHub Actions then runs the quality gate (typecheck, lint, contract tests), builds the macOS and Linux installers — failing if the tag does not match the package version — and publishes them to the [Releases](https://github.com/beecode-rs/usage-pulse/releases) page with auto-generated notes. The workflow can also be run manually ("Run workflow") as a dry run that builds everything without creating a release.
 
 ## Architecture
 
@@ -100,7 +139,7 @@ Usage Pulse relies on an undocumented Claude usage endpoint, and its scheduler d
 
 ## Contributing
 
-Issues and pull requests are welcome on [GitHub](https://github.com/beecode-rs/usage-pulse/issues). Keep the [feature status](#feature-status) in mind — help is most useful on the planned items (installable builds, Windows support).
+Issues and pull requests are welcome on [GitHub](https://github.com/beecode-rs/usage-pulse/issues). Keep the [feature status](#feature-status) in mind — help is most useful on the planned items (Windows support).
 
 ## License
 

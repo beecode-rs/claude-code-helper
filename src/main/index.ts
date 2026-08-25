@@ -56,6 +56,25 @@ const resolveExecutablePrefixArgs = (): string[] => {
   return ['--no-sandbox', app.getAppPath()]
 }
 
+const resolveExecutablePath = (): string => {
+  return process.env.APPIMAGE ?? process.execPath
+}
+
+const shouldReexecWithoutSandbox = (): boolean => {
+  return (
+    process.platform === 'linux' &&
+    app.isPackaged &&
+    !process.argv.includes('--no-sandbox') &&
+    process.env.USAGE_PULSE_NO_SANDBOX_REEXEC === undefined
+  )
+}
+
+const reexecWithoutSandbox = (): void => {
+  process.env.USAGE_PULSE_NO_SANDBOX_REEXEC = '1'
+  app.relaunch({ args: [...process.argv.slice(1), '--no-sandbox'] })
+  app.exit(0)
+}
+
 const bootstrapApp = async (): Promise<void> => {
   app.on('window-all-closed', () => {
     app.quit()
@@ -69,6 +88,7 @@ const bootstrapApp = async (): Promise<void> => {
   })
   const pollService = new UsagePollService({ snapshotRepo: usageSnapshotRepo })
   const schedulingService = new SchedulingService({
+    executablePath: resolveExecutablePath(),
     executablePrefixArgs: resolveExecutablePrefixArgs(),
     strategy: new SchedulingStrategyFactory().resolve(),
   })
@@ -109,7 +129,9 @@ const handleBootstrapError = (error: unknown): void => {
   app.quit()
 }
 
-if (process.argv.includes('--fire-trigger')) {
+if (shouldReexecWithoutSandbox()) {
+  reexecWithoutSandbox()
+} else if (process.argv.includes('--fire-trigger')) {
   const firedTriggerId = resolveFiredTriggerId()
 
   if (firedTriggerId === undefined) {

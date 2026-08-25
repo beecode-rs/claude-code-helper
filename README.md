@@ -1,13 +1,40 @@
 # Usage Pulse
 
-A small Electron + TypeScript desktop app for people who run several Claude Code sessions at once. It does two things:
+A small Electron + TypeScript desktop app for people who run several Claude Code sessions at once. It does three things:
 
 - **Usage limits** — continuously pings your coding-plan providers and shows how much of your limits you have consumed: the 5-hour window as a ring, the longer window (weekly for Claude, monthly for z.ai) as a bar.
 - **Active sessions** — lists your running Claude Code sessions, local and on remote SSH hosts, with their project folder and transcript stats, so you can see what every window is up to at a glance.
+- **Scheduling** — registers a Claude command trigger with your OS scheduler (launchd/systemd) timed to the start of each 5-hour usage window. A provider's window opens when your first prompt lands, so a tiny scheduled prompt at 07:00, 12:02 and 17:05 deliberately opens fresh windows that together cover an 8-hour workday — instead of one window that starts whenever you happen to begin and runs out mid-afternoon.
 
 ## Why this exists
 
 I usually have three or four Claude Code sessions running at the same time, each in its own window. I rotate between them: write a prompt in one, move to the next, read what landed there, repeat — by the time I circle back, the first one is done. That loop only works while two questions stay answerable at a glance: _which session is waiting for me?_ and _how much of my usage window is left?_ Usage Pulse answers both in one place, instead of a terminal here and a provider dashboard there.
+
+## Screenshots
+
+### Usage
+
+![Usage dashboard](resource/media/usage-monitor.png)
+
+The main dashboard. One card per tracker — here a Claude and a z.ai account, each with a Live badge, a pause button, and a gear that opens its settings (display name, token, remove). Every card shows the 5-hour window (utilization % plus a bar counting down to the reset) and the long window: weekly for Claude, MCP quota with consumed counts (e.g. `26 / 1000`) for z.ai. The footer tracks the last poll time and interval, and **+ Add** in the header creates a new tracker.
+
+### Sessions
+
+![Sessions screen](resource/media/sessions.png)
+
+All running Claude Code sessions, local and on remote SSH hosts, with a summary line (`2 sessions · 2 working · 0 waiting · 0 idle · 1 remote`) and a status legend. Each card shows the project folder, transcript stats (context tokens, model, branch), how recently it was active, plus pid and uptime. Clicking a card focuses that session's terminal window so you can jump straight to the one waiting for you (macOS, Linux X11).
+
+### Scheduling
+
+![Scheduling screen](resource/media/scheduling.png)
+
+Run commands on a schedule through your OS scheduler (launchd on macOS, systemd on Linux). The master toggle enables the whole feature; each task has its own toggle, a command, the weekdays it runs on, and its trigger times. The status shows whether the task is registered with the scheduler, and each task can be run immediately or edited from its row. The **+ Max 5h windows** preset and the **Plan windows** button both lead to the planner below.
+
+### Plan 5-hour windows
+
+![Plan 5-hour windows dialog](resource/media/scheduling-planner.png)
+
+A dialog for stacking 5-hour usage windows over your workday: set work start, work hours, and lunch start on the dials, then drag the first-trigger slider (15-minute steps). The timeline previews the resulting windows against your work and lunch bars, warns you if the windows miss the edges of the workday, and **Create trigger** writes the computed start times back as a new scheduled task.
 
 ## Feature status
 
@@ -22,33 +49,10 @@ Done:
 Planned:
 
 - [ ] Windows support (scheduler, focus, system token)
-- [ ] Session focus on Linux Wayland
 
 ## Trackers
 
-The dashboard starts empty. **+ Add** in the header opens a dialog that first asks which provider you want, then configures it. You can add any number of trackers, including several for the same provider (e.g. two Claude accounts with different tokens) — each tracker is a card with its own configuration behind the card's gear button (display name, token, remove).
-
-Each tracker is stored in `settings.trackers` as an `ITrackerConfig` (a discriminated union on `providerId`) with a unique `id` that also keys the usage snapshots. Settings saved in the old flat shape (one Claude + one z.ai token) are migrated automatically on first launch.
-
-The app uses the **strategy pattern** (`src/main/business/service/usage-provider/`). Providers are stateless and held in a `Record<ProviderId, IUsageProvider>` registry; the poll service resolves the provider per tracker and passes that tracker's token on every `fetchUsage` call:
-
-| Provider | Endpoint | 5-hour window | Long window |
-| --- | --- | --- | --- |
-| Claude | `GET https://api.anthropic.com/api/oauth/usage` (undocumented, OAuth bearer) | `five_hour.utilization` + `resets_at` | `seven_day.utilization` (weekly) |
-| z.ai | `GET https://api.z.ai/api/monitor/usage/quota/limit` | `limits[].type === 'TOKENS_LIMIT'` → `percentage` | `limits[].type === 'TIME_LIMIT'` → `percentage` + `currentValue`/`usage` counts (MCP quota, monthly) |
-
-To add a provider kind: extend `ProviderId` and `PROVIDER_CATALOG` (`src/shared/provider-catalog.ts`), create a class implementing `IUsageProvider` in the `usage-provider/` folder, and register it in `UsagePollService._createDefaultProviders()`.
-
-### Getting tokens
-
-- **Claude** — two options in the tracker's settings:
-  - **Enter manually**: paste the OAuth access token your Claude Code installation uses.
-  - **Use system token** (macOS only for now): reads `claudeAiOauth.accessToken` from the Keychain entry `Claude Code-credentials` on every poll, so it stays current when Claude Code refreshes the token. On Linux/WSL Claude Code stores it in `~/.claude/.credentials.json` instead — system reading for those platforms is not implemented yet. The Keychain holds a single Claude Code login, so multiple system-source trackers all reflect that one account.
-
-  The endpoint is undocumented and rate-limited per access token — keep the poll interval at 60s or higher, and remember each tracker polls independently.
-- **z.ai**: the `ANTHROPIC_AUTH_TOKEN` from your GLM Coding Plan (the same token you pass to `https://api.z.ai/api/anthropic`).
-
-Tokens are stored only in `usage-pulse-settings.json` inside the app's userData folder and are sent exclusively to the provider their tracker belongs to.
+Any number of provider trackers — Claude, z.ai, or several of each — each with its own token and settings behind the card's gear button. See [resource/doc/trackers.md](resource/doc/trackers.md) for how trackers are stored, the endpoints each provider polls, and how to get a token for each provider.
 
 ## Development
 
@@ -66,34 +70,4 @@ Other scripts:
 
 ## Architecture
 
-```
-src/
-├── shared/                     # cross-process models (main + preload + renderer)
-│   ├── ipc-channel.ts          # IPC channel names
-│   ├── provider-catalog.ts     # PROVIDER_CATALOG (kind → name/description)
-│   ├── settings-model.ts       # IAppSettings, ITrackerConfig, poll interval bounds
-│   └── usage-model.ts          # usage snapshots, provider types, renderer API contract
-├── main/
-│   ├── index.ts                # app boot (+ one-time settings migration write-back)
-│   ├── lib/app-window.ts       # BrowserWindow creation
-│   ├── controller/ipc-controller.ts   # IPC handlers + update push
-│   └── business/
-│       ├── repo/settings-repo.ts       # settings persistence (userData JSON)
-│       └── service/
-│           ├── claude-system-token-service.ts  # Claude Code token from macOS Keychain
-│           ├── settings-service.ts     # defaults, sanitizing, legacy migration
-│           ├── usage-poll-service.ts   # interval polling per tracker, snapshot fan-out
-│           └── usage-provider/         # strategy implementations (stateless registry)
-│               ├── usage-provider.ts   # IUsageProvider interface
-│               ├── claude.ts           # UsageProviderClaude
-│               └── zai.ts              # UsageProviderZai
-├── preload/index.ts            # contextBridge API (window.usageApi)
-└── renderer/
-    └── src/
-        ├── business/service/usage-client-service.ts
-        ├── ui-component/            # dashboard, provider card, ring, bar, settings
-        │   ├── settings/            # global settings (poll interval)
-        │   ├── tracker/             # add-tracker dialog, per-tracker settings dialog
-        │   └── usage-dashboard/     # dashboard, cards, footer
-        └── util/                    # severity thresholds, status text, formatting
-```
+Electron's three-process layout: shared cross-process models, a main process with repos, services, and per-OS scheduler strategies, and a React renderer. The full source tree with per-file notes lives in [resource/doc/architecture.md](resource/doc/architecture.md).

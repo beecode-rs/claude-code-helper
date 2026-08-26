@@ -11,6 +11,7 @@ import { SessionsPollService } from '#src/main/business/service/sessions-poll-se
 import { SessionsService } from '#src/main/business/service/sessions-service'
 import { SshSessionsService } from '#src/main/business/service/ssh-sessions-service'
 import { TriggerRunnerService } from '#src/main/business/service/trigger-runner-service'
+import { UpdateService } from '#src/main/business/service/update-service'
 import { UsagePollService } from '#src/main/business/service/usage-poll-service'
 import { ipcController } from '#src/main/controller/ipc-controller'
 import { appWindow } from '#src/main/lib/app-window'
@@ -104,6 +105,7 @@ const bootstrapApp = async (): Promise<void> => {
   const triggerRunLogRepo = new TriggerRunLogRepo({
     logFilePath: join(app.getPath('userData'), 'usage-pulse-trigger-log.jsonl'),
   })
+  const updateService = new UpdateService({ currentVersion: app.getVersion() })
   const settings = await settingsRepo.load()
   await settingsRepo.save({ settings })
   await schedulingService.syncRegistrations({ settings }).catch(() => {
@@ -127,6 +129,10 @@ const bootstrapApp = async (): Promise<void> => {
     settingsRepo,
     sshSessionsService,
     triggerRunLogRepo,
+    updateService,
+  })
+  void updateService.checkForUpdate().catch(() => {
+    return undefined
   })
   await pollService.start({ settings })
   await sessionsPollService.start({ settings })

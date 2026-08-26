@@ -39,6 +39,18 @@ export const sessionPresentationUtil = {
     return 'Unnamed session'
   },
 
+  resolveSessionTitleParts: (params: { title: string }): { name: string; suffix: string | undefined } => {
+    const titleMatch = /^(.+)-(.+)$/.exec(params.title)
+    const name = titleMatch?.[1]
+    const suffix = titleMatch?.[2]
+
+    if (name === undefined || suffix === undefined) {
+      return { name: params.title, suffix: undefined }
+    }
+
+    return { name, suffix }
+  },
+
   resolveStatusPresentation: (params: {
     status: SessionStatus
   }): { badgeClassName: string; dotClassName: string; label: string } => {

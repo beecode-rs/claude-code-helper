@@ -13,13 +13,14 @@ export type ISideMenuItem<ItemId extends string> = {
 
 export const SideMenu = <ItemId extends string>(props: {
   activeItemId: ItemId
+  footerItems?: ISideMenuItem<ItemId>[]
   isCollapsed: boolean
   items: ISideMenuItem<ItemId>[]
   onSelectItem: (itemId: ItemId) => void
   onToggleCollapse: () => void
   title: string
 }): ReactElement => {
-  const { activeItemId, isCollapsed, items, onSelectItem, onToggleCollapse, title } = props
+  const { activeItemId, footerItems, isCollapsed, items, onSelectItem, onToggleCollapse, title } = props
 
   const resolveMenuClassName = (): string => {
     if (isCollapsed) {
@@ -55,6 +56,42 @@ export const SideMenu = <ItemId extends string>(props: {
 
   const resolveStatusDotClassName = (params: { statusDot: MenuStatusDot }): string => {
     return `side-menu-item-status-dot is-${params.statusDot}`
+  }
+
+  const renderItem = (params: { item: ISideMenuItem<ItemId> }): ReactElement => {
+    return (
+      <button
+        className={resolveItemClassName({ itemId: params.item.id })}
+        key={params.item.id}
+        onClick={() => {
+          onSelectItem(params.item.id)
+        }}
+        title={resolveItemTitle({ label: params.item.label })}
+        type="button"
+      >
+        <span className={resolveItemIconClassName({ isLive: params.item.isLive === true })}>
+          {params.item.icon}
+          {params.item.statusDot !== undefined && (
+            <span className={resolveStatusDotClassName({ statusDot: params.item.statusDot })} />
+          )}
+        </span>
+        {!isCollapsed && <span className="side-menu-item-label">{params.item.label}</span>}
+      </button>
+    )
+  }
+
+  const renderFooterItems = (): ReactElement | undefined => {
+    if (footerItems === undefined || footerItems.length === 0) {
+      return undefined
+    }
+
+    return (
+      <div className="side-menu-footer">
+        {footerItems.map((item) => {
+          return renderItem({ item })
+        })}
+      </div>
+    )
   }
 
   const renderCollapseIcon = (): ReactElement => {
@@ -95,27 +132,10 @@ export const SideMenu = <ItemId extends string>(props: {
       </div>
       <div className="side-menu-items">
         {items.map((item) => {
-          return (
-            <button
-              className={resolveItemClassName({ itemId: item.id })}
-              key={item.id}
-              onClick={() => {
-                onSelectItem(item.id)
-              }}
-              title={resolveItemTitle({ label: item.label })}
-              type="button"
-            >
-              <span className={resolveItemIconClassName({ isLive: item.isLive === true })}>
-                {item.icon}
-                {item.statusDot !== undefined && (
-                  <span className={resolveStatusDotClassName({ statusDot: item.statusDot })} />
-                )}
-              </span>
-              {!isCollapsed && <span className="side-menu-item-label">{item.label}</span>}
-            </button>
-          )
+          return renderItem({ item })
         })}
       </div>
+      {renderFooterItems()}
       <button className="side-menu-collapse-toggle" onClick={onToggleCollapse} type="button">
         {renderCollapseIcon()}
         {!isCollapsed && <span className="side-menu-item-label">Collapse</span>}

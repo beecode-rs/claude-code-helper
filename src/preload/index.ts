@@ -13,6 +13,7 @@ import {
   type ITriggerRegistrationHealth,
   type ITriggerRunLogEntry,
 } from '#src/shared/trigger-model'
+import { type IUpdateStatus, type UpdateStatusListener } from '#src/shared/update-model'
 import {
   type IUsageApiClient,
   type IUsageSnapshot,
@@ -48,6 +49,9 @@ const usageApi: IUsageApiClient = {
   getTriggerRunLogs: (params: { triggerId: string }): Promise<ITriggerRunLogEntry[]> => {
     return ipcRenderer.invoke(IpcChannelMapper.TRIGGER_GET_RUN_LOGS, params)
   },
+  getUpdateStatus: (): Promise<IUpdateStatus> => {
+    return ipcRenderer.invoke(IpcChannelMapper.UPDATE_GET_STATUS)
+  },
   inspectTriggerRegistrations: (): Promise<ITriggerRegistrationHealth[]> => {
     return ipcRenderer.invoke(IpcChannelMapper.TRIGGER_OS_INSPECT)
   },
@@ -79,6 +83,17 @@ const usageApi: IUsageApiClient = {
       ipcRenderer.removeListener(IpcChannelMapper.SETTINGS_UPDATE, settingsUpdateListener)
     }
   },
+  onUpdateStatus: (listener: UpdateStatusListener): (() => void) => {
+    const updateStatusListener = (_event: Electron.IpcRendererEvent, status: IUpdateStatus): void => {
+      listener(status)
+    }
+
+    ipcRenderer.on(IpcChannelMapper.UPDATE_STATUS, updateStatusListener)
+
+    return () => {
+      ipcRenderer.removeListener(IpcChannelMapper.UPDATE_STATUS, updateStatusListener)
+    }
+  },
   onUsageUpdate: (listener: UsageUpdateListener): (() => void) => {
     const usageUpdateListener = (_event: Electron.IpcRendererEvent, snapshot: IUsageSnapshot): void => {
       listener(snapshot)
@@ -89,6 +104,9 @@ const usageApi: IUsageApiClient = {
     return () => {
       ipcRenderer.removeListener(IpcChannelMapper.USAGE_UPDATE, usageUpdateListener)
     }
+  },
+  openRelease: (): void => {
+    ipcRenderer.send(IpcChannelMapper.UPDATE_OPEN_RELEASE)
   },
   refreshNow: (): Promise<void> => {
     return ipcRenderer.invoke(IpcChannelMapper.USAGE_REFRESH)

@@ -88,11 +88,11 @@ Done:
 - [x] Installable release builds (macOS dmg, Linux AppImage/deb via GitHub Releases)
 - [x] Overview dashboard (light combined view of usage and sessions, as the landing screen with click-to-focus session rows)
 - [x] Menu status dots (red = error on any screen, purple = session waiting for an answer, orange = usage limit nearing expiry or pace exceeding the window)
+- [x] Usage notifications (when a window's utilization turns red or is used up)
 
 Planned:
 
 - [ ] Windows support (scheduler, focus, system token)
-- [ ] Usage notifications (when a window's utilization turns red or is used up)
 - [ ] Header semaphores (per-provider usage indicators and a count of sessions waiting for a response)
 
 ## Trackers

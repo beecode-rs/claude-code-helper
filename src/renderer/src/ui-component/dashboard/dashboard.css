@@ -125,8 +125,8 @@
 .dashboard-peak-pill-fill {
   background: color-mix(in srgb, var(--meter-warning) 28%, transparent);
   bottom: 0;
-  left: 0;
   position: absolute;
+  right: 0;
   top: 0;
   transition: width 1s linear;
 }
@@ -242,6 +242,11 @@
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.dashboard-session-box-title-suffix {
+  color: var(--ink-muted);
+  font-weight: 400;
 }
 
 .dashboard-session-box .session-card-chips {

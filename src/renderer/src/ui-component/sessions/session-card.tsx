@@ -141,6 +141,7 @@ export const SessionCard = (props: {
   const { isExpanded, nowMs, onFocus, onToggle, session } = props
   const transcript = session.transcript
   const sessionTitle = sessionPresentationUtil.resolveSessionTitle({ session })
+  const sessionTitleParts = sessionPresentationUtil.resolveSessionTitleParts({ title: sessionTitle })
   const statusPresentation = sessionPresentationUtil.resolveStatusPresentation({ status: session.status })
 
   return (
@@ -153,7 +154,12 @@ export const SessionCard = (props: {
           <span className="session-card-origin">
             <SessionOriginIcon isRemote={session.hostId !== undefined} />
           </span>
-          <h2 className="session-card-title">{sessionTitle}</h2>
+          <h2 className="session-card-title">
+            {sessionTitleParts.name}
+            {sessionTitleParts.suffix !== undefined && (
+              <span className="session-card-title-suffix"> ({sessionTitleParts.suffix})</span>
+            )}
+          </h2>
         </div>
         <span className={statusPresentation.badgeClassName}>
           <span className={statusPresentation.dotClassName} />

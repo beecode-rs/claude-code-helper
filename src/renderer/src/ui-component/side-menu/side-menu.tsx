@@ -11,6 +11,14 @@ export type ISideMenuItem<ItemId extends string> = {
   statusDot?: MenuStatusDot
 }
 
+const resolveCollapseToggleTitle = (params: { isCollapsed: boolean }): string | undefined => {
+  if (params.isCollapsed) {
+    return 'Expand'
+  }
+
+  return undefined
+}
+
 export const SideMenu = <ItemId extends string>(props: {
   activeItemId: ItemId
   footerItems?: ISideMenuItem<ItemId>[]
@@ -21,6 +29,7 @@ export const SideMenu = <ItemId extends string>(props: {
   title: string
 }): ReactElement => {
   const { activeItemId, footerItems, isCollapsed, items, onSelectItem, onToggleCollapse, title } = props
+  const collapseToggleTitle = resolveCollapseToggleTitle({ isCollapsed })
 
   const resolveMenuClassName = (): string => {
     if (isCollapsed) {
@@ -136,7 +145,13 @@ export const SideMenu = <ItemId extends string>(props: {
         })}
       </div>
       {renderFooterItems()}
-      <button className="side-menu-collapse-toggle" onClick={onToggleCollapse} type="button">
+      <button
+        aria-label={collapseToggleTitle}
+        className="side-menu-collapse-toggle"
+        onClick={onToggleCollapse}
+        title={collapseToggleTitle}
+        type="button"
+      >
         {renderCollapseIcon()}
         {!isCollapsed && <span className="side-menu-item-label">Collapse</span>}
       </button>

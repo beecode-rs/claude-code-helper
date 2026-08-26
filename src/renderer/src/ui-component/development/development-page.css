@@ -4,7 +4,7 @@
   gap: 24px;
   margin: 0 auto;
   max-width: 640px;
-  min-height: 100vh;
+  min-height: 100%;
   padding: 40px 28px;
   width: 100%;
 }

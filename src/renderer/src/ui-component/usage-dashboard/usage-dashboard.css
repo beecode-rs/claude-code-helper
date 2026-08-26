@@ -527,7 +527,7 @@ body {
 }
 
 .provider-card-progress-track {
-  background: var(--meter-track);
+  background: transparent;
   bottom: -1px;
   height: 1px;
   left: 11px;
@@ -641,6 +641,23 @@ body {
 .provider-card-peak-banner.is-peak-active {
   background: color-mix(in srgb, var(--meter-warning) 12%, transparent);
   color: var(--meter-warning);
+}
+
+.provider-card-peak-progress-track {
+  background: color-mix(in srgb, var(--meter-warning) 22%, transparent);
+  bottom: 0;
+  height: 1px;
+  left: 10px;
+  overflow: hidden;
+  position: absolute;
+  right: 10px;
+}
+
+.provider-card-peak-progress-fill {
+  background: var(--meter-warning);
+  height: 100%;
+  margin-left: auto;
+  transition: width 1s linear;
 }
 
 .provider-card-peak-banner:hover::after {

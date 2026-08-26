@@ -1,11 +1,13 @@
 import { type ReactElement, useEffect, useState } from 'react'
 
+import { PeakIcon } from '#src/renderer/src/ui-component/icon/peak-icon'
 import { UsageBar } from '#src/renderer/src/ui-component/usage-dashboard/usage-bar'
 import { dateUtil } from '#src/renderer/src/util/date-util'
 import { usagePaceUtil } from '#src/renderer/src/util/usage-pace-util'
 import { usageResetUtil } from '#src/renderer/src/util/usage-reset-util'
 import { usageStatusUtil } from '#src/renderer/src/util/usage-status-util'
 import { usageWindowUtil } from '#src/renderer/src/util/usage-window-util'
+import { zaiPeakUtil } from '#src/renderer/src/util/zai-peak-util'
 import { type IProviderSnapshot, UsageStatus } from '#src/shared/usage-model'
 
 const TICK_INTERVAL_MS = 30_000
@@ -47,6 +49,48 @@ export const DashboardUsageBox = (props: { providerSnapshot: IProviderSnapshot }
   }, [])
 
   const fiveHourWindow = (providerSnapshot.usage ?? [])[0]
+  const peakInfo = zaiPeakUtil.resolvePeakInfo({ nowMs: now, providerId: providerSnapshot.providerId })
+  const peakRemainingPercent = zaiPeakUtil.resolvePeakRemainingPercent({
+    nowMs: now,
+    providerId: providerSnapshot.providerId,
+  })
+  const peakRemainingText = zaiPeakUtil.resolvePeakRemainingText({
+    nowMs: now,
+    providerId: providerSnapshot.providerId,
+  })
+
+  const resolveBoxClassName = (): string => {
+    if (peakInfo?.isPeakHour) {
+      return 'dashboard-usage-box is-peak-hour'
+    }
+
+    return 'dashboard-usage-box'
+  }
+
+  const renderPeakPill = (): ReactElement | undefined => {
+    if (!peakInfo?.isPeakHour) {
+      return undefined
+    }
+
+    return (
+      <span
+        aria-label={`z.ai peak hours end in ${peakRemainingText ?? 'under 1m'}`}
+        aria-valuemax={100}
+        aria-valuemin={0}
+        aria-valuenow={Math.round(peakRemainingPercent ?? 0)}
+        className="dashboard-peak-pill"
+        role="meter"
+      >
+        <span
+          aria-hidden="true"
+          className="dashboard-peak-pill-fill"
+          style={{ width: `${String(peakRemainingPercent ?? 0)}%` }}
+        />
+        <PeakIcon />
+        <span className="dashboard-peak-pill-text">{peakRemainingText ?? 'under 1m'}</span>
+      </span>
+    )
+  }
 
   const renderResetBar = (params: { paceFillColor?: string; windowMs: number }): ReactElement => {
     const resetAt = fiveHourWindow?.resetAt
@@ -119,9 +163,12 @@ export const DashboardUsageBox = (props: { providerSnapshot: IProviderSnapshot }
   }
 
   return (
-    <section className="dashboard-usage-box">
+    <section className={resolveBoxClassName()}>
       <header className="dashboard-usage-box-header">
-        <h2 className="dashboard-usage-box-title">{providerSnapshot.trackerName}</h2>
+        <div className="dashboard-usage-box-heading">
+          <h2 className="dashboard-usage-box-title">{providerSnapshot.trackerName}</h2>
+          {renderPeakPill()}
+        </div>
         {fiveHourWindow !== undefined && <span className="dashboard-usage-box-window">{fiveHourWindow.label}</span>}
       </header>
       {renderBody()}

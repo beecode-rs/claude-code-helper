@@ -44,7 +44,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  min-height: 100vh;
+  min-height: 100%;
   padding: 24px 28px;
 }
 
@@ -288,7 +288,7 @@ body {
   inset: 0;
   justify-content: center;
   position: fixed;
-  z-index: 10;
+  z-index: 100;
 }
 
 .settings-panel {

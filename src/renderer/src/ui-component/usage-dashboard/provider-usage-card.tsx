@@ -65,7 +65,7 @@ export const ProviderUsageCard = (props: {
     return 'provider-card-pause'
   }
 
-  const resolvePauseButtonAriaLabel = (): string => {
+  const resolvePauseButtonLabel = (): string => {
     if (isAutoRefreshPaused) {
       return 'Resume auto-refresh'
     }
@@ -266,6 +266,7 @@ export const ProviderUsageCard = (props: {
     return Math.min(100, Math.max(0, (elapsedMs / intervalMs) * 100))
   }
 
+  const pauseButtonLabel = resolvePauseButtonLabel()
   const footerItems = [renderLastFetchedItem(), renderIntervalItem()].filter((item): item is ReactElement => {
     return item !== undefined
   })
@@ -282,9 +283,10 @@ export const ProviderUsageCard = (props: {
         <div className="provider-card-actions">
           <span className={resolveStatusClassName()}>{resolveStatusText()}</span>
           <button
-            aria-label={resolvePauseButtonAriaLabel()}
+            aria-label={pauseButtonLabel}
             className={resolvePauseButtonClassName()}
             onClick={onToggleAutoRefresh}
+            title={pauseButtonLabel}
             type="button"
           >
             {renderPauseIcon()}
@@ -294,11 +296,18 @@ export const ProviderUsageCard = (props: {
             className={resolveRefreshButtonClassName()}
             disabled={isRefreshing}
             onClick={onRefresh}
+            title="Refresh tracker"
             type="button"
           >
             <RefreshIcon />
           </button>
-          <button aria-label="Tracker settings" className="provider-card-gear" onClick={onOpenSettings} type="button">
+          <button
+            aria-label="Tracker settings"
+            className="provider-card-gear"
+            onClick={onOpenSettings}
+            title="Tracker settings"
+            type="button"
+          >
             <svg
               fill="none"
               height="15"

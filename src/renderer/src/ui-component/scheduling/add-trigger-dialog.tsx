@@ -12,7 +12,7 @@ import {
   MAX_WINDOW_TRIGGER_PRESET,
 } from '#src/shared/trigger-model'
 
-const DEFAULT_TRIGGER_COMMAND = 'claude -p "Reply with only your name. One word, no explanations, no punctuation."'
+const DEFAULT_TRIGGER_COMMAND = 'claude -p "what is your name, only name"'
 
 export const AddTriggerDialog = (props: {
   initialPreset?: ITriggerPreset

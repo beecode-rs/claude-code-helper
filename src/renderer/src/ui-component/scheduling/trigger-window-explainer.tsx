@@ -70,6 +70,7 @@ export const TriggerWindowExplainer = (): ReactElement => {
         aria-describedby="trigger-window-explainer-tip"
         aria-label="How the max 5h windows preset works"
         className="trigger-icon-button"
+        title="How the max 5h windows preset works"
         type="button"
       >
         <svg

@@ -19,7 +19,7 @@ A small Electron + TypeScript desktop app for people who run several Claude Code
 
 ## Status: Proof of Concept
 
-Usage Pulse is at **v0.2.0** and still a proof of concept. It was built through rapid AI-assisted iteration ("vibe coding") rather than carefully reviewed engineering, so expect rough edges, missing pieces, and breaking changes without notice. While it remains a POC the version stays on `0.x`; the move out of the POC phase coincides with the major version moving to `1`.
+Usage Pulse is at **v0.3.0** and still a proof of concept. It was built through rapid AI-assisted iteration ("vibe coding") rather than carefully reviewed engineering, so expect rough edges, missing pieces, and breaking changes without notice. While it remains a POC the version stays on `0.x`; the move out of the POC phase coincides with the major version moving to `1`.
 
 ## Download & install
 
@@ -52,17 +52,23 @@ I usually have three or four Claude Code sessions running at the same time, each
 
 ## Screenshots
 
-### Usage
+### Dashboard
 
-![Usage dashboard](resource/media/usage-monitor.png)
+![Dashboard screen](resource/media/dashboard.png)
 
-The main dashboard. One card per tracker — here a Claude and a z.ai account, each with a Live badge, a pause button, and a gear that opens its settings (display name, token, remove). Every card shows the 5-hour window (utilization % plus a bar counting down to the reset) and the long window: weekly for Claude, MCP quota with consumed counts (e.g. `26 / 1000`) for z.ai. The footer tracks the last poll time and interval, and **+ Add** in the header creates a new tracker.
+The landing screen: a combined at-a-glance view of everything below. One compact usage card per tracker across the top (5-hour window utilization and time until reset), then a row per running session with its status, project folder, context tokens, model, branch, and last activity — click a row to focus that session's terminal window.
 
 ### Sessions
 
 ![Sessions screen](resource/media/sessions.png)
 
 All running Claude Code sessions, local and on remote SSH hosts, with a summary line (`2 sessions · 2 working · 0 waiting · 0 idle · 1 remote`) and a status legend. Each card shows the project folder, transcript stats (context tokens, model, branch), how recently it was active, plus pid and uptime. Clicking a card focuses that session's terminal window so you can jump straight to the one waiting for you (macOS, Linux X11).
+
+### Usage
+
+![Usage dashboard](resource/media/usage.png)
+
+The usage screen. One card per tracker — here a Claude and a z.ai account, each with a Live badge, a pause button, and a gear that opens its settings (display name, token, remove). Every card shows the 5-hour window (utilization % plus a bar counting down to the reset) and the long window: weekly for Claude, MCP quota with consumed counts (e.g. `26 / 1000`) for z.ai. The footer tracks the last poll time and interval, and **+ Add** in the header creates a new tracker.
 
 ### Scheduling
 

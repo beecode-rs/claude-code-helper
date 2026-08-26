@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 
+import { PeakIcon } from '#src/renderer/src/ui-component/icon/peak-icon'
 import { RefreshIcon } from '#src/renderer/src/ui-component/icon/refresh-icon'
 import { ProviderIcon } from '#src/renderer/src/ui-component/provider/provider-icon'
 import { UsageBar } from '#src/renderer/src/ui-component/usage-dashboard/usage-bar'
@@ -34,6 +35,11 @@ export const ProviderUsageCard = (props: {
   const primaryWindow = usageWindows[0]
   const secondaryWindows = usageWindows.slice(1)
   const peakInfo = zaiPeakUtil.resolvePeakInfo({ nowMs, providerId: providerSnapshot.providerId })
+  const peakRemainingPercent = zaiPeakUtil.resolvePeakRemainingPercent({
+    nowMs,
+    providerId: providerSnapshot.providerId,
+  })
+  const peakRemainingText = zaiPeakUtil.resolvePeakRemainingText({ nowMs, providerId: providerSnapshot.providerId })
 
   const resolveCardClassName = (): string => {
     if (peakInfo?.isPeakHour === true) {
@@ -108,20 +114,18 @@ export const ProviderUsageCard = (props: {
     return 'Loading usage…'
   }
 
-  const renderPeakIcon = (): ReactElement => {
+  const renderPeakProgressBar = (params: { percent: number }): ReactElement => {
     return (
-      <svg
-        fill="none"
-        height="13"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-        viewBox="0 0 24 24"
-        width="13"
+      <div
+        aria-label="Time remaining in z.ai peak hours"
+        aria-valuemax={100}
+        aria-valuemin={0}
+        aria-valuenow={Math.round(params.percent)}
+        className="provider-card-peak-progress-track"
+        role="meter"
       >
-        <polygon points="13 2 3 14 12 14 11 22 21 10 12 13" />
-      </svg>
+        <div className="provider-card-peak-progress-fill" style={{ width: `${String(params.percent)}%` }} />
+      </div>
     )
   }
 
@@ -139,15 +143,16 @@ export const ProviderUsageCard = (props: {
     if (peakInfo.isPeakHour) {
       return (
         <div aria-label={tooltipText} className="provider-card-peak-banner is-peak-active" data-tooltip={tooltipText}>
-          {renderPeakIcon()}
-          <span>3× peak until {peakInfo.peakEndsAtText}</span>
+          <PeakIcon />
+          <span>3× peak ends in {peakRemainingText ?? 'under 1m'}</span>
+          {renderPeakProgressBar({ percent: peakRemainingPercent ?? 0 })}
         </div>
       )
     }
 
     return (
       <div aria-label={tooltipText} className="provider-card-peak-banner" data-tooltip={tooltipText}>
-        {renderPeakIcon()}
+        <PeakIcon />
         <span>Peak hours {peakInfo.peakWindowText} your time</span>
       </div>
     )

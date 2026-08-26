@@ -1,0 +1,34 @@
+.app-footer {
+  align-items: center;
+  background: var(--surface);
+  border-top: 1px solid var(--hairline);
+  display: flex;
+  flex-shrink: 0;
+  gap: 12px;
+  justify-content: flex-end;
+  min-height: 34px;
+  padding: 6px 14px;
+}
+
+.app-footer-version {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.app-footer-update-button {
+  background: color-mix(in srgb, var(--meter-accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--meter-accent) 45%, transparent);
+  border-radius: 6px;
+  color: var(--meter-accent);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 3px 10px;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.app-footer-update-button:hover {
+  background: color-mix(in srgb, var(--meter-accent) 26%, transparent);
+  color: var(--ink-primary);
+}

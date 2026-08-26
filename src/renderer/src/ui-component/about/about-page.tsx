@@ -1,6 +1,7 @@
-import { type ReactElement, useState } from 'react'
+import { type ReactElement, useEffect, useState } from 'react'
 
 import appIconUrl from '#resource/icon/app-icon.png'
+import { updateClientService } from '#src/renderer/src/business/service/update-client-service'
 import '#src/renderer/src/ui-component/about/about-page.css'
 import { providerCatalogUtil } from '#src/renderer/src/util/provider-catalog-util'
 
@@ -11,6 +12,21 @@ export const AboutPage = (props: { onToggleDevelopmentUnlock: () => void }): Rea
   const [developmentClicksRemaining, setDevelopmentClicksRemaining] = useState<number>(
     TITLE_CLICKS_TO_TOGGLE_DEVELOPMENT,
   )
+  const [currentVersion, setCurrentVersion] = useState('')
+
+  useEffect(() => {
+    const loadCurrentVersion = async (): Promise<void> => {
+      try {
+        const status = await updateClientService.getStatus()
+
+        setCurrentVersion(status.currentVersion)
+      } catch {
+        return
+      }
+    }
+
+    void loadCurrentVersion()
+  }, [])
 
   const handleTitleClick = (): void => {
     const nextClicksRemaining = developmentClicksRemaining - 1
@@ -44,7 +60,7 @@ export const AboutPage = (props: { onToggleDevelopmentUnlock: () => void }): Rea
           <p className="about-page-development-hint">{resolveDevelopmentHintText()}</p>
         )}
         <p className="about-page-tagline">Desktop tracker for Claude and z.ai coding-plan usage limits.</p>
-        <p className="about-page-version">Version {appVersion}</p>
+        {currentVersion !== '' && <p className="about-page-version">Version {currentVersion}</p>}
       </header>
       <section className="about-page-section">
         <h2 className="about-page-section-title">What it does</h2>

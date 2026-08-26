@@ -35,6 +35,7 @@ export const DashboardSessionBox = (props: { onFocus: () => void; session: ISess
   }, [])
 
   const sessionTitle = sessionPresentationUtil.resolveSessionTitle({ session })
+  const sessionTitleParts = sessionPresentationUtil.resolveSessionTitleParts({ title: sessionTitle })
   const statusPresentation = sessionPresentationUtil.resolveStatusPresentation({ status: session.status })
 
   return (
@@ -63,7 +64,12 @@ export const DashboardSessionBox = (props: { onFocus: () => void; session: ISess
           )}
         </div>
       </header>
-      <h2 className="dashboard-session-box-title">{sessionTitle}</h2>
+      <h2 className="dashboard-session-box-title">
+        {sessionTitleParts.name}
+        {sessionTitleParts.suffix !== undefined && (
+          <span className="dashboard-session-box-title-suffix"> ({sessionTitleParts.suffix})</span>
+        )}
+      </h2>
       {session.transcript !== undefined && <SessionTranscriptChips nowMs={nowMs} transcript={session.transcript} />}
     </article>
   )

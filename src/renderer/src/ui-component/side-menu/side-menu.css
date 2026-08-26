@@ -67,6 +67,16 @@
   gap: 4px;
 }
 
+.side-menu-footer {
+  border-top: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  margin-top: auto;
+  padding-top: 10px;
+}
+
 .side-menu-item,
 .side-menu-collapse-toggle {
   align-items: center;
@@ -145,7 +155,6 @@
 
 .side-menu-collapse-toggle {
   color: var(--ink-muted);
-  margin-top: auto;
 }
 
 .side-menu-collapse-toggle svg {

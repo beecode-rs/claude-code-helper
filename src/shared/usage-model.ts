@@ -2,6 +2,7 @@ import type { OsPlatform } from '#src/shared/os-model'
 import type { ISessionFocusSupport, ISessionSnapshot, SessionsUpdateListener } from '#src/shared/session-model'
 import type { IAppSettings } from '#src/shared/settings-model'
 import type { ISchedulingInfo, ITriggerRegistrationHealth, ITriggerRunLogEntry } from '#src/shared/trigger-model'
+import type { IUpdateStatus, UpdateStatusListener } from '#src/shared/update-model'
 
 export type ProviderId = 'claude' | 'dummy' | 'zai'
 
@@ -54,12 +55,15 @@ export interface IUsageApiClient {
   getSchedulingInfo: () => Promise<ISchedulingInfo>
   getSnapshot: () => Promise<IUsageSnapshot>
   getTriggerRunLogs: (params: { triggerId: string }) => Promise<ITriggerRunLogEntry[]>
+  getUpdateStatus: () => Promise<IUpdateStatus>
   inspectTriggerRegistrations: () => Promise<ITriggerRegistrationHealth[]>
   installSessionFocusTool: () => Promise<ISessionFocusSupport>
   listSessions: () => Promise<ISessionSnapshot>
   onSessionsUpdate: (listener: SessionsUpdateListener) => () => void
   onSettingsUpdate: (listener: SettingsUpdateListener) => () => void
+  onUpdateStatus: (listener: UpdateStatusListener) => () => void
   onUsageUpdate: (listener: UsageUpdateListener) => () => void
+  openRelease: () => void
   refreshNow: () => Promise<void>
   refreshTracker: (params: { trackerId: string }) => Promise<void>
   saveSettings: (settings: IAppSettings) => Promise<IAppSettings>

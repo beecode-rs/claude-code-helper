@@ -1,4 +1,4 @@
-import { type BrowserWindow, ipcMain } from 'electron'
+import { type BrowserWindow, ipcMain, shell } from 'electron'
 
 import { type SettingsRepo } from '#src/main/business/repo/settings-repo'
 import { type TriggerRunLogRepo } from '#src/main/business/repo/trigger-run-log-repo'
@@ -7,6 +7,7 @@ import { type SessionsPollService } from '#src/main/business/service/sessions-po
 import { type SessionsService } from '#src/main/business/service/sessions-service'
 import { SettingsService } from '#src/main/business/service/settings-service'
 import { type SshSessionsService } from '#src/main/business/service/ssh-sessions-service'
+import { type UpdateService } from '#src/main/business/service/update-service'
 import { type UsagePollService } from '#src/main/business/service/usage-poll-service'
 import { objectUtil } from '#src/main/util/object-util'
 import { type OsPlatform, osUtil } from '#src/main/util/os-util'
@@ -18,6 +19,7 @@ import {
   type ITriggerRegistrationHealth,
   type ITriggerRunLogEntry,
 } from '#src/shared/trigger-model'
+import { type IUpdateStatus } from '#src/shared/update-model'
 import { type IUsageSnapshot } from '#src/shared/usage-model'
 
 export const ipcController = {
@@ -30,6 +32,7 @@ export const ipcController = {
     settingsRepo: SettingsRepo
     sshSessionsService: SshSessionsService
     triggerRunLogRepo: TriggerRunLogRepo
+    updateService: UpdateService
   }): void => {
     ipcMain.handle(IpcChannelMapper.OS_GET_PLATFORM, (): OsPlatform => {
       return osUtil.resolvePlatform()
@@ -162,6 +165,20 @@ export const ipcController = {
       return nextSettings
     })
 
+    ipcMain.handle(IpcChannelMapper.UPDATE_GET_STATUS, (): IUpdateStatus => {
+      return params.updateService.getStatus()
+    })
+
+    ipcMain.on(IpcChannelMapper.UPDATE_OPEN_RELEASE, (): void => {
+      const releaseUrl = params.updateService.getStatus().releaseUrl
+
+      if (!releaseUrl?.startsWith('https://github.com/')) {
+        return
+      }
+
+      void shell.openExternal(releaseUrl)
+    })
+
     ipcMain.handle(IpcChannelMapper.USAGE_GET_SNAPSHOT, (): IUsageSnapshot => {
       return params.pollService.getSnapshot()
     })
@@ -235,6 +252,18 @@ export const ipcController = {
         }
 
         browserWindow.webContents.send(IpcChannelMapper.SETTINGS_UPDATE, settings)
+      },
+    })
+
+    params.updateService.onUpdate({
+      listener: (status) => {
+        const browserWindow = params.getWindow()
+
+        if (browserWindow.isDestroyed()) {
+          return
+        }
+
+        browserWindow.webContents.send(IpcChannelMapper.UPDATE_STATUS, status)
       },
     })
   },

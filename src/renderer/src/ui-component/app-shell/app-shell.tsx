@@ -3,6 +3,7 @@ import { type ReactElement, useEffect, useRef, useState } from 'react'
 import { sessionsClientService } from '#src/renderer/src/business/service/sessions-client-service'
 import { usageClientService } from '#src/renderer/src/business/service/usage-client-service'
 import { AboutPage } from '#src/renderer/src/ui-component/about/about-page'
+import { AppFooter } from '#src/renderer/src/ui-component/app-shell/app-footer'
 import '#src/renderer/src/ui-component/app-shell/app-shell.css'
 import { DashboardPage } from '#src/renderer/src/ui-component/dashboard/dashboard-page'
 import { DevelopmentPage } from '#src/renderer/src/ui-component/development/development-page'
@@ -115,16 +116,21 @@ const MENU_ICONS: Record<AppViewId, ReactElement> = {
 
 const resolveMenuItems = (params: {
   dashboardStatusDot: MenuStatusDot | undefined
-  developmentStatusDot: MenuStatusDot | undefined
-  isDevelopmentUnlocked: boolean
   isSchedulingLive: boolean
   isSessionsLive: boolean
   isUsageLive: boolean
   sessionsStatusDot: MenuStatusDot | undefined
   usageStatusDot: MenuStatusDot | undefined
 }): ISideMenuItem<AppViewId>[] => {
-  const menuItems: ISideMenuItem<AppViewId>[] = [
+  return [
     { icon: MENU_ICONS.dashboard, id: 'dashboard', label: 'Dashboard', statusDot: params.dashboardStatusDot },
+    {
+      icon: MENU_ICONS.sessions,
+      id: 'sessions',
+      isLive: params.isSessionsLive,
+      label: 'Sessions',
+      statusDot: params.sessionsStatusDot,
+    },
     {
       icon: MENU_ICONS.usage,
       id: 'usage',
@@ -133,22 +139,21 @@ const resolveMenuItems = (params: {
       statusDot: params.usageStatusDot,
     },
     { icon: MENU_ICONS.scheduling, id: 'scheduling', isLive: params.isSchedulingLive, label: 'Scheduling' },
-    {
-      icon: MENU_ICONS.sessions,
-      id: 'sessions',
-      isLive: params.isSessionsLive,
-      label: 'Sessions',
-      statusDot: params.sessionsStatusDot,
-    },
-    { icon: MENU_ICONS.about, id: 'about', label: 'About' },
   ]
+}
+
+const resolveFooterMenuItems = (params: {
+  developmentStatusDot: MenuStatusDot | undefined
+  isDevelopmentUnlocked: boolean
+}): ISideMenuItem<AppViewId>[] => {
+  const footerMenuItems: ISideMenuItem<AppViewId>[] = [{ icon: MENU_ICONS.about, id: 'about', label: 'About' }]
 
   if (!params.isDevelopmentUnlocked) {
-    return menuItems
+    return footerMenuItems
   }
 
   return [
-    ...menuItems,
+    ...footerMenuItems,
     { icon: MENU_ICONS.development, id: 'development', label: 'Development', statusDot: params.developmentStatusDot },
   ]
 }
@@ -346,11 +351,13 @@ export const AppShell = (): ReactElement => {
     <div className="app-shell">
       <SideMenu
         activeItemId={activeViewId}
+        footerItems={resolveFooterMenuItems({
+          developmentStatusDot,
+          isDevelopmentUnlocked,
+        })}
         isCollapsed={isCollapsed}
         items={resolveMenuItems({
           dashboardStatusDot,
-          developmentStatusDot,
-          isDevelopmentUnlocked,
           isSchedulingLive: resolveIsSchedulingLive({ settings }),
           isSessionsLive: resolveIsSessionsLive({ settings }),
           isUsageLive: resolveIsUsageLive({ settings }),
@@ -361,7 +368,10 @@ export const AppShell = (): ReactElement => {
         onToggleCollapse={handleToggleCollapse}
         title="Usage Pulse"
       />
-      <div className="app-shell-content">{renderActiveView()}</div>
+      <div className="app-shell-main">
+        <div className="app-shell-content">{renderActiveView()}</div>
+        <AppFooter />
+      </div>
     </div>
   )
 }

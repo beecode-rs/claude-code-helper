@@ -114,9 +114,11 @@ Requires [Node.js](https://nodejs.org) and [pnpm](https://pnpm.io).
 ```bash
 git clone https://github.com/beecode-rs/usage-pulse.git
 cd usage-pulse
-pnpm install
+pnpm run init
 pnpm dev
 ```
+
+`pnpm run init` installs dependencies and verifies the Electron binary is in place — pnpm occasionally skips Electron's download (a stale side-effects cache), which `pnpm dev` then fails on with `Error: Electron uninstall`. The check runs automatically after every `pnpm install`, so this only needs to be run once after cloning.
 
 Other scripts:
 

@@ -119,6 +119,7 @@ export default defineConfig([
     'out/*',
     'node_modules/*',
     'resource/*',
+    'scripts/*',
     'src/**/__mocks__/*',
     'src/**/*.d.ts',
     'src/**/*.d.ts.map',

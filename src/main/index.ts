@@ -15,6 +15,7 @@ import { UpdateService } from '#src/main/business/service/update-service'
 import { UsagePollService } from '#src/main/business/service/usage-poll-service'
 import { ipcController } from '#src/main/controller/ipc-controller'
 import { appWindow } from '#src/main/lib/app-window'
+import { devDesktopEntry } from '#src/main/lib/dev-desktop-entry'
 import { errorUtil } from '#src/main/util/error-util'
 
 const resolveFiredTriggerId = (): string | undefined => {
@@ -81,6 +82,8 @@ const bootstrapApp = async (): Promise<void> => {
   app.on('window-all-closed', () => {
     app.quit()
   })
+
+  devDesktopEntry.install()
 
   const settingsRepo = new SettingsRepo({
     settingsFilePath: join(app.getPath('userData'), 'usage-pulse-settings.json'),

@@ -1,9 +1,31 @@
-import { BrowserWindow, shell } from 'electron'
+import { BrowserWindow, app, shell } from 'electron'
 import { join } from 'node:path'
 
 export type WindowVisibilityChangeListener = (params: { isVisible: boolean }) => void
 
 export const appWindow = {
+  _resolveWindowIconPath(): string | undefined {
+    switch (process.platform) {
+      case 'linux': {
+        return join(__dirname, '../../build/icons/512x512.png')
+      }
+      case 'win32': {
+        return join(__dirname, '../../build/icons/256x256.png')
+      }
+      default: {
+        return undefined
+      }
+    }
+  },
+
+  _setDevelopmentDockIcon(): void {
+    if (app.isPackaged || process.platform !== 'darwin') {
+      return
+    }
+
+    app.dock?.setIcon(join(__dirname, '../../build/icons/512x512.png'))
+  },
+
   _watchVisibility(params: { browserWindow: BrowserWindow; onVisibilityChange: WindowVisibilityChangeListener }): void {
     const notifyVisible = (): void => {
       params.onVisibilityChange({ isVisible: true })
@@ -20,8 +42,11 @@ export const appWindow = {
   },
 
   create: (params?: { onVisibilityChange?: WindowVisibilityChangeListener }): BrowserWindow => {
+    appWindow._setDevelopmentDockIcon()
+
     const browserWindow = new BrowserWindow({
       height: 680,
+      icon: appWindow._resolveWindowIconPath(),
       minHeight: 560,
       minWidth: 760,
       show: false,

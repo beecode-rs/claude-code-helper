@@ -4,10 +4,11 @@ directories:
   output: dist
 files:
   - out/**
+  - build/icons/256x256.png
+  - build/icons/512x512.png
 asar: true
 mac:
   category: public.app-category.developer-tools
-  icon: resource/icon/app-icon.png
   identity: null
   artifactName: Usage-Pulse-${version}-${arch}.dmg
   target:
@@ -16,9 +17,9 @@ mac:
         - universal
 linux:
   category: Utility
-  icon: resource/icon/app-icon.png
   maintainer: milos
   executableName: usage-pulse
+  syncDesktopName: true
   target:
     - AppImage
     - deb

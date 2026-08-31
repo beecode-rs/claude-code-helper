@@ -1,14 +1,13 @@
 import { type BrowserWindow, ipcMain, shell } from 'electron'
 
-import { type SettingsRepo } from '#src/main/business/repo/settings-repo'
 import { type TriggerRunLogRepo } from '#src/main/business/repo/trigger-run-log-repo'
 import { type SchedulingService } from '#src/main/business/service/scheduling-service'
 import { type SessionsPollService } from '#src/main/business/service/sessions-poll-service'
 import { type SessionsService } from '#src/main/business/service/sessions-service'
-import { SettingsService } from '#src/main/business/service/settings-service'
 import { type SshSessionsService } from '#src/main/business/service/ssh-sessions-service'
 import { type UpdateService } from '#src/main/business/service/update-service'
 import { type UsagePollService } from '#src/main/business/service/usage-poll-service'
+import { type SettingsUseCase } from '#src/main/business/use-case/settings-use-case'
 import { objectUtil } from '#src/main/util/object-util'
 import { type OsPlatform, osUtil } from '#src/main/util/os-util'
 import { IpcChannelMapper } from '#src/shared/ipc-channel'
@@ -29,7 +28,7 @@ export const ipcController = {
     schedulingService: SchedulingService
     sessionsPollService: SessionsPollService
     sessionsService: SessionsService
-    settingsRepo: SettingsRepo
+    settingsUseCase: SettingsUseCase
     sshSessionsService: SshSessionsService
     triggerRunLogRepo: TriggerRunLogRepo
     updateService: UpdateService
@@ -45,20 +44,14 @@ export const ipcController = {
     ipcMain.handle(
       IpcChannelMapper.SCHEDULING_SET_ENABLED,
       async (_event, rawParams: unknown): Promise<IAppSettings> => {
-        const settings = await params.settingsRepo.load()
         const rawRecord = objectUtil.asRecord(rawParams)
         const isEnabled = rawRecord?.['isEnabled']
 
         if (typeof isEnabled !== 'boolean') {
-          return settings
+          return await params.settingsUseCase.loadSettings()
         }
 
-        const nextSettings = new SettingsService().setSchedulingEnabled({ isEnabled, settings })
-
-        await params.settingsRepo.save({ settings: nextSettings })
-        await params.schedulingService.syncRegistrations({ settings: nextSettings })
-
-        return nextSettings
+        return await params.settingsUseCase.setSchedulingEnabled({ isEnabled })
       },
     )
 
@@ -102,18 +95,11 @@ export const ipcController = {
     })
 
     ipcMain.handle(IpcChannelMapper.SETTINGS_GET, async (): Promise<IAppSettings> => {
-      return await params.settingsRepo.load()
+      return await params.settingsUseCase.loadSettings()
     })
 
     ipcMain.handle(IpcChannelMapper.SETTINGS_SAVE, async (_event, rawSettings: unknown): Promise<IAppSettings> => {
-      const settings = new SettingsService().sanitizeSettings({ rawSettings })
-
-      await params.settingsRepo.save({ settings })
-      await params.pollService.restart({ settings })
-      await params.sessionsPollService.restart({ settings })
-      await params.schedulingService.syncRegistrations({ settings })
-
-      return settings
+      return await params.settingsUseCase.saveSettings({ rawSettings })
     })
 
     ipcMain.handle(IpcChannelMapper.TRIGGER_CLEAR_RUN_LOGS, async (_event, rawParams: unknown): Promise<void> => {
@@ -142,27 +128,21 @@ export const ipcController = {
     )
 
     ipcMain.handle(IpcChannelMapper.TRIGGER_OS_INSPECT, async (): Promise<ITriggerRegistrationHealth[]> => {
-      const settings = await params.settingsRepo.load()
+      const settings = await params.settingsUseCase.loadSettings()
 
       return await params.schedulingService.inspectRegistrations({ settings })
     })
 
     ipcMain.handle(IpcChannelMapper.TRIGGER_SET_ENABLED, async (_event, rawParams: unknown): Promise<IAppSettings> => {
-      const settings = await params.settingsRepo.load()
       const rawRecord = objectUtil.asRecord(rawParams)
       const triggerId = rawRecord?.['triggerId']
       const isEnabled = rawRecord?.['isEnabled']
 
       if (typeof triggerId !== 'string' || typeof isEnabled !== 'boolean') {
-        return settings
+        return await params.settingsUseCase.loadSettings()
       }
 
-      const nextSettings = new SettingsService().setTriggerEnabled({ isEnabled, settings, triggerId })
-
-      await params.settingsRepo.save({ settings: nextSettings })
-      await params.schedulingService.syncRegistrations({ settings: nextSettings })
-
-      return nextSettings
+      return await params.settingsUseCase.setTriggerEnabled({ isEnabled, triggerId })
     })
 
     ipcMain.handle(IpcChannelMapper.UPDATE_GET_STATUS, (): IUpdateStatus => {
@@ -198,24 +178,15 @@ export const ipcController = {
     ipcMain.handle(
       IpcChannelMapper.USAGE_SET_TRACKER_PAUSED,
       async (_event, rawParams: unknown): Promise<IAppSettings> => {
-        const settings = await params.settingsRepo.load()
         const rawRecord = objectUtil.asRecord(rawParams)
         const trackerId = rawRecord?.['trackerId']
         const isAutoRefreshPaused = rawRecord?.['isAutoRefreshPaused']
 
         if (typeof trackerId !== 'string' || typeof isAutoRefreshPaused !== 'boolean') {
-          return settings
+          return await params.settingsUseCase.loadSettings()
         }
 
-        const nextSettings = new SettingsService().setTrackerPaused({ isAutoRefreshPaused, settings, trackerId })
-
-        await params.settingsRepo.save({ settings: nextSettings })
-        await params.pollService.applyTrackerAutoRefresh({ settings: nextSettings, trackerId })
-        void params.schedulingService.syncRegistrations({ settings: nextSettings }).catch(() => {
-          return undefined
-        })
-
-        return nextSettings
+        return await params.settingsUseCase.setTrackerPaused({ isAutoRefreshPaused, trackerId })
       },
     )
 
@@ -243,7 +214,7 @@ export const ipcController = {
       },
     })
 
-    params.settingsRepo.onSave({
+    params.settingsUseCase.onSave({
       listener: ({ settings }) => {
         const browserWindow = params.getWindow()
 

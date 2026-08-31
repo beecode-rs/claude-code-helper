@@ -19,7 +19,7 @@ methods:
               name: Claude
               providerId: claude
               refreshIntervalSeconds: 300
-              tokenSource: system
+              tokenSource: SYSTEM
             osPlatform: windows
         result:
           accessToken: ''
@@ -28,7 +28,7 @@ methods:
           name: Claude
           providerId: claude
           refreshIntervalSeconds: 300
-          tokenSource: manual
+          tokenSource: MANUAL
       # On linux the stored system source is kept as-is.
       - params:
           - config:
@@ -38,7 +38,7 @@ methods:
               name: Claude
               providerId: claude
               refreshIntervalSeconds: 300
-              tokenSource: system
+              tokenSource: SYSTEM
             osPlatform: linux
         result:
           accessToken: ''
@@ -47,7 +47,7 @@ methods:
           name: Claude
           providerId: claude
           refreshIntervalSeconds: 300
-          tokenSource: system
+          tokenSource: SYSTEM
       # A claude tracker already on manual stays manual on windows.
       - params:
           - config:
@@ -57,7 +57,7 @@ methods:
               name: Claude
               providerId: claude
               refreshIntervalSeconds: 300
-              tokenSource: manual
+              tokenSource: MANUAL
             osPlatform: windows
         result:
           accessToken: ''
@@ -66,7 +66,7 @@ methods:
           name: Claude
           providerId: claude
           refreshIntervalSeconds: 300
-          tokenSource: manual
+          tokenSource: MANUAL
       # Non-claude trackers pass through untouched.
       - params:
           - config:
@@ -99,10 +99,10 @@ methods:
               name: Claude
               providerId: claude
               refreshIntervalSeconds: 300
-              tokenSource: system
+              tokenSource: SYSTEM
             osPlatform: linux
         result:
-          selectedTokenSource: system
+          selectedTokenSource: SYSTEM
           systemTokenOption:
             hint: 'Reads the OAuth token from ~/.claude/.credentials.json on every poll, so it tracks the one Claude Code account logged in on this machine.'
             label: 'Use system token (logged-in Claude Code)'
@@ -115,10 +115,10 @@ methods:
               name: Claude
               providerId: claude
               refreshIntervalSeconds: 300
-              tokenSource: manual
+              tokenSource: MANUAL
             osPlatform: macos
         result:
-          selectedTokenSource: manual
+          selectedTokenSource: MANUAL
           systemTokenOption:
             hint: 'Reads the OAuth token from the macOS Keychain entry "Claude Code-credentials" on every poll, so it tracks the one Claude Code account logged in on this machine. Not available on Windows yet.'
             label: 'Use system token (macOS Keychain)'
@@ -133,10 +133,10 @@ methods:
               name: Claude
               providerId: claude
               refreshIntervalSeconds: 300
-              tokenSource: system
+              tokenSource: SYSTEM
             osPlatform: windows
         result:
-          selectedTokenSource: manual
+          selectedTokenSource: MANUAL
       # Non-claude providers have no token source section at all: manual, no option.
       - params:
           - config:
@@ -150,4 +150,4 @@ methods:
               times: ['09:00']
             osPlatform: linux
         result:
-          selectedTokenSource: manual
+          selectedTokenSource: MANUAL

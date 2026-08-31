@@ -9,10 +9,12 @@ import { SchedulingService } from '#src/main/business/service/scheduling-service
 import { SessionTranscriptService } from '#src/main/business/service/session-transcript-service'
 import { SessionsPollService } from '#src/main/business/service/sessions-poll-service'
 import { SessionsService } from '#src/main/business/service/sessions-service'
+import { SettingsService } from '#src/main/business/service/settings-service'
 import { SshSessionsService } from '#src/main/business/service/ssh-sessions-service'
 import { TriggerRunnerService } from '#src/main/business/service/trigger-runner-service'
 import { UpdateService } from '#src/main/business/service/update-service'
 import { UsagePollService } from '#src/main/business/service/usage-poll-service'
+import { SettingsUseCase } from '#src/main/business/use-case/settings-use-case'
 import { ipcController } from '#src/main/controller/ipc-controller'
 import { appWindow } from '#src/main/lib/app-window'
 import { devDesktopEntry } from '#src/main/lib/dev-desktop-entry'
@@ -109,11 +111,15 @@ const bootstrapApp = async (): Promise<void> => {
     logFilePath: join(app.getPath('userData'), 'usage-pulse-trigger-log.jsonl'),
   })
   const updateService = new UpdateService({ currentVersion: app.getVersion() })
-  const settings = await settingsRepo.load()
-  await settingsRepo.save({ settings })
-  await schedulingService.syncRegistrations({ settings }).catch(() => {
-    return undefined
+  const settingsService = new SettingsService()
+  const settingsUseCase = new SettingsUseCase({
+    pollService,
+    schedulingService,
+    sessionsPollService,
+    settingsRepo,
+    settingsService,
   })
+  const settings = await settingsUseCase.initializeSettings()
   const browserWindow = appWindow.create({
     onVisibilityChange: ({ isVisible }) => {
       pollService.setWindowVisibility({ isVisible })
@@ -129,7 +135,7 @@ const bootstrapApp = async (): Promise<void> => {
     schedulingService,
     sessionsPollService,
     sessionsService,
-    settingsRepo,
+    settingsUseCase,
     sshSessionsService,
     triggerRunLogRepo,
     updateService,

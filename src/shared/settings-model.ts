@@ -1,9 +1,11 @@
 import type { ITriggerConfig, TriggerDay } from '#src/shared/trigger-model'
 
 export enum ClaudeTokenSource {
-  MANUAL = 'manual',
-  SYSTEM = 'system',
+  MANUAL = 'MANUAL',
+  SYSTEM = 'SYSTEM',
 }
+
+export const LEGACY_CLAUDE_TOKEN_SOURCE_SYSTEM = 'system'
 
 export interface ITrackerConfigBase {
   accessToken: string

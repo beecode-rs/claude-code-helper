@@ -13,6 +13,7 @@ import {
   type ISshHostConfig,
   type ITrackerConfig,
   type IZaiTrackerConfig,
+  LEGACY_CLAUDE_TOKEN_SOURCE_SYSTEM,
   MAX_REFRESH_INTERVAL_SECONDS,
   MAX_SESSIONS_REFRESH_INTERVAL_SECONDS,
   MAX_WAITING_SOUND_VOLUME_PERCENT,
@@ -553,7 +554,7 @@ export class SettingsService {
   }
 
   protected _resolveTokenSource(params: { value: unknown }): ClaudeTokenSource {
-    if (params.value === ClaudeTokenSource.SYSTEM) {
+    if (params.value === ClaudeTokenSource.SYSTEM || params.value === LEGACY_CLAUDE_TOKEN_SOURCE_SYSTEM) {
       return ClaudeTokenSource.SYSTEM
     }
 

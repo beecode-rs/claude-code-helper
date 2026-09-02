@@ -26,9 +26,10 @@ export const SideMenu = <ItemId extends string>(props: {
   items: ISideMenuItem<ItemId>[]
   onSelectItem: (itemId: ItemId) => void
   onToggleCollapse: () => void
+  statusDot?: MenuStatusDot
   title: string
 }): ReactElement => {
-  const { activeItemId, footerItems, isCollapsed, items, onSelectItem, onToggleCollapse, title } = props
+  const { activeItemId, footerItems, isCollapsed, items, onSelectItem, onToggleCollapse, statusDot, title } = props
   const collapseToggleTitle = resolveCollapseToggleTitle({ isCollapsed })
 
   const resolveMenuClassName = (): string => {
@@ -37,6 +38,14 @@ export const SideMenu = <ItemId extends string>(props: {
     }
 
     return 'side-menu'
+  }
+
+  const resolveBrandDotClassName = (params: { statusDot: MenuStatusDot | undefined }): string => {
+    if (params.statusDot === undefined) {
+      return 'side-menu-brand-dot'
+    }
+
+    return `side-menu-brand-dot is-${params.statusDot}`
   }
 
   const resolveItemClassName = (params: { itemId: ItemId }): string => {
@@ -136,7 +145,7 @@ export const SideMenu = <ItemId extends string>(props: {
   return (
     <nav aria-label="Main navigation" className={resolveMenuClassName()}>
       <div className="side-menu-brand">
-        <span className="side-menu-brand-dot" />
+        <span className={resolveBrandDotClassName({ statusDot })} />
         {!isCollapsed && <span className="side-menu-brand-label">{title}</span>}
       </div>
       <div className="side-menu-items">

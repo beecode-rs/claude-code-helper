@@ -16,7 +16,7 @@ const FOCUS_TOOL_INSTALL_TIMEOUT_MS = 300_000
 
 const SESSIONS_QUERY_TIMEOUT_MS = 10_000
 
-const APP_BUNDLE_PATTERN = /^(?:-)?(.*\/[^/]+\.app)\//
+const APP_BUNDLE_PATTERN = /^(?:-)?(.*?\/[^/]+\.app)\//
 
 const GHOSTTY_BUNDLE_ID = 'com.mitchellh.ghostty'
 
@@ -38,6 +38,44 @@ const GHOSTTY_TAB_FOCUS_SCRIPT = `on run argv
     end repeat
   end tell
 end run`
+
+const VSCODE_ACCESSIBILITY_DENIED_MESSAGE =
+  'to focus the exact VS Code window, allow this app to control your computer in System Settings > Privacy & Security > Accessibility'
+
+const VSCODE_BUNDLE_BASENAME = 'Visual Studio Code.app'
+
+const VSCODE_SYSTEM_EVENTS_DENIED_MESSAGE =
+  'to focus the exact VS Code window, allow this app to control System Events in System Settings > Privacy & Security > Automation'
+
+const VSCODE_TITLE_SEPARATOR = ' — '
+
+const VSCODE_WINDOW_RAISE_SCRIPT = `on run argv
+  set appBundlePath to item 1 of argv
+  set windowIndex to item 2 of argv as integer
+  set appId to id of application appBundlePath
+  tell application "System Events"
+    tell (first application process whose bundle identifier is appId)
+      set frontmost to true
+      perform action "AXRaise" of window windowIndex
+    end tell
+  end tell
+end run`
+
+const VSCODE_WINDOW_TITLES_SCRIPT = `on run argv
+  set appBundlePath to item 1 of argv
+  set appId to id of application appBundlePath
+  tell application "System Events"
+    tell (first application process whose bundle identifier is appId)
+      set originalDelimiters to AppleScript's text item delimiters
+      set AppleScript's text item delimiters to linefeed
+      set windowNames to (name of every window) as text
+      set AppleScript's text item delimiters to originalDelimiters
+      return windowNames
+    end tell
+  end tell
+end run`
+
+const MAX_VSCODE_WORKSPACE_NAME_CANDIDATES = 3
 
 const MAX_ANCESTOR_HOPS = 12
 
@@ -129,8 +167,18 @@ export class SessionsService {
 
     await this._activateAppBundle({ bundlePath })
 
-    if (params.cwd !== '' && this._isGhosttyBundle({ bundlePath })) {
+    if (params.cwd === '') {
+      return
+    }
+
+    if (this._isGhosttyBundle({ bundlePath })) {
       await this._focusGhosttyTab({ cwd: params.cwd })
+
+      return
+    }
+
+    if (this._isVsCodeBundle({ bundlePath })) {
+      await this._focusVsCodeWindow({ bundlePath, cwd: params.cwd })
     }
   }
 
@@ -411,6 +459,126 @@ export class SessionsService {
 
       throw new Error(`focusing the Ghostty tab failed: ${this._resolveQueryErrorMessage(error)}`)
     }
+  }
+
+  protected _isVsCodeBundle(params: { bundlePath: string }): boolean {
+    return basename(params.bundlePath) === VSCODE_BUNDLE_BASENAME
+  }
+
+  protected async _focusVsCodeWindow(params: { bundlePath: string; cwd: string }): Promise<void> {
+    const windowTitles = await this._listVsCodeWindowTitles({ bundlePath: params.bundlePath })
+    const windowIndex = this._resolveVsCodeWindowIndex({ cwd: params.cwd, windowTitles })
+
+    if (windowIndex === undefined) {
+      return
+    }
+
+    await this._raiseVsCodeWindow({ bundlePath: params.bundlePath, windowIndex })
+  }
+
+  protected async _listVsCodeWindowTitles(params: { bundlePath: string }): Promise<string[]> {
+    try {
+      const { stdout } = await execFileAsync(
+        'osascript',
+        ['-e', VSCODE_WINDOW_TITLES_SCRIPT, '--', params.bundlePath],
+        {
+          timeout: OSASCRIPT_TIMEOUT_MS,
+        },
+      )
+
+      return this._parseVsCodeWindowTitles({ stdout })
+    } catch (error) {
+      const deniedMessage = this._resolveVsCodePermissionDeniedMessage({ error })
+
+      if (deniedMessage !== undefined) {
+        throw new Error(deniedMessage)
+      }
+
+      throw new Error(`listing the VS Code windows failed: ${this._resolveQueryErrorMessage(error)}`)
+    }
+  }
+
+  protected _parseVsCodeWindowTitles(params: { stdout: string }): string[] {
+    return params.stdout
+      .trim()
+      .split('\n')
+      .filter((line) => {
+        return line !== ''
+      })
+  }
+
+  protected _resolveVsCodeWindowIndex(params: { cwd: string; windowTitles: string[] }): number | undefined {
+    const workspaceNames = this._resolveVsCodeWorkspaceNameCandidates({ cwd: params.cwd })
+    const firstMatchedPosition = workspaceNames
+      .map((workspaceName) => {
+        return params.windowTitles.findIndex((windowTitle) => {
+          return this._resolveVsCodeWorkspaceName({ windowTitle }) === workspaceName
+        })
+      })
+      .find((windowPosition) => {
+        return windowPosition !== -1
+      })
+
+    if (firstMatchedPosition === undefined) {
+      return undefined
+    }
+
+    return firstMatchedPosition + 1
+  }
+
+  protected _resolveVsCodeWorkspaceName(params: { windowTitle: string }): string {
+    const titleParts = params.windowTitle.split(VSCODE_TITLE_SEPARATOR)
+    const lastTitlePart = titleParts[titleParts.length - 1]
+
+    if (lastTitlePart === undefined) {
+      return params.windowTitle
+    }
+
+    return lastTitlePart
+  }
+
+  protected _resolveVsCodeWorkspaceNameCandidates(params: { cwd: string }): string[] {
+    return params.cwd
+      .split('/')
+      .filter((pathPart) => {
+        return pathPart !== ''
+      })
+      .slice(-MAX_VSCODE_WORKSPACE_NAME_CANDIDATES)
+      .reverse()
+  }
+
+  protected async _raiseVsCodeWindow(params: { bundlePath: string; windowIndex: number }): Promise<void> {
+    try {
+      await execFileAsync(
+        'osascript',
+        ['-e', VSCODE_WINDOW_RAISE_SCRIPT, '--', params.bundlePath, String(params.windowIndex)],
+        { timeout: OSASCRIPT_TIMEOUT_MS },
+      )
+    } catch (error) {
+      const deniedMessage = this._resolveVsCodePermissionDeniedMessage({ error })
+
+      if (deniedMessage !== undefined) {
+        throw new Error(deniedMessage)
+      }
+
+      throw new Error(`raising the VS Code window failed: ${this._resolveQueryErrorMessage(error)}`)
+    }
+  }
+
+  protected _resolveVsCodePermissionDeniedMessage(params: { error: unknown }): string | undefined {
+    if (this._isAutomationDenied({ error: params.error })) {
+      return VSCODE_SYSTEM_EVENTS_DENIED_MESSAGE
+    }
+
+    if (this._isAssistiveAccessDenied({ error: params.error })) {
+      return VSCODE_ACCESSIBILITY_DENIED_MESSAGE
+    }
+
+    return undefined
+  }
+
+  protected _isAssistiveAccessDenied(params: { error: unknown }): boolean {
+    return this._resolveQueryErrorMessage(params.error).includes('assistive access')
   }
 
   protected _isAutomationDenied(params: { error: unknown }): boolean {

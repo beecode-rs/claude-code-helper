@@ -5,6 +5,8 @@
 //   strategy catches synchronous throws only)
 // - the real xdotool/ps child-process choreography of the Linux ancestor walk via stub
 //   binaries prepended to PATH, including the exact windowactivate invocation
+// - the real osascript child-process choreography of the macos VS Code window focus via a
+//   stub binary prepended to PATH, including the exact bundle-path and window-index argv
 // - the macos platform routing with the macOS helpers stubbed on the harness (open and
 //   osascript never run)
 // - the focus-support flow: the once-per-run xdotool presence check, the missing-tool
@@ -68,6 +70,21 @@ if [ -n "$USAGE_PULSE_PS_DECREMENT_PPID" ]; then
   exit 0
 fi
 exit 1
+`
+
+const fakeOsascriptScript = `#!/bin/sh
+script_arg="$2"
+if [ -n "$USAGE_PULSE_OSASCRIPT_ARGS_LOG" ]; then
+  shift 2
+  IFS='|'
+  printf '%s\\n' "$*" >> "$USAGE_PULSE_OSASCRIPT_ARGS_LOG"
+fi
+case "$script_arg" in
+  *"name of every window"*)
+    printf '%s\\n' "$USAGE_PULSE_OSASCRIPT_WINDOW_TITLES"
+    ;;
+esac
+exit 0
 `
 
 const linuxWindowNotFoundMessage =
@@ -172,8 +189,43 @@ const installBinarylessPath = async () => {
   }
 }
 
+const installOsascriptShim = async () => {
+  const binDir = await mkdtemp(join(tmpdir(), 'usage-pulse-osascript-bin-'))
+  const argsLogPath = join(binDir, 'osascript-args.log')
+  const originalPath = process.env.PATH
+  const originalArgsLog = process.env.USAGE_PULSE_OSASCRIPT_ARGS_LOG
+  const originalWindowTitles = process.env.USAGE_PULSE_OSASCRIPT_WINDOW_TITLES
+
+  await writeFile(join(binDir, 'osascript'), fakeOsascriptScript, 'utf8')
+  await chmod(join(binDir, 'osascript'), 0o755)
+  process.env.PATH = `${binDir}${delimiter}${originalPath}`
+  process.env.USAGE_PULSE_OSASCRIPT_ARGS_LOG = argsLogPath
+  process.env.USAGE_PULSE_OSASCRIPT_WINDOW_TITLES = ''
+
+  return {
+    argsLogPath,
+    restoreEnvironment: async () => {
+      restoreEnvValue({ key: 'USAGE_PULSE_OSASCRIPT_ARGS_LOG', value: originalArgsLog })
+      restoreEnvValue({ key: 'USAGE_PULSE_OSASCRIPT_WINDOW_TITLES', value: originalWindowTitles })
+      process.env.PATH = originalPath
+      await rm(binDir, { force: true, recursive: true })
+    },
+    setWindowTitles: (params: { windowTitles: string }) => {
+      process.env.USAGE_PULSE_OSASCRIPT_WINDOW_TITLES = params.windowTitles
+    },
+  }
+}
+
 const readXdotoolInvocations = async (params: { argsLogPath: string }): Promise<string[]> => {
   return (await readFile(params.argsLogPath, 'utf8')).trim().split('\n')
+}
+
+const readOsascriptInvocations = async (params: { argsLogPath: string }): Promise<string[]> => {
+  const logContent = await readFile(params.argsLogPath, 'utf8').catch(() => {
+    return ''
+  })
+
+  return logContent.trim() === '' ? [] : logContent.trim().split('\n')
 }
 
 describe.skipIf(process.platform === 'win32')('SessionsService [contract supplement]', () => {
@@ -348,6 +400,7 @@ describe.skipIf(process.platform === 'win32')('SessionsService [contract supplem
 
     expect(service.macOsBundleActivateCalls).toEqual([{ bundlePath: '/Applications/iTerm.app' }])
     expect(service.macOsTabFocusCalls).toEqual([])
+    expect(service.macOsWindowFocusCalls).toEqual([])
   })
 
   it('routes a macos platform into the bundle flow but skips the tab focus without a cwd', async () => {
@@ -358,6 +411,63 @@ describe.skipIf(process.platform === 'win32')('SessionsService [contract supplem
     await service.focusSession({ cwd: '', pid: 4242 })
 
     expect(service.macOsTabFocusCalls).toEqual([])
+    expect(service.macOsWindowFocusCalls).toEqual([])
+  })
+
+  it('routes a macos platform into the bundle flow and focuses the matching VS Code window', async () => {
+    const service = new SessionsServiceContractHarness({
+      focusPlatform: 'macos',
+      macOsBundlePath: '/Applications/Visual Studio Code.app',
+    })
+    await service.focusSession({ cwd: '/Users/user/claude-code-helper', pid: 4242 })
+
+    expect(service.macOsBundleActivateCalls).toEqual([{ bundlePath: '/Applications/Visual Studio Code.app' }])
+    expect(service.macOsTabFocusCalls).toEqual([])
+    expect(service.macOsWindowFocusCalls).toEqual([
+      { bundlePath: '/Applications/Visual Studio Code.app', cwd: '/Users/user/claude-code-helper' },
+    ])
+  })
+
+  it('raises the VS Code window whose workspace name matches the session cwd', async () => {
+    const shim = await installOsascriptShim()
+
+    try {
+      shim.setWindowTitles({
+        windowTitles: '◐ session-focus-button.tsx — claude-code-helper\nemotify\nGit Graph — bm (Workspace)',
+      })
+      const service = new SessionsServiceContractHarness({
+        focusPlatform: 'macos',
+        macOsBundlePath: '/Applications/Visual Studio Code.app',
+      })
+      service.isMacOsWindowFocusStubbed = false
+      await service.focusSession({ cwd: '/Users/milos/code/claude-code-helper', pid: 4242 })
+      const invocations = await readOsascriptInvocations({ argsLogPath: shim.argsLogPath })
+
+      expect(invocations).toHaveLength(2)
+      expect(invocations[0]).toContain('--|/Applications/Visual Studio Code.app')
+      expect(invocations[1]).toContain('--|/Applications/Visual Studio Code.app|1')
+    } finally {
+      await shim.restoreEnvironment()
+    }
+  })
+
+  it('skips the VS Code raise call when no window matches the session cwd', async () => {
+    const shim = await installOsascriptShim()
+
+    try {
+      shim.setWindowTitles({ windowTitles: 'emotify\nGit Graph — bm (Workspace)' })
+      const service = new SessionsServiceContractHarness({
+        focusPlatform: 'macos',
+        macOsBundlePath: '/Applications/Visual Studio Code.app',
+      })
+      service.isMacOsWindowFocusStubbed = false
+      await service.focusSession({ cwd: '/Users/milos/code/claude-code-helper', pid: 4242 })
+      const invocations = await readOsascriptInvocations({ argsLogPath: shim.argsLogPath })
+
+      expect(invocations).toHaveLength(1)
+    } finally {
+      await shim.restoreEnvironment()
+    }
   })
 })
 

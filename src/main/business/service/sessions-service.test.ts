@@ -9,6 +9,9 @@
 //   stub binary prepended to PATH, including the exact bundle-path and window-index argv
 // - the macos platform routing with the macOS helpers stubbed on the harness (open and
 //   osascript never run)
+// - the macos Ghostty focus resolution: same-cwd agent sessions ranked by surface-host
+//   start time through the ps stub, the VS Code-hosted agent exclusion, and the
+//   tty-exact focus path when Ghostty exposes terminal ttys
 // - the focus-support flow: the once-per-run xdotool presence check, the missing-tool
 //   status, and the install-then-refresh path (pkexec never runs; the harness stubs it)
 
@@ -55,21 +58,51 @@ esac
 
 const fakePsScript = `#!/bin/sh
 pid="$4"
+resolve_value_by_pid() {
+  if [ -n "$1" ]; then
+    for pair in $(printf '%s' "$1" | tr ';' ' '); do
+      case "$pair" in
+        "$pid="*)
+          printf '%s' "\${pair#*=}"
+          return 0
+          ;;
+      esac
+    done
+  fi
+  return 1
+}
+case "$2" in
+  lstart=)
+    if resolve_value_by_pid "$USAGE_PULSE_PS_LSTART_BY_PID"; then
+      exit 0
+    fi
+    exit 1
+    ;;
+  tty=)
+    if resolve_value_by_pid "$USAGE_PULSE_PS_TTY_BY_PID"; then
+      exit 0
+    fi
+    exit 1
+    ;;
+esac
+ppid=
 if [ -n "$USAGE_PULSE_PS_PPID_BY_PID" ]; then
   for pair in $(printf '%s' "$USAGE_PULSE_PS_PPID_BY_PID" | tr ',' ' '); do
     case "$pair" in
       "$pid="*)
-        printf '%s /usr/bin/usage-pulse-stub\\n' "\${pair#*=}"
-        exit 0
+        ppid="\${pair#*=}"
         ;;
     esac
   done
 fi
-if [ -n "$USAGE_PULSE_PS_DECREMENT_PPID" ]; then
-  printf '%s /usr/bin/usage-pulse-stub\\n' "$((pid - 1))"
-  exit 0
+if [ -z "$ppid" ] && [ -n "$USAGE_PULSE_PS_DECREMENT_PPID" ]; then
+  ppid="$((pid - 1))"
 fi
-exit 1
+if [ -z "$ppid" ]; then
+  exit 1
+fi
+comm_path=$(resolve_value_by_pid "$USAGE_PULSE_PS_COMM_BY_PID" || printf '%s' '/usr/bin/usage-pulse-stub')
+printf '%s %s\\n' "$ppid" "$comm_path"
 `
 
 const fakeOsascriptScript = `#!/bin/sh
@@ -94,8 +127,11 @@ const linuxWaylandNotSupportedMessage =
   'focusing a session terminal on Linux is not supported on Wayland yet; the session has no X11 window'
 
 const focusShimEnvKeys = [
+  'USAGE_PULSE_PS_COMM_BY_PID',
   'USAGE_PULSE_PS_DECREMENT_PPID',
+  'USAGE_PULSE_PS_LSTART_BY_PID',
   'USAGE_PULSE_PS_PPID_BY_PID',
+  'USAGE_PULSE_PS_TTY_BY_PID',
   'USAGE_PULSE_XDOTOOL_ARGS_LOG',
   'USAGE_PULSE_XDOTOOL_WINDOW_HIDDEN',
   'USAGE_PULSE_XDOTOOL_WINDOW_ID',
@@ -155,8 +191,14 @@ const installLinuxFocusShims = async () => {
       process.env.PATH = originalPath
       await rm(binDir, { force: true, recursive: true })
     },
+    setPsCommByPid: (params: { commByPid: Record<string, string> }) => {
+      process.env.USAGE_PULSE_PS_COMM_BY_PID = joinSemicolonEntries({ entries: params.commByPid })
+    },
     setPsDecrementMode: () => {
       process.env.USAGE_PULSE_PS_DECREMENT_PPID = 'true'
+    },
+    setPsLstartByPid: (params: { lstartByPid: Record<string, string> }) => {
+      process.env.USAGE_PULSE_PS_LSTART_BY_PID = joinSemicolonEntries({ entries: params.lstartByPid })
     },
     setPsPpidByPid: (params: { ppidByPid: Record<string, string> }) => {
       process.env.USAGE_PULSE_PS_PPID_BY_PID = Object.entries(params.ppidByPid)
@@ -164,6 +206,9 @@ const installLinuxFocusShims = async () => {
           return `${pid}=${ppid}`
         })
         .join(',')
+    },
+    setPsTtyByPid: (params: { ttyByPid: Record<string, string> }) => {
+      process.env.USAGE_PULSE_PS_TTY_BY_PID = joinSemicolonEntries({ entries: params.ttyByPid })
     },
     setWindowForPid: (params: { pid: string; windowId: string }) => {
       process.env.USAGE_PULSE_XDOTOOL_WINDOW_PID = params.pid
@@ -173,6 +218,14 @@ const installLinuxFocusShims = async () => {
       process.env.USAGE_PULSE_XDOTOOL_WINDOW_HIDDEN = 'true'
     },
   }
+}
+
+const joinSemicolonEntries = (params: { entries: Record<string, string> }): string => {
+  return Object.entries(params.entries)
+    .map(([key, value]) => {
+      return `${key}=${value}`
+    })
+    .join(';')
 }
 
 const installBinarylessPath = async () => {
@@ -388,7 +441,140 @@ describe.skipIf(process.platform === 'win32')('SessionsService [contract supplem
 
     expect(service.macOsBundleResolveCalls).toEqual([{ hopCount: 0, pid: 4242 }])
     expect(service.macOsBundleActivateCalls).toEqual([{ bundlePath: '/Applications/Ghostty.app' }])
-    expect(service.macOsTabFocusCalls).toEqual([{ cwd: '/Users/user/project' }])
+    expect(service.macOsTabFocusCalls).toEqual([{ cwd: '/Users/user/project', matchRank: 0 }])
+  })
+
+  it('focuses the Ghostty terminal whose tty matches the session surface host', async () => {
+    const shim = await installLinuxFocusShims()
+
+    try {
+      shim.setPsPpidByPid({ ppidByPid: { '4242': '5001', '5001': '5100', '5100': '9999', '9999': '1' } })
+      shim.setPsCommByPid({ commByPid: { '9999': '/Applications/Ghostty.app/Contents/MacOS/ghostty' } })
+      shim.setPsTtyByPid({ ttyByPid: { '5100': 'ttys011' } })
+      const service = new SessionsServiceContractHarness({
+        focusPlatform: 'macos',
+        macOsBundlePath: '/Applications/Ghostty.app',
+      })
+      service.macOsGhosttyTtySupport = true
+      service.isMacOsGhosttySessionTtyStubbed = false
+      service.macOsGhosttyTtyFocusResult = true
+      await service.focusSession({ cwd: '/Users/user/project', pid: 4242 })
+
+      expect(service.macOsTtyFocusCalls).toEqual([{ sessionTty: '/dev/ttys011' }])
+      expect(service.macOsTabFocusCalls).toEqual([])
+    } finally {
+      await shim.restoreEnvironment()
+    }
+  })
+
+  it('falls back to the ranked cwd match when the tty match reports the terminal missing', async () => {
+    const service = new SessionsServiceContractHarness({
+      focusPlatform: 'macos',
+      macOsBundlePath: '/Applications/Ghostty.app',
+    })
+    service.macOsGhosttyTtySupport = true
+    service.macOsGhosttySessionTty = '/dev/ttys011'
+    service.macOsGhosttyFocusPeers = [
+      { hostPid: 5100, hostStartedAtMs: 1788357898000, pid: 4242 },
+      { hostPid: 6100, hostStartedAtMs: 1788367210000, pid: 7777 },
+    ]
+    await service.focusSession({ cwd: '/Users/user/project', pid: 7777 })
+
+    expect(service.macOsTtyFocusCalls).toEqual([{ sessionTty: '/dev/ttys011' }])
+    expect(service.macOsTabFocusCalls).toEqual([{ cwd: '/Users/user/project', matchRank: 1 }])
+  })
+
+  it('ranks same-cwd Ghostty agent sessions by surface host age for the cwd fallback', async () => {
+    const shim = await installLinuxFocusShims()
+
+    try {
+      shim.setPsPpidByPid({
+        ppidByPid: {
+          '4242': '5001',
+          '5001': '5100',
+          '5100': '9999',
+          '7777': '6001',
+          '6001': '6100',
+          '6100': '9999',
+          '8888': '7001',
+          '7001': '7100',
+          '7100': '9998',
+          '9998': '1',
+          '9999': '1',
+        },
+      })
+      shim.setPsCommByPid({
+        commByPid: {
+          '9998': '/Applications/Visual Studio Code.app/Contents/MacOS/Electron',
+          '9999': '/Applications/Ghostty.app/Contents/MacOS/ghostty',
+        },
+      })
+      shim.setPsLstartByPid({ lstartByPid: { '5100': 'Wed Sep  2 08:18:07 2026', '6100': 'Wed Sep  2 10:40:10 2026' } })
+      const service = new SessionsServiceContractHarness({
+        focusPlatform: 'macos',
+        macOsBundlePath: '/Applications/Ghostty.app',
+      })
+      service.isMacOsGhosttyPeersStubbed = false
+      service.macOsAgentsQueryStdout = JSON.stringify([
+        {
+          cwd: '/Users/user/project',
+          kind: 'interactive',
+          name: 'project-a',
+          pid: 4242,
+          sessionId: 'session-a',
+          startedAt: 1,
+          status: 'idle',
+        },
+        {
+          cwd: '/Users/user/project',
+          kind: 'interactive',
+          name: 'project-b',
+          pid: 7777,
+          sessionId: 'session-b',
+          startedAt: 2,
+          status: 'busy',
+        },
+        {
+          cwd: '/Users/user/project',
+          kind: 'interactive',
+          name: 'project-vscode',
+          pid: 8888,
+          sessionId: 'session-c',
+          startedAt: 3,
+          status: 'idle',
+        },
+      ])
+      await service.focusSession({ cwd: '/Users/user/project', pid: 7777 })
+
+      expect(service.macOsTabFocusCalls).toEqual([{ cwd: '/Users/user/project', matchRank: 1 }])
+
+      service.macOsTabFocusCalls.length = 0
+      await service.focusSession({ cwd: '/Users/user/project', pid: 4242 })
+
+      expect(service.macOsTabFocusCalls).toEqual([{ cwd: '/Users/user/project', matchRank: 0 }])
+    } finally {
+      await shim.restoreEnvironment()
+    }
+  })
+
+  it('falls back to the first cwd match when the agents query output is unusable', async () => {
+    const shim = await installLinuxFocusShims()
+
+    try {
+      shim.setPsPpidByPid({ ppidByPid: { '4242': '5001', '5001': '5100', '5100': '9999', '9999': '1' } })
+      shim.setPsCommByPid({ commByPid: { '9999': '/Applications/Ghostty.app/Contents/MacOS/ghostty' } })
+      const service = new SessionsServiceContractHarness({
+        focusPlatform: 'macos',
+        macOsBundlePath: '/Applications/Ghostty.app',
+      })
+      service.isMacOsGhosttyPeersStubbed = false
+      service.macOsAgentsQueryStdout = 'not json'
+      await service.focusSession({ cwd: '/Users/user/project', pid: 4242 })
+
+      expect(service.macOsTabFocusCalls).toEqual([{ cwd: '/Users/user/project', matchRank: 0 }])
+    } finally {
+      await shim.restoreEnvironment()
+    }
   })
 
   it('routes a macos platform into the bundle flow but skips the tab focus for other terminals', async () => {

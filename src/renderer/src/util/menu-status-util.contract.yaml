@@ -146,6 +146,42 @@ methods:
             resetAt: 3600000
             windowMs: 3600000
         result: true
+  resolveIsWindowWarning:
+    terms:
+      # A window without a reset time never warns, however much of the quota is used.
+      - params:
+          - now: 0
+            usedPercent: 90
+            windowMs: 3600000
+        result: false
+      # A window without a window length never warns either.
+      - params:
+          - now: 0
+            resetAt: 3600000
+            usedPercent: 90
+        result: false
+      # Warning via expiry: remaining exactly at the 5% threshold (180000 of 3600000).
+      - params:
+          - now: 0
+            resetAt: 180000
+            usedPercent: 10
+            windowMs: 3600000
+        result: true
+      # Warning via pace: 80% used at 20% elapsed is drift +60, into red pace step 3
+      # where outpacing starts (drift beyond 45).
+      - params:
+          - now: 0
+            resetAt: 2880000
+            usedPercent: 80
+            windowMs: 3600000
+        result: true
+      # Mid-window and on pace (drift 0) stays clean.
+      - params:
+          - now: 0
+            resetAt: 1800000
+            usedPercent: 50
+            windowMs: 3600000
+        result: false
   resolveSessionsStatusDot:
     terms:
       # No snapshot at all (sessions view not loaded yet).

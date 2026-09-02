@@ -107,6 +107,11 @@
   border-color: color-mix(in srgb, var(--meter-warning) 50%, var(--hairline));
 }
 
+.dashboard-usage-box.is-warning {
+  background: color-mix(in srgb, var(--meter-warning) 6%, var(--surface));
+  border-color: color-mix(in srgb, var(--meter-warning) 50%, var(--hairline));
+}
+
 .dashboard-peak-pill {
   align-items: center;
   background: color-mix(in srgb, var(--meter-warning) 10%, transparent);

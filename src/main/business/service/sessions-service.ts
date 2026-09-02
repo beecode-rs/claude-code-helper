@@ -6,7 +6,7 @@ import { promisify } from 'node:util'
 import { errorUtil } from '#src/main/util/error-util'
 import { type OsPlatform, osUtil } from '#src/main/util/os-util'
 import { sessionsUtil } from '#src/main/util/sessions-util'
-import { type ISessionFocusSupport, type ISessionSnapshot } from '#src/shared/session-model'
+import { type ISessionFocusSupport, type ISessionInfo, type ISessionSnapshot } from '#src/shared/session-model'
 
 const execFileAsync = promisify(execFile)
 
@@ -18,26 +18,57 @@ const SESSIONS_QUERY_TIMEOUT_MS = 10_000
 
 const APP_BUNDLE_PATTERN = /^(?:-)?(.*?\/[^/]+\.app)\//
 
+const GHOSTTY_AUTOMATION_DENIED_MESSAGE =
+  'to focus the exact Ghostty tab, allow this app to control Ghostty in System Settings > Privacy & Security > Automation'
+
 const GHOSTTY_BUNDLE_ID = 'com.mitchellh.ghostty'
 
 const GHOSTTY_TAB_FOCUS_SCRIPT = `on run argv
   set sessionCwd to item 1 of argv
+  set matchRank to item 2 of argv as integer
+  set matchIndex to 0
   tell application id "${GHOSTTY_BUNDLE_ID}"
     repeat with ghosttyWindow in windows
       repeat with ghosttyTab in tabs of ghosttyWindow
         repeat with ghosttyTerminal in terminals of ghosttyTab
           set terminalCwd to working directory of ghosttyTerminal
           if terminalCwd is sessionCwd or terminalCwd is sessionCwd & "/" then
-            select tab ghosttyTab
-            focus ghosttyTerminal
-            activate window ghosttyWindow
-            return
+            if matchIndex is matchRank then
+              select tab ghosttyTab
+              focus ghosttyTerminal
+              activate window ghosttyWindow
+              return
+            end if
+            set matchIndex to matchIndex + 1
           end if
         end repeat
       end repeat
     end repeat
   end tell
 end run`
+
+const GHOSTTY_TTY_FOCUS_SCRIPT = `on run argv
+  set sessionTty to item 1 of argv
+  tell application id "${GHOSTTY_BUNDLE_ID}"
+    repeat with ghosttyWindow in windows
+      repeat with ghosttyTab in tabs of ghosttyWindow
+        repeat with ghosttyTerminal in terminals of ghosttyTab
+          if (tty of ghosttyTerminal) is sessionTty then
+            select tab ghosttyTab
+            focus ghosttyTerminal
+            activate window ghosttyWindow
+            return "focused"
+          end if
+        end repeat
+      end repeat
+    end repeat
+  end tell
+  return "missing"
+end run`
+
+const GHOSTTY_TTY_SUPPORT_PROBE_SCRIPT = `tell application id "${GHOSTTY_BUNDLE_ID}"
+  count of (tty of every terminal)
+end tell`
 
 const VSCODE_ACCESSIBILITY_DENIED_MESSAGE =
   'to focus the exact VS Code window, allow this app to control your computer in System Settings > Privacy & Security > Accessibility'
@@ -94,8 +125,20 @@ interface IProcessEntry {
   ppid: number
 }
 
+export interface IAppBundleAncestry {
+  bundlePath: string
+  hostPid: number
+}
+
+export interface IGhosttyFocusPeer {
+  hostPid: number
+  hostStartedAtMs: number | undefined
+  pid: number
+}
+
 export class SessionsService {
   protected _focusSupport: Promise<ISessionFocusSupport> | undefined
+  protected _ghosttyTtySupport: Promise<boolean> | undefined
   protected _inFlightSnapshot: Promise<ISessionSnapshot> | undefined
 
   async listSessions(): Promise<ISessionSnapshot> {
@@ -172,7 +215,7 @@ export class SessionsService {
     }
 
     if (this._isGhosttyBundle({ bundlePath })) {
-      await this._focusGhosttyTab({ cwd: params.cwd })
+      await this._focusGhosttySession({ cwd: params.cwd, pid: params.pid })
 
       return
     }
@@ -180,6 +223,130 @@ export class SessionsService {
     if (this._isVsCodeBundle({ bundlePath })) {
       await this._focusVsCodeWindow({ bundlePath, cwd: params.cwd })
     }
+  }
+
+  protected async _focusGhosttySession(params: { cwd: string; pid: number }): Promise<void> {
+    const sessionTty = await this._resolveGhosttySessionTty({ pid: params.pid })
+
+    if (sessionTty !== undefined) {
+      const isTtyFocusSucceeded = await this._focusGhosttyTerminalByTty({ sessionTty })
+
+      if (isTtyFocusSucceeded) {
+        return
+      }
+    }
+
+    const matchRank = await this._resolveGhosttyMatchRank({ cwd: params.cwd, pid: params.pid })
+
+    await this._focusGhosttyTab({ cwd: params.cwd, matchRank })
+  }
+
+  protected async _resolveGhosttySessionTty(params: { pid: number }): Promise<string | undefined> {
+    if (!(await this._resolveGhosttyTtySupport())) {
+      return undefined
+    }
+
+    return this._resolveSessionTty({ pid: params.pid })
+  }
+
+  protected async _resolveSessionTty(params: { pid: number }): Promise<string | undefined> {
+    try {
+      const ancestry = await this._resolveAppBundleAncestry({ childPid: params.pid, hopCount: 0, pid: params.pid })
+
+      if (!this._isGhosttyBundle({ bundlePath: ancestry.bundlePath })) {
+        return undefined
+      }
+
+      return await this._resolveProcessTtyPath({ pid: ancestry.hostPid })
+    } catch {
+      return undefined
+    }
+  }
+
+  protected async _resolveGhosttyMatchRank(params: { cwd: string; pid: number }): Promise<number> {
+    const peers = await this._listGhosttyFocusPeers({ cwd: params.cwd, pid: params.pid })
+
+    return this._resolvePeerRank({ peers, pid: params.pid })
+  }
+
+  protected async _listGhosttyFocusPeers(params: { cwd: string; pid: number }): Promise<IGhosttyFocusPeer[]> {
+    const sameCwdSessions = await this._listSameCwdSessions({ cwd: params.cwd })
+    const sessionPids = [
+      params.pid,
+      ...sameCwdSessions.map((session) => {
+        return session.pid
+      }),
+    ]
+    const peers = await Promise.all(
+      [...new Set(sessionPids)].map((sessionPid) => {
+        return this._resolveGhosttyFocusPeer({ pid: sessionPid })
+      }),
+    )
+
+    return peers.filter((peer): peer is IGhosttyFocusPeer => {
+      return peer !== undefined
+    })
+  }
+
+  protected async _listSameCwdSessions(params: { cwd: string }): Promise<ISessionInfo[]> {
+    const sessions = await this._runAgentsQuery()
+      .then((stdout) => {
+        return sessionsUtil.parseSessionEntries({ stdout })
+      })
+      .catch(() => {
+        return []
+      })
+
+    return sessions.filter((session) => {
+      return session.cwd === params.cwd
+    })
+  }
+
+  protected async _resolveGhosttyFocusPeer(params: { pid: number }): Promise<IGhosttyFocusPeer | undefined> {
+    try {
+      const ancestry = await this._resolveAppBundleAncestry({ childPid: params.pid, hopCount: 0, pid: params.pid })
+
+      if (!this._isGhosttyBundle({ bundlePath: ancestry.bundlePath })) {
+        return undefined
+      }
+
+      return {
+        hostPid: ancestry.hostPid,
+        hostStartedAtMs: await this._resolveProcessStartTime({ pid: ancestry.hostPid }),
+        pid: params.pid,
+      }
+    } catch {
+      return undefined
+    }
+  }
+
+  protected _resolvePeerRank(params: { peers: IGhosttyFocusPeer[]; pid: number }): number {
+    const orderedPeers = [...params.peers].sort((left, right) => {
+      const startDiff = this._resolvePeerStartMs(left) - this._resolvePeerStartMs(right)
+
+      if (startDiff !== 0) {
+        return startDiff
+      }
+
+      return left.hostPid - right.hostPid
+    })
+    const position = orderedPeers.findIndex((peer) => {
+      return peer.pid === params.pid
+    })
+
+    if (position === -1) {
+      return 0
+    }
+
+    return position
+  }
+
+  protected _resolvePeerStartMs(peer: IGhosttyFocusPeer): number {
+    if (peer.hostStartedAtMs === undefined) {
+      return Number.MAX_SAFE_INTEGER
+    }
+
+    return peer.hostStartedAtMs
   }
 
   protected async _focusLinuxSession(params: { pid: number }): Promise<void> {
@@ -368,6 +535,20 @@ export class SessionsService {
   }
 
   protected async _resolveAppBundlePath(params: { hopCount: number; pid: number }): Promise<string> {
+    const ancestry = await this._resolveAppBundleAncestry({
+      childPid: params.pid,
+      hopCount: params.hopCount,
+      pid: params.pid,
+    })
+
+    return ancestry.bundlePath
+  }
+
+  protected async _resolveAppBundleAncestry(params: {
+    childPid: number
+    hopCount: number
+    pid: number
+  }): Promise<IAppBundleAncestry> {
     if (params.hopCount >= MAX_ANCESTOR_HOPS) {
       throw new Error(
         `could not find an application bundle for the session process; the ancestor walk exceeded ${String(MAX_ANCESTOR_HOPS)} hops`,
@@ -383,7 +564,7 @@ export class SessionsService {
     const bundlePath = this._resolveAppBundleFromComm({ comm: entry.comm })
 
     if (bundlePath !== undefined) {
-      return bundlePath
+      return { bundlePath, hostPid: params.childPid }
     }
 
     if (params.pid <= 1) {
@@ -392,7 +573,11 @@ export class SessionsService {
       )
     }
 
-    return this._resolveAppBundlePath({ hopCount: params.hopCount + 1, pid: entry.ppid })
+    return this._resolveAppBundleAncestry({
+      childPid: params.pid,
+      hopCount: params.hopCount + 1,
+      pid: entry.ppid,
+    })
   }
 
   protected async _resolveProcessEntry(params: { pid: number }): Promise<IProcessEntry | undefined> {
@@ -402,6 +587,45 @@ export class SessionsService {
       })
 
       return this._parseProcessLine({ line: stdout.trim() })
+    } catch {
+      return undefined
+    }
+  }
+
+  protected async _resolveProcessStartTime(params: { pid: number }): Promise<number | undefined> {
+    try {
+      const { stdout } = await execFileAsync('ps', ['-o', 'lstart=', '-p', String(params.pid)], {
+        timeout: PS_QUERY_TIMEOUT_MS,
+      })
+
+      return this._parseStartTime({ stdout })
+    } catch {
+      return undefined
+    }
+  }
+
+  protected _parseStartTime(params: { stdout: string }): number | undefined {
+    const startedAtMs = Date.parse(params.stdout.trim())
+
+    if (Number.isNaN(startedAtMs)) {
+      return undefined
+    }
+
+    return startedAtMs
+  }
+
+  protected async _resolveProcessTtyPath(params: { pid: number }): Promise<string | undefined> {
+    try {
+      const { stdout } = await execFileAsync('ps', ['-o', 'tty=', '-p', String(params.pid)], {
+        timeout: PS_QUERY_TIMEOUT_MS,
+      })
+      const ttyName = stdout.trim()
+
+      if (ttyName === '' || ttyName === '??') {
+        return undefined
+      }
+
+      return `/dev/${ttyName}`
     } catch {
       return undefined
     }
@@ -445,19 +669,51 @@ export class SessionsService {
     return basename(params.bundlePath) === 'Ghostty.app'
   }
 
-  protected async _focusGhosttyTab(params: { cwd: string }): Promise<void> {
+  protected async _focusGhosttyTab(params: { cwd: string; matchRank: number }): Promise<void> {
     try {
-      await execFileAsync('osascript', ['-e', GHOSTTY_TAB_FOCUS_SCRIPT, '--', params.cwd], {
+      await execFileAsync('osascript', ['-e', GHOSTTY_TAB_FOCUS_SCRIPT, '--', params.cwd, String(params.matchRank)], {
         timeout: OSASCRIPT_TIMEOUT_MS,
       })
     } catch (error) {
-      if (this._isAutomationDenied({ error })) {
-        throw new Error(
-          'to focus the exact Ghostty tab, allow this app to control Ghostty in System Settings > Privacy & Security > Automation',
-        )
-      }
+      throw new Error(this._resolveGhosttyFocusErrorMessage({ error }))
+    }
+  }
 
-      throw new Error(`focusing the Ghostty tab failed: ${this._resolveQueryErrorMessage(error)}`)
+  protected _resolveGhosttyFocusErrorMessage(params: { error: unknown }): string {
+    if (this._isAutomationDenied({ error: params.error })) {
+      return GHOSTTY_AUTOMATION_DENIED_MESSAGE
+    }
+
+    return `focusing the Ghostty tab failed: ${this._resolveQueryErrorMessage(params.error)}`
+  }
+
+  protected async _focusGhosttyTerminalByTty(params: { sessionTty: string }): Promise<boolean> {
+    try {
+      const { stdout } = await execFileAsync('osascript', ['-e', GHOSTTY_TTY_FOCUS_SCRIPT, '--', params.sessionTty], {
+        timeout: OSASCRIPT_TIMEOUT_MS,
+      })
+
+      return stdout.trim() === 'focused'
+    } catch (error) {
+      throw new Error(this._resolveGhosttyFocusErrorMessage({ error }))
+    }
+  }
+
+  protected _resolveGhosttyTtySupport(): Promise<boolean> {
+    this._ghosttyTtySupport ??= this._probeGhosttyTtySupport()
+
+    return this._ghosttyTtySupport
+  }
+
+  protected async _probeGhosttyTtySupport(): Promise<boolean> {
+    try {
+      await execFileAsync('osascript', ['-e', GHOSTTY_TTY_SUPPORT_PROBE_SCRIPT], {
+        timeout: OSASCRIPT_TIMEOUT_MS,
+      })
+
+      return true
+    } catch {
+      return false
     }
   }
 

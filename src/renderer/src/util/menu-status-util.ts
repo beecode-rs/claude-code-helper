@@ -1,7 +1,7 @@
 import { usagePaceUtil } from '#src/renderer/src/util/usage-pace-util'
 import { usageResetUtil } from '#src/renderer/src/util/usage-reset-util'
 import type { ISessionSnapshot } from '#src/shared/session-model'
-import { FIVE_HOUR_WINDOW_MS, type IUsageSnapshot, type IUsageWindow, UsageStatus } from '#src/shared/usage-model'
+import { FIVE_HOUR_WINDOW_MS, type IUsageSnapshot, UsageStatus } from '#src/shared/usage-model'
 
 const EXPIRY_WARNING_WINDOW_FRACTION = 0.05
 const MAX_ELAPSED_MINUTES = 300
@@ -11,27 +11,6 @@ export const MONTH_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
 export type MenuStatusDot = 'error' | 'warning' | 'waiting'
 
 export const menuStatusUtil = {
-  _resolveIsWindowWarning: (params: { now: number; window: IUsageWindow }): boolean => {
-    const { resetAt, windowMs } = params.window
-
-    if (resetAt === undefined || windowMs === undefined) {
-      return false
-    }
-
-    const isNearingExpiry = menuStatusUtil.resolveIsWindowNearingExpiry({ now: params.now, resetAt, windowMs })
-
-    if (isNearingExpiry) {
-      return true
-    }
-
-    return usagePaceUtil.resolveIsUsageOutpacingWindow({
-      now: params.now,
-      resetAt,
-      usedPercent: params.window.usedPercent,
-      windowMs,
-    })
-  },
-
   _resolveWindowResetAt: (params: { elapsedMinutes: number; now: number; windowMs: number }): number => {
     const elapsedMs = (params.elapsedMinutes * params.windowMs) / MAX_ELAPSED_MINUTES
 
@@ -105,6 +84,32 @@ export const menuStatusUtil = {
     return remainingMs <= params.windowMs * EXPIRY_WARNING_WINDOW_FRACTION
   },
 
+  resolveIsWindowWarning: (params: {
+    now: number
+    resetAt?: number
+    usedPercent: number
+    windowMs?: number
+  }): boolean => {
+    const { resetAt, windowMs } = params
+
+    if (resetAt === undefined || windowMs === undefined) {
+      return false
+    }
+
+    const isNearingExpiry = menuStatusUtil.resolveIsWindowNearingExpiry({ now: params.now, resetAt, windowMs })
+
+    if (isNearingExpiry) {
+      return true
+    }
+
+    return usagePaceUtil.resolveIsUsageOutpacingWindow({
+      now: params.now,
+      resetAt,
+      usedPercent: params.usedPercent,
+      windowMs,
+    })
+  },
+
   resolveSessionsStatusDot: (params: {
     hasLoadError?: boolean
     snapshot?: ISessionSnapshot
@@ -139,7 +144,12 @@ export const menuStatusUtil = {
 
     const isAnyWindowWarning = providers.some((provider) => {
       return (provider.usage ?? []).some((window) => {
-        return menuStatusUtil._resolveIsWindowWarning({ now: params.now, window })
+        return menuStatusUtil.resolveIsWindowWarning({
+          now: params.now,
+          resetAt: window.resetAt,
+          usedPercent: window.usedPercent,
+          windowMs: window.windowMs,
+        })
       })
     })
 

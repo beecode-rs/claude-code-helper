@@ -203,6 +203,11 @@ body {
   width: 100%;
 }
 
+.usage-window-box.is-warning {
+  background: color-mix(in srgb, var(--meter-warning) 6%, var(--surface));
+  border-color: color-mix(in srgb, var(--meter-warning) 50%, var(--hairline));
+}
+
 .usage-window-box-title {
   color: var(--ink-muted);
   font-size: 11px;

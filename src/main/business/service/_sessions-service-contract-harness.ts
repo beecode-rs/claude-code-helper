@@ -3,11 +3,13 @@ import { type OsPlatform } from '#src/main/util/os-util'
 
 export class SessionsServiceContractHarness extends SessionsService {
   isLinuxFocusToolInstalled: boolean | undefined
+  isMacOsWindowFocusStubbed = true
   linuxFocusToolInstallAttemptCount = 0
   linuxFocusToolInstallError: Error | undefined
   readonly macOsBundleActivateCalls: { bundlePath: string }[] = []
   readonly macOsBundleResolveCalls: { hopCount: number; pid: number }[] = []
   readonly macOsTabFocusCalls: { cwd: string }[] = []
+  readonly macOsWindowFocusCalls: { bundlePath: string; cwd: string }[] = []
   protected readonly _focusPlatformOverride: OsPlatform | undefined
   protected readonly _macOsBundlePath: string
 
@@ -33,6 +35,16 @@ export class SessionsServiceContractHarness extends SessionsService {
 
   protected override _focusGhosttyTab(params: { cwd: string }): Promise<void> {
     this.macOsTabFocusCalls.push({ cwd: params.cwd })
+
+    return Promise.resolve()
+  }
+
+  protected override _focusVsCodeWindow(params: { bundlePath: string; cwd: string }): Promise<void> {
+    this.macOsWindowFocusCalls.push({ bundlePath: params.bundlePath, cwd: params.cwd })
+
+    if (!this.isMacOsWindowFocusStubbed) {
+      return super._focusVsCodeWindow(params)
+    }
 
     return Promise.resolve()
   }

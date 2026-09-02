@@ -477,20 +477,37 @@
   width: 100%;
 }
 
-.sessions-settings-volume-row {
+.sessions-settings-sound-row {
   align-items: center;
   display: flex;
   gap: 8px;
 }
 
-.sessions-settings-volume-row .sessions-settings-range {
+.sessions-settings-sound-row select {
   flex: 1;
-  width: auto;
+  min-width: 0;
 }
 
-.sessions-settings-test-button {
+.sessions-settings-play-button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  display: inline-flex;
   flex-shrink: 0;
-  white-space: nowrap;
+  padding: 8px;
+}
+
+.sessions-settings-play-button:hover:not(:disabled) {
+  border-color: var(--meter-accent);
+  color: var(--ink-primary);
+}
+
+.sessions-settings-play-button:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 .ssh-host-test-message {

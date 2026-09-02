@@ -2,11 +2,12 @@ import { objectUtil } from '#src/main/util/object-util'
 import { PROVIDER_CATALOG } from '#src/shared/provider-catalog'
 import {
   ClaudeTokenSource,
+  DEFAULT_IDLE_SOUND_ID,
   DEFAULT_IS_SCHEDULING_ENABLED,
   DEFAULT_IS_SESSIONS_AUTO_REFRESH_PAUSED,
-  DEFAULT_IS_WAITING_SOUND_ENABLED,
   DEFAULT_SESSIONS_REFRESH_INTERVAL_SECONDS,
-  DEFAULT_WAITING_SOUND_VOLUME_PERCENT,
+  DEFAULT_SOUND_VOLUME_PERCENT,
+  DEFAULT_WAITING_SOUND_ID,
   type IAppSettings,
   type IClaudeTrackerConfig,
   type IDummyTrackerConfig,
@@ -16,10 +17,12 @@ import {
   LEGACY_CLAUDE_TOKEN_SOURCE_SYSTEM,
   MAX_REFRESH_INTERVAL_SECONDS,
   MAX_SESSIONS_REFRESH_INTERVAL_SECONDS,
-  MAX_WAITING_SOUND_VOLUME_PERCENT,
+  MAX_SOUND_VOLUME_PERCENT,
   MIN_REFRESH_INTERVAL_SECONDS,
   MIN_SESSIONS_REFRESH_INTERVAL_SECONDS,
-  MIN_WAITING_SOUND_VOLUME_PERCENT,
+  MIN_SOUND_VOLUME_PERCENT,
+  SESSION_SOUND_IDS,
+  SessionSoundId,
 } from '#src/shared/settings-model'
 import {
   DEFAULT_TRIGGER_TIMEOUT_MS,
@@ -35,14 +38,15 @@ import type { ProviderId } from '#src/shared/usage-model'
 export class SettingsService {
   createDefaultSettings(): IAppSettings {
     return {
+      idleSoundId: DEFAULT_IDLE_SOUND_ID,
       isSchedulingEnabled: DEFAULT_IS_SCHEDULING_ENABLED,
       isSessionsAutoRefreshPaused: DEFAULT_IS_SESSIONS_AUTO_REFRESH_PAUSED,
-      isWaitingSoundEnabled: DEFAULT_IS_WAITING_SOUND_ENABLED,
       sessionsRefreshIntervalSeconds: DEFAULT_SESSIONS_REFRESH_INTERVAL_SECONDS,
+      soundVolumePercent: DEFAULT_SOUND_VOLUME_PERCENT,
       sshHosts: [],
       trackers: [],
       triggers: [],
-      waitingSoundVolumePercent: DEFAULT_WAITING_SOUND_VOLUME_PERCENT,
+      waitingSoundId: DEFAULT_WAITING_SOUND_ID,
     }
   }
 
@@ -57,20 +61,19 @@ export class SettingsService {
     const rawTriggers = rawRecord['triggers']
 
     return {
+      idleSoundId: this._resolveSessionSoundId({ fallback: DEFAULT_IDLE_SOUND_ID, value: rawRecord['idleSoundId'] }),
       isSchedulingEnabled: this._resolveIsSchedulingEnabled({ value: rawRecord['isSchedulingEnabled'] }),
       isSessionsAutoRefreshPaused: this._resolveIsSessionsAutoRefreshPaused({
         value: rawRecord['isSessionsAutoRefreshPaused'],
       }),
-      isWaitingSoundEnabled: this._resolveIsWaitingSoundEnabled({ value: rawRecord['isWaitingSoundEnabled'] }),
       sessionsRefreshIntervalSeconds: this._resolveSessionsRefreshIntervalSeconds({
         value: rawRecord['sessionsRefreshIntervalSeconds'],
       }),
+      soundVolumePercent: this._resolveSoundVolumePercent({ rawRecord }),
       sshHosts: this._resolveSshHosts({ rawSshHosts: rawRecord['sshHosts'] }),
       trackers: this._resolveTrackers({ rawRecord, rawTrackers }),
       triggers: this._resolveTriggers({ rawTriggers }),
-      waitingSoundVolumePercent: this._resolveWaitingSoundVolumePercent({
-        value: rawRecord['waitingSoundVolumePercent'],
-      }),
+      waitingSoundId: this._resolveWaitingSoundId({ rawRecord }),
     }
   }
 
@@ -136,23 +139,55 @@ export class SettingsService {
     return Math.round(clampedIntervalSeconds)
   }
 
-  protected _resolveIsWaitingSoundEnabled(params: { value: unknown }): boolean {
-    if (typeof params.value !== 'boolean') {
-      return DEFAULT_IS_WAITING_SOUND_ENABLED
+  protected _resolveSessionSoundId(params: { fallback: SessionSoundId; value: unknown }): SessionSoundId {
+    const soundId = this._resolveOptionalSessionSoundId({ value: params.value })
+
+    if (soundId === undefined) {
+      return params.fallback
     }
 
-    return params.value
+    return soundId
   }
 
-  protected _resolveWaitingSoundVolumePercent(params: { value: unknown }): number {
-    if (typeof params.value !== 'number' || !Number.isFinite(params.value)) {
-      return DEFAULT_WAITING_SOUND_VOLUME_PERCENT
+  protected _resolveOptionalSessionSoundId(params: { value: unknown }): SessionSoundId | undefined {
+    return SESSION_SOUND_IDS.find((candidate) => {
+      return candidate === params.value
+    })
+  }
+
+  protected _resolveWaitingSoundId(params: { rawRecord: Record<string, unknown> }): SessionSoundId {
+    const soundId = this._resolveOptionalSessionSoundId({ value: params.rawRecord['waitingSoundId'] })
+
+    if (soundId !== undefined) {
+      return soundId
     }
 
-    const clampedVolumePercent = Math.min(
-      Math.max(params.value, MIN_WAITING_SOUND_VOLUME_PERCENT),
-      MAX_WAITING_SOUND_VOLUME_PERCENT,
+    if (params.rawRecord['isWaitingSoundEnabled'] === false) {
+      return SessionSoundId.NONE
+    }
+
+    return DEFAULT_WAITING_SOUND_ID
+  }
+
+  protected _resolveSoundVolumePercent(params: { rawRecord: Record<string, unknown> }): number {
+    const volumePercent = this._resolveOptionalSoundVolumePercent({ value: params.rawRecord['soundVolumePercent'] })
+
+    if (volumePercent !== undefined) {
+      return volumePercent
+    }
+
+    return (
+      this._resolveOptionalSoundVolumePercent({ value: params.rawRecord['waitingSoundVolumePercent'] }) ??
+      DEFAULT_SOUND_VOLUME_PERCENT
     )
+  }
+
+  protected _resolveOptionalSoundVolumePercent(params: { value: unknown }): number | undefined {
+    if (typeof params.value !== 'number' || !Number.isFinite(params.value)) {
+      return undefined
+    }
+
+    const clampedVolumePercent = Math.min(Math.max(params.value, MIN_SOUND_VOLUME_PERCENT), MAX_SOUND_VOLUME_PERCENT)
 
     return Math.round(clampedVolumePercent)
   }

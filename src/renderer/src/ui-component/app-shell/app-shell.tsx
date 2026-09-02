@@ -14,12 +14,13 @@ import { UsageDashboard } from '#src/renderer/src/ui-component/usage-dashboard/u
 import { developmentPrefsUtil } from '#src/renderer/src/util/development-prefs-util'
 import { errorUtil } from '#src/renderer/src/util/error-util'
 import { type MenuStatusDot, menuStatusUtil } from '#src/renderer/src/util/menu-status-util'
-import { sessionWaitingSoundUtil } from '#src/renderer/src/util/session-waiting-sound-util'
+import { sessionSoundUtil } from '#src/renderer/src/util/session-sound-util'
 import { sideMenuPrefsUtil } from '#src/renderer/src/util/side-menu-prefs-util'
 import type { ISessionInfo, ISessionSnapshot } from '#src/shared/session-model'
 import {
-  DEFAULT_IS_WAITING_SOUND_ENABLED,
-  DEFAULT_WAITING_SOUND_VOLUME_PERCENT,
+  DEFAULT_IDLE_SOUND_ID,
+  DEFAULT_SOUND_VOLUME_PERCENT,
+  DEFAULT_WAITING_SOUND_ID,
   type IAppSettings,
 } from '#src/shared/settings-model'
 import type { IUsageSnapshot } from '#src/shared/usage-model'
@@ -241,18 +242,32 @@ export const AppShell = (): ReactElement => {
         return
       }
 
-      const newlyWaitingSessionIds = sessionWaitingSoundUtil.resolveNewlyWaitingSessionIds({
+      const newlyIdleSessionIds = sessionSoundUtil.resolveNewlyStatusSessionIds({
         currentSessions: nextSnapshot.sessions,
         previousSessions: previousSessionsRef.current,
+        status: 'idle',
+      })
+      const newlyWaitingSessionIds = sessionSoundUtil.resolveNewlyStatusSessionIds({
+        currentSessions: nextSnapshot.sessions,
+        previousSessions: previousSessionsRef.current,
+        status: 'waiting',
       })
 
       previousSessionsRef.current = nextSnapshot.sessions
 
-      const isWaitingSoundEnabled = settingsRef.current?.isWaitingSoundEnabled ?? DEFAULT_IS_WAITING_SOUND_ENABLED
+      const soundVolumePercent = settingsRef.current?.soundVolumePercent ?? DEFAULT_SOUND_VOLUME_PERCENT
 
-      if (isWaitingSoundEnabled && newlyWaitingSessionIds.length > 0) {
-        sessionWaitingSoundUtil.playWaitingBeep({
-          volumePercent: settingsRef.current?.waitingSoundVolumePercent ?? DEFAULT_WAITING_SOUND_VOLUME_PERCENT,
+      if (newlyWaitingSessionIds.length > 0) {
+        sessionSoundUtil.playSessionSound({
+          soundId: settingsRef.current?.waitingSoundId ?? DEFAULT_WAITING_SOUND_ID,
+          volumePercent: soundVolumePercent,
+        })
+      }
+
+      if (newlyIdleSessionIds.length > 0) {
+        sessionSoundUtil.playSessionSound({
+          soundId: settingsRef.current?.idleSoundId ?? DEFAULT_IDLE_SOUND_ID,
+          volumePercent: soundVolumePercent,
         })
       }
     }

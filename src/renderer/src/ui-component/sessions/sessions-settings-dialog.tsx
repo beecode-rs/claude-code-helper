@@ -1,20 +1,19 @@
-import { type ReactElement, useEffect, useRef, useState } from 'react'
+import { type ReactElement, useEffect, useState } from 'react'
 
 import { usageClientService } from '#src/renderer/src/business/service/usage-client-service'
+import { SessionSoundField } from '#src/renderer/src/ui-component/sessions/session-sound-field'
 import { errorUtil } from '#src/renderer/src/util/error-util'
-import { sessionWaitingSoundUtil } from '#src/renderer/src/util/session-waiting-sound-util'
 import {
-  DEFAULT_IS_WAITING_SOUND_ENABLED,
+  DEFAULT_IDLE_SOUND_ID,
   DEFAULT_SESSIONS_REFRESH_INTERVAL_SECONDS,
-  DEFAULT_WAITING_SOUND_VOLUME_PERCENT,
+  DEFAULT_SOUND_VOLUME_PERCENT,
+  DEFAULT_WAITING_SOUND_ID,
   type IAppSettings,
   MAX_SESSIONS_REFRESH_INTERVAL_SECONDS,
-  MAX_WAITING_SOUND_VOLUME_PERCENT,
+  MAX_SOUND_VOLUME_PERCENT,
   MIN_SESSIONS_REFRESH_INTERVAL_SECONDS,
-  MIN_WAITING_SOUND_VOLUME_PERCENT,
+  MIN_SOUND_VOLUME_PERCENT,
 } from '#src/shared/settings-model'
-
-const PREVIEW_BEEP_DELAY_MS = 200
 
 const renderCloseIcon = (): ReactElement => {
   return (
@@ -38,13 +37,11 @@ export const SessionsSettingsDialog = (props: { onClose: () => void; onSaved: ()
   const { onClose, onSaved } = props
   const [settings, setSettings] = useState<IAppSettings | undefined>(undefined)
   const [refreshIntervalSeconds, setRefreshIntervalSeconds] = useState(DEFAULT_SESSIONS_REFRESH_INTERVAL_SECONDS)
-  const [isWaitingSoundEnabled, setIsWaitingSoundEnabled] = useState<boolean>(DEFAULT_IS_WAITING_SOUND_ENABLED)
-  const [waitingSoundVolumePercent, setWaitingSoundVolumePercent] = useState<number>(
-    DEFAULT_WAITING_SOUND_VOLUME_PERCENT,
-  )
+  const [idleSoundId, setIdleSoundId] = useState(DEFAULT_IDLE_SOUND_ID)
+  const [waitingSoundId, setWaitingSoundId] = useState(DEFAULT_WAITING_SOUND_ID)
+  const [soundVolumePercent, setSoundVolumePercent] = useState<number>(DEFAULT_SOUND_VOLUME_PERCENT)
   const [isSaving, setIsSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-  const previewBeepTimeoutRef = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     const loadSettings = async (): Promise<void> => {
@@ -52,24 +49,13 @@ export const SessionsSettingsDialog = (props: { onClose: () => void; onSaved: ()
 
       setSettings(loadedSettings)
       setRefreshIntervalSeconds(loadedSettings.sessionsRefreshIntervalSeconds)
-      setIsWaitingSoundEnabled(loadedSettings.isWaitingSoundEnabled)
-      setWaitingSoundVolumePercent(loadedSettings.waitingSoundVolumePercent)
+      setIdleSoundId(loadedSettings.idleSoundId)
+      setWaitingSoundId(loadedSettings.waitingSoundId)
+      setSoundVolumePercent(loadedSettings.soundVolumePercent)
     }
 
     void loadSettings()
   }, [])
-
-  useEffect(() => {
-    return () => {
-      window.clearTimeout(previewBeepTimeoutRef.current)
-    }
-  }, [])
-
-  const handleTestWaitingSound = (): void => {
-    window.clearTimeout(previewBeepTimeoutRef.current)
-
-    sessionWaitingSoundUtil.playWaitingBeep({ volumePercent: waitingSoundVolumePercent })
-  }
 
   const handleSave = async (): Promise<void> => {
     if (settings === undefined) {
@@ -83,9 +69,10 @@ export const SessionsSettingsDialog = (props: { onClose: () => void; onSaved: ()
       await usageClientService.saveSettings({
         settings: {
           ...settings,
-          isWaitingSoundEnabled,
+          idleSoundId,
           sessionsRefreshIntervalSeconds: refreshIntervalSeconds,
-          waitingSoundVolumePercent,
+          soundVolumePercent,
+          waitingSoundId,
         },
       })
     } catch (error) {
@@ -147,61 +134,43 @@ export const SessionsSettingsDialog = (props: { onClose: () => void; onSaved: ()
             and {String(MAX_SESSIONS_REFRESH_INTERVAL_SECONDS)} seconds.
           </span>
         </label>
+        <SessionSoundField
+          hint="Plays when a Claude session starts waiting for your input."
+          label="Waiting sound"
+          onSoundIdChange={setWaitingSoundId}
+          playButtonTitle="Play waiting sound"
+          soundId={waitingSoundId}
+          volumePercent={soundVolumePercent}
+        />
+        <SessionSoundField
+          hint="Plays when a Claude session becomes idle."
+          label="Idle sound"
+          onSoundIdChange={setIdleSoundId}
+          playButtonTitle="Play idle sound"
+          soundId={idleSoundId}
+          volumePercent={soundVolumePercent}
+        />
         <div className="settings-field">
-          <span className="settings-field-label">Waiting sound</span>
-          <label className="ssh-host-toggle">
-            <input
-              checked={isWaitingSoundEnabled}
-              onChange={(event) => {
-                setIsWaitingSoundEnabled(event.target.checked)
-              }}
-              type="checkbox"
-            />
-            Play sound when a session waits for input
-          </label>
+          <span className="settings-field-label">Sound volume (%)</span>
+          <input
+            className="sessions-settings-range"
+            max={MAX_SOUND_VOLUME_PERCENT}
+            min={MIN_SOUND_VOLUME_PERCENT}
+            onChange={(event) => {
+              const volumePercent = Number.parseInt(event.target.value, 10)
+
+              if (!Number.isFinite(volumePercent)) {
+                return
+              }
+
+              setSoundVolumePercent(volumePercent)
+            }}
+            type="range"
+            value={soundVolumePercent}
+          />
           <span className="settings-hint">
-            A single soft beep plays once when a Claude session starts waiting for you.
-          </span>
-        </div>
-        <div className="settings-field">
-          <span className="settings-field-label">Waiting sound volume (%)</span>
-          <div className="sessions-settings-volume-row">
-            <input
-              className="sessions-settings-range"
-              disabled={!isWaitingSoundEnabled}
-              max={MAX_WAITING_SOUND_VOLUME_PERCENT}
-              min={MIN_WAITING_SOUND_VOLUME_PERCENT}
-              onChange={(event) => {
-                const volumePercent = Number.parseInt(event.target.value, 10)
-
-                if (!Number.isFinite(volumePercent)) {
-                  return
-                }
-
-                setWaitingSoundVolumePercent(volumePercent)
-
-                if (isWaitingSoundEnabled) {
-                  window.clearTimeout(previewBeepTimeoutRef.current)
-                  previewBeepTimeoutRef.current = window.setTimeout(() => {
-                    sessionWaitingSoundUtil.playWaitingBeep({ volumePercent })
-                  }, PREVIEW_BEEP_DELAY_MS)
-                }
-              }}
-              type="range"
-              value={waitingSoundVolumePercent}
-            />
-            <button
-              className="button sessions-settings-test-button"
-              disabled={!isWaitingSoundEnabled}
-              onClick={handleTestWaitingSound}
-              type="button"
-            >
-              Test sound
-            </button>
-          </div>
-          <span className="settings-hint">
-            Loudness of the waiting beep, between {String(MIN_WAITING_SOUND_VOLUME_PERCENT)} and{' '}
-            {String(MAX_WAITING_SOUND_VOLUME_PERCENT)} percent. Move the slider or press Test sound to hear a preview.
+            Loudness of the session sounds, between {String(MIN_SOUND_VOLUME_PERCENT)} and{' '}
+            {String(MAX_SOUND_VOLUME_PERCENT)} percent. Use the play buttons to preview each sound.
           </span>
         </div>
         {errorMessage !== '' && <p className="settings-error">{errorMessage}</p>}

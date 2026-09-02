@@ -38,34 +38,49 @@ export interface ISshHostConfig {
   url: string
 }
 
+export enum SessionSoundId {
+  BEEP = 'beep',
+  CHIME = 'chime',
+  DING = 'ding',
+  FANFARE = 'fanfare',
+  NONE = 'none',
+  PING = 'ping',
+  SUCCESS = 'success',
+}
+
+export const SESSION_SOUND_IDS: SessionSoundId[] = Object.values(SessionSoundId)
+
 export interface IAppSettings {
+  idleSoundId: SessionSoundId
   isSchedulingEnabled: boolean
   isSessionsAutoRefreshPaused: boolean
-  isWaitingSoundEnabled: boolean
   sessionsRefreshIntervalSeconds: number
+  soundVolumePercent: number
   sshHosts: ISshHostConfig[]
   trackers: ITrackerConfig[]
   triggers: ITriggerConfig[]
-  waitingSoundVolumePercent: number
+  waitingSoundId: SessionSoundId
 }
+
+export const DEFAULT_IDLE_SOUND_ID: SessionSoundId = SessionSoundId.SUCCESS
+
+export const DEFAULT_WAITING_SOUND_ID: SessionSoundId = SessionSoundId.CHIME
 
 export const DEFAULT_IS_SCHEDULING_ENABLED = false
 
 export const DEFAULT_IS_SESSIONS_AUTO_REFRESH_PAUSED = false
 
-export const DEFAULT_IS_WAITING_SOUND_ENABLED = true
-
 export const DEFAULT_SESSIONS_REFRESH_INTERVAL_SECONDS = 5
 
-export const DEFAULT_WAITING_SOUND_VOLUME_PERCENT = 40
+export const DEFAULT_SOUND_VOLUME_PERCENT = 40
 
 export const MIN_SESSIONS_REFRESH_INTERVAL_SECONDS = 2
 
 export const MAX_SESSIONS_REFRESH_INTERVAL_SECONDS = 300
 
-export const MIN_WAITING_SOUND_VOLUME_PERCENT = 0
+export const MIN_SOUND_VOLUME_PERCENT = 0
 
-export const MAX_WAITING_SOUND_VOLUME_PERCENT = 100
+export const MAX_SOUND_VOLUME_PERCENT = 100
 
 export const MIN_REFRESH_INTERVAL_SECONDS = 60
 

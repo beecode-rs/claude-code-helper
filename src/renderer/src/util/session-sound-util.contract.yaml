@@ -1,20 +1,20 @@
-# Contract for sessionWaitingSoundUtil.
-# Terms pin the waiting-session beep triggers (playWaitingBeep itself drives the Web
-# Audio API and stays untested here). resolveNewlyWaitingSessionIds answers "which
-# sessions just entered the waiting state": with no previous snapshot (first poll)
-# nobody is new, otherwise a session is newly waiting when it is 'waiting' now and
-# was anything else before — including sessions absent from the previous snapshot
-# entirely. Sessions that stay waiting or stop waiting never beep. resolveBeepGain
-# clamps the volume percent to [0, 100] and maps it linearly onto gain [0, 0.4].
-# Volume 40 (the app default) divides before multiplying, so the exact double is
-# 0.16000000000000003 — the nearest representable neighbor of 0.16.
-subject: sessionWaitingSoundUtil
-module: ./session-waiting-sound-util.js
+# Contract for sessionSoundUtil.
+# Terms pin the session sound triggers (playSessionSound itself drives the Web Audio
+# API and stays untested here). resolveNewlyStatusSessionIds answers "which
+# sessions just entered the given status": with no previous snapshot (first poll)
+# nobody is new, otherwise a session is newly in the status when it has that status
+# now and anything else before — including sessions absent from the previous
+# snapshot entirely. Sessions that keep the status or leave it never trigger.
+# resolveSoundGain clamps the volume percent to [0, 100] and maps it linearly onto
+# gain [0, 0.4]. Volume 40 (the app default) divides before multiplying, so the
+# exact double is 0.16000000000000003 — the nearest representable neighbor of 0.16.
+subject: sessionSoundUtil
+module: ./session-sound-util.js
 subjectType: function
 methods:
-  resolveBeepGain:
+  resolveSoundGain:
     terms:
-      # Muted volume maps to silence (playWaitingBeep skips gain <= 0).
+      # Muted volume maps to silence (playSessionSound skips gain <= 0).
       - params:
           - volumePercent: 0
         result: 0
@@ -43,7 +43,7 @@ methods:
       - params:
           - volumePercent: 120
         result: 0.4
-  resolveNewlyWaitingSessionIds:
+  resolveNewlyStatusSessionIds:
     terms:
       # First snapshot (no previous sessions yet): nobody is newly waiting, even
       # when sessions are already waiting.
@@ -57,11 +57,13 @@ methods:
                 startedAt: 0
                 status: waiting
             previousSessions: !undefined
+            status: waiting
         result: []
       # Both snapshots empty.
       - params:
           - currentSessions: []
             previousSessions: []
+            status: waiting
         result: []
       # Empty previous snapshot (as opposed to missing): every currently waiting
       # session counts as new.
@@ -75,9 +77,10 @@ methods:
                 startedAt: 0
                 status: waiting
             previousSessions: []
+            status: waiting
         result:
           - sid-1
-      # Simplest transition: idle becomes waiting.
+      # Simplest waiting transition: idle becomes waiting.
       - params:
           - currentSessions:
               - cwd: /a
@@ -95,11 +98,54 @@ methods:
                 sessionId: sid-1
                 startedAt: 0
                 status: idle
+            status: waiting
         result:
           - sid-1
-      # The full matrix: sid-1 stays waiting (no beep), sid-2 goes busy to waiting
-      # (beep), sid-3 leaves waiting (no beep), sid-4 is new but idle (no beep),
-      # sid-5 is new and waiting (beep).
+      # Simplest idle transition: busy becomes idle.
+      - params:
+          - currentSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: idle
+            previousSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: busy
+            status: idle
+        result:
+          - sid-1
+      # Waiting becomes idle is a fresh idle transition, but not a waiting one.
+      - params:
+          - currentSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: idle
+            previousSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: waiting
+            status: idle
+        result:
+          - sid-1
+      # The full matrix for waiting: sid-1 stays waiting (no beep), sid-2 goes
+      # busy to waiting (beep), sid-3 leaves waiting (no beep), sid-4 is new but
+      # idle (no beep), sid-5 is new and waiting (beep).
       - params:
           - currentSessions:
               - cwd: /a
@@ -159,9 +205,73 @@ methods:
                 sessionId: sid-3
                 startedAt: 0
                 status: waiting
+            status: waiting
         result:
           - sid-2
           - sid-5
+      # The same matrix for idle: only sid-4 (new and idle) and nobody else.
+      - params:
+          - currentSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: waiting
+              - cwd: /b
+                kind: claude
+                name: s2
+                pid: 2
+                sessionId: sid-2
+                startedAt: 0
+                status: waiting
+              - cwd: /c
+                kind: claude
+                name: s3
+                pid: 3
+                sessionId: sid-3
+                startedAt: 0
+                status: busy
+              - cwd: /d
+                kind: claude
+                name: s4
+                pid: 4
+                sessionId: sid-4
+                startedAt: 0
+                status: idle
+              - cwd: /e
+                kind: claude
+                name: s5
+                pid: 5
+                sessionId: sid-5
+                startedAt: 0
+                status: waiting
+            previousSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: waiting
+              - cwd: /b
+                kind: claude
+                name: s2
+                pid: 2
+                sessionId: sid-2
+                startedAt: 0
+                status: busy
+              - cwd: /c
+                kind: claude
+                name: s3
+                pid: 3
+                sessionId: sid-3
+                startedAt: 0
+                status: waiting
+            status: idle
+        result:
+          - sid-4
       # 'unknown' before is "not waiting", so unknown to waiting still beeps.
       - params:
           - currentSessions:
@@ -180,6 +290,7 @@ methods:
                 sessionId: sid-1
                 startedAt: 0
                 status: unknown
+            status: waiting
         result:
           - sid-1
       # Nothing waiting anymore, however many waited before.
@@ -214,4 +325,5 @@ methods:
                 sessionId: sid-2
                 startedAt: 0
                 status: waiting
+            status: waiting
         result: []

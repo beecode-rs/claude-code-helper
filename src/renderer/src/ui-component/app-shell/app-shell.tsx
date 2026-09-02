@@ -289,6 +289,23 @@ export const AppShell = (): ReactElement => {
     dots: [usageStatusDot, sessionsStatusDot],
   })
   const developmentStatusDot = menuStatusUtil.resolveDevelopmentStatusDot({ elapsedMinutes, now: nowMs, usedPercent })
+  const menuItems = resolveMenuItems({
+    dashboardStatusDot,
+    isSchedulingLive: resolveIsSchedulingLive({ settings }),
+    isSessionsLive: resolveIsSessionsLive({ settings }),
+    isUsageLive: resolveIsUsageLive({ settings }),
+    sessionsStatusDot,
+    usageStatusDot,
+  })
+  const footerMenuItems = resolveFooterMenuItems({
+    developmentStatusDot,
+    isDevelopmentUnlocked,
+  })
+  const brandStatusDot = menuStatusUtil.resolveCombinedStatusDot({
+    dots: [...menuItems, ...footerMenuItems].map((item) => {
+      return item.statusDot
+    }),
+  })
 
   const handleSelectItem = (viewId: AppViewId): void => {
     setActiveViewId(viewId)
@@ -351,21 +368,12 @@ export const AppShell = (): ReactElement => {
     <div className="app-shell">
       <SideMenu
         activeItemId={activeViewId}
-        footerItems={resolveFooterMenuItems({
-          developmentStatusDot,
-          isDevelopmentUnlocked,
-        })}
+        footerItems={footerMenuItems}
         isCollapsed={isCollapsed}
-        items={resolveMenuItems({
-          dashboardStatusDot,
-          isSchedulingLive: resolveIsSchedulingLive({ settings }),
-          isSessionsLive: resolveIsSessionsLive({ settings }),
-          isUsageLive: resolveIsUsageLive({ settings }),
-          sessionsStatusDot,
-          usageStatusDot,
-        })}
+        items={menuItems}
         onSelectItem={handleSelectItem}
         onToggleCollapse={handleToggleCollapse}
+        statusDot={brandStatusDot}
         title="Usage Pulse"
       />
       <div className="app-shell-main">

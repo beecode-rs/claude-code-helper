@@ -1,14 +1,22 @@
-import { SessionsService } from '#src/main/business/service/sessions-service'
+import { type IGhosttyFocusPeer, SessionsService } from '#src/main/business/service/sessions-service'
 import { type OsPlatform } from '#src/main/util/os-util'
 
 export class SessionsServiceContractHarness extends SessionsService {
   isLinuxFocusToolInstalled: boolean | undefined
+  isMacOsGhosttyPeersStubbed = true
+  isMacOsGhosttySessionTtyStubbed = true
   isMacOsWindowFocusStubbed = true
   linuxFocusToolInstallAttemptCount = 0
   linuxFocusToolInstallError: Error | undefined
+  macOsAgentsQueryStdout: string | undefined
+  macOsGhosttyFocusPeers: IGhosttyFocusPeer[] = []
+  macOsGhosttySessionTty: string | undefined
+  macOsGhosttyTtyFocusResult = false
+  macOsGhosttyTtySupport = false
   readonly macOsBundleActivateCalls: { bundlePath: string }[] = []
   readonly macOsBundleResolveCalls: { hopCount: number; pid: number }[] = []
-  readonly macOsTabFocusCalls: { cwd: string }[] = []
+  readonly macOsTabFocusCalls: { cwd: string; matchRank: number }[] = []
+  readonly macOsTtyFocusCalls: { sessionTty: string }[] = []
   readonly macOsWindowFocusCalls: { bundlePath: string; cwd: string }[] = []
   protected readonly _focusPlatformOverride: OsPlatform | undefined
   protected readonly _macOsBundlePath: string
@@ -33,10 +41,44 @@ export class SessionsServiceContractHarness extends SessionsService {
     return Promise.resolve()
   }
 
-  protected override _focusGhosttyTab(params: { cwd: string }): Promise<void> {
-    this.macOsTabFocusCalls.push({ cwd: params.cwd })
+  protected override async _runAgentsQuery(): Promise<string> {
+    if (this.macOsAgentsQueryStdout === undefined) {
+      return super._runAgentsQuery()
+    }
+
+    return this.macOsAgentsQueryStdout
+  }
+
+  protected override _resolveGhosttyTtySupport(): Promise<boolean> {
+    return Promise.resolve(this.macOsGhosttyTtySupport)
+  }
+
+  protected override async _resolveSessionTty(params: { pid: number }): Promise<string | undefined> {
+    if (!this.isMacOsGhosttySessionTtyStubbed) {
+      return super._resolveSessionTty(params)
+    }
+
+    return this.macOsGhosttySessionTty
+  }
+
+  protected override async _listGhosttyFocusPeers(params: { cwd: string; pid: number }): Promise<IGhosttyFocusPeer[]> {
+    if (!this.isMacOsGhosttyPeersStubbed) {
+      return super._listGhosttyFocusPeers(params)
+    }
+
+    return this.macOsGhosttyFocusPeers
+  }
+
+  protected override _focusGhosttyTab(params: { cwd: string; matchRank: number }): Promise<void> {
+    this.macOsTabFocusCalls.push({ cwd: params.cwd, matchRank: params.matchRank })
 
     return Promise.resolve()
+  }
+
+  protected override _focusGhosttyTerminalByTty(params: { sessionTty: string }): Promise<boolean> {
+    this.macOsTtyFocusCalls.push({ sessionTty: params.sessionTty })
+
+    return Promise.resolve(this.macOsGhosttyTtyFocusResult)
   }
 
   protected override _focusVsCodeWindow(params: { bundlePath: string; cwd: string }): Promise<void> {

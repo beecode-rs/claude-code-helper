@@ -3,6 +3,7 @@ import { type ReactElement, useEffect, useState } from 'react'
 import { PeakIcon } from '#src/renderer/src/ui-component/icon/peak-icon'
 import { UsageBar } from '#src/renderer/src/ui-component/usage-dashboard/usage-bar'
 import { dateUtil } from '#src/renderer/src/util/date-util'
+import { menuStatusUtil } from '#src/renderer/src/util/menu-status-util'
 import { usagePaceUtil } from '#src/renderer/src/util/usage-pace-util'
 import { usageResetUtil } from '#src/renderer/src/util/usage-reset-util'
 import { usageStatusUtil } from '#src/renderer/src/util/usage-status-util'
@@ -59,12 +60,25 @@ export const DashboardUsageBox = (props: { providerSnapshot: IProviderSnapshot }
     providerId: providerSnapshot.providerId,
   })
 
+  const isWindowWarning = menuStatusUtil.resolveIsWindowWarning({
+    now,
+    resetAt: fiveHourWindow?.resetAt,
+    usedPercent: fiveHourWindow?.usedPercent ?? 0,
+    windowMs: fiveHourWindow?.windowMs ?? usageResetUtil.fiveHourWindowMs,
+  })
+
   const resolveBoxClassName = (): string => {
+    const classNames = ['dashboard-usage-box']
+
     if (peakInfo?.isPeakHour) {
-      return 'dashboard-usage-box is-peak-hour'
+      classNames.push('is-peak-hour')
     }
 
-    return 'dashboard-usage-box'
+    if (isWindowWarning) {
+      classNames.push('is-warning')
+    }
+
+    return classNames.join(' ')
   }
 
   const renderPeakPill = (): ReactElement | undefined => {

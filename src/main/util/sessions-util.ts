@@ -1,11 +1,9 @@
 import { objectUtil } from '#src/main/util/object-util'
 import { type ISessionInfo, type SessionStatus } from '#src/shared/session-model'
 
-const SESSION_STATUS_ORDER: Record<SessionStatus, number> = {
-  busy: 0,
-  idle: 2,
-  unknown: 3,
-  waiting: 1,
+const SESSION_ORIGIN_ORDER = {
+  local: 0,
+  ssh: 1,
 }
 
 export const sessionsUtil = {
@@ -43,6 +41,14 @@ export const sessionsUtil = {
       startedAt,
       status: sessionsUtil._resolveSessionStatus(rawRecord['status']),
     }
+  },
+
+  _resolveSessionOriginOrder: (session: ISessionInfo): number => {
+    if (session.hostId === undefined) {
+      return SESSION_ORIGIN_ORDER.local
+    }
+
+    return SESSION_ORIGIN_ORDER.ssh
   },
 
   _resolveSessionStatus: (value: unknown): SessionStatus => {
@@ -118,13 +124,14 @@ export const sessionsUtil = {
 
   sortSessions: (sessions: ISessionInfo[]): ISessionInfo[] => {
     return [...sessions].sort((left, right) => {
-      const statusOrderDiff = SESSION_STATUS_ORDER[left.status] - SESSION_STATUS_ORDER[right.status]
+      const originOrderDiff =
+        sessionsUtil._resolveSessionOriginOrder(left) - sessionsUtil._resolveSessionOriginOrder(right)
 
-      if (statusOrderDiff !== 0) {
-        return statusOrderDiff
+      if (originOrderDiff !== 0) {
+        return originOrderDiff
       }
 
-      return right.startedAt - left.startedAt
+      return left.name.localeCompare(right.name)
     })
   },
 }

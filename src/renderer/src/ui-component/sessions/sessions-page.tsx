@@ -105,7 +105,11 @@ const resolveSummaryLabel = (sessions: ISessionInfo[]): string => {
   return summaryParts.join(' · ')
 }
 
-export const SessionsPage = (): ReactElement => {
+export const SessionsPage = (props: {
+  finishedAtBySessionId: Record<string, number>
+  pulseSeconds: number
+}): ReactElement => {
+  const { finishedAtBySessionId, pulseSeconds } = props
   const [snapshot, setSnapshot] = useState<ISessionSnapshot | undefined>(undefined)
   const [errorMessage, setErrorMessage] = useState('')
   const [isHostsOpen, setIsHostsOpen] = useState(false)
@@ -283,6 +287,7 @@ export const SessionsPage = (): ReactElement => {
 
           return (
             <SessionCard
+              finishedAtMs={finishedAtBySessionId[session.sessionId]}
               isExpanded={expandedSessionKeys.has(sessionKey)}
               key={sessionKey}
               nowMs={nowMs}
@@ -292,6 +297,7 @@ export const SessionsPage = (): ReactElement => {
               onToggle={() => {
                 handleToggleSession({ key: sessionKey })
               }}
+              pulseSeconds={pulseSeconds}
               session={session}
             />
           )

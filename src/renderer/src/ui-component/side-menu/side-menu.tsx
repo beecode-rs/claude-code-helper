@@ -9,6 +9,7 @@ export type ISideMenuItem<ItemId extends string> = {
   isLive?: boolean
   label: string
   statusDot?: MenuStatusDot
+  statusDotTitle?: string
 }
 
 const resolveCollapseToggleTitle = (params: { isCollapsed: boolean }): string | undefined => {
@@ -27,9 +28,20 @@ export const SideMenu = <ItemId extends string>(props: {
   onSelectItem: (itemId: ItemId) => void
   onToggleCollapse: () => void
   statusDot?: MenuStatusDot
+  statusDotTitle?: string
   title: string
 }): ReactElement => {
-  const { activeItemId, footerItems, isCollapsed, items, onSelectItem, onToggleCollapse, statusDot, title } = props
+  const {
+    activeItemId,
+    footerItems,
+    isCollapsed,
+    items,
+    onSelectItem,
+    onToggleCollapse,
+    statusDot,
+    statusDotTitle,
+    title,
+  } = props
   const collapseToggleTitle = resolveCollapseToggleTitle({ isCollapsed })
 
   const resolveMenuClassName = (): string => {
@@ -72,8 +84,14 @@ export const SideMenu = <ItemId extends string>(props: {
     return 'side-menu-item-icon'
   }
 
-  const resolveStatusDotClassName = (params: { statusDot: MenuStatusDot }): string => {
-    return `side-menu-item-status-dot is-${params.statusDot}`
+  const renderStatusDot = (params: { item: ISideMenuItem<ItemId> }): ReactElement | undefined => {
+    const { statusDot: itemStatusDot, statusDotTitle: itemStatusDotTitle } = params.item
+
+    if (itemStatusDot === undefined) {
+      return undefined
+    }
+
+    return <span className={`side-menu-item-status-dot is-${itemStatusDot}`} title={itemStatusDotTitle} />
   }
 
   const renderItem = (params: { item: ISideMenuItem<ItemId> }): ReactElement => {
@@ -89,9 +107,7 @@ export const SideMenu = <ItemId extends string>(props: {
       >
         <span className={resolveItemIconClassName({ isLive: params.item.isLive === true })}>
           {params.item.icon}
-          {params.item.statusDot !== undefined && (
-            <span className={resolveStatusDotClassName({ statusDot: params.item.statusDot })} />
-          )}
+          {renderStatusDot({ item: params.item })}
         </span>
         {!isCollapsed && <span className="side-menu-item-label">{params.item.label}</span>}
       </button>
@@ -145,7 +161,7 @@ export const SideMenu = <ItemId extends string>(props: {
   return (
     <nav aria-label="Main navigation" className={resolveMenuClassName()}>
       <div className="side-menu-brand">
-        <span className={resolveBrandDotClassName({ statusDot })} />
+        <span className={resolveBrandDotClassName({ statusDot })} title={statusDotTitle} />
         {!isCollapsed && <span className="side-menu-brand-label">{title}</span>}
       </div>
       <div className="side-menu-items">

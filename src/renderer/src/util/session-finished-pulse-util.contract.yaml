@@ -1,0 +1,320 @@
+# Contract for sessionFinishedPulseUtil, the state behind the pulsing border a
+# session card shows right after its work finishes.
+#
+# resolveFinishedAtBySessionId folds one sessions snapshot into the map of
+# "finished at" timestamps keyed by session id. A session records nowMs when it
+# moves from busy to idle in this snapshot (the same transition that plays the
+# finished sound, so waiting-to-idle and first-snapshot sessions never record).
+# Timestamps already in the map survive untouched while the session is still idle
+# and are dropped as soon as it starts working again or leaves the snapshot, so a
+# finished-then-restarted session stops pulsing immediately instead of waiting the
+# duration out. A session that finishes twice keeps the newer timestamp, which
+# restarts the pulse from full brightness.
+#
+# resolveIsPulsing turns a recorded timestamp into the render decision: pulsing
+# while less than pulseSeconds have passed, done exactly at the boundary. A session
+# with no recorded timestamp never pulses, and a pulseSeconds of 0 (or lower) turns
+# the indicator off for everyone.
+subject: sessionFinishedPulseUtil
+module: ./session-finished-pulse-util.js
+subjectType: function
+methods:
+  resolveIsPulsing:
+    terms:
+      # A session that never finished while the page watched has nothing to pulse.
+      - params:
+          - finishedAtMs: !undefined
+            nowMs: 5000
+            pulseSeconds: 10
+        result: false
+      # Just finished: the full duration is still ahead.
+      - params:
+          - finishedAtMs: 5000
+            nowMs: 5000
+            pulseSeconds: 10
+        result: true
+      # Mid-pulse, a second before the end.
+      - params:
+          - finishedAtMs: 5000
+            nowMs: 14000
+            pulseSeconds: 10
+        result: true
+      # Exactly at the boundary the pulse is over, not still running.
+      - params:
+          - finishedAtMs: 5000
+            nowMs: 15000
+            pulseSeconds: 10
+        result: false
+      # Long past the boundary.
+      - params:
+          - finishedAtMs: 5000
+            nowMs: 60000
+            pulseSeconds: 10
+        result: false
+      # A zero duration is the "indicator off" setting, even for a session that
+      # finished this very tick.
+      - params:
+          - finishedAtMs: 5000
+            nowMs: 5000
+            pulseSeconds: 0
+        result: false
+      # A negative duration cannot survive sanitizing, but is treated as off too.
+      - params:
+          - finishedAtMs: 5000
+            nowMs: 5000
+            pulseSeconds: -5
+        result: false
+      # A one second duration pulses within that second and stops after it.
+      - params:
+          - finishedAtMs: 5000
+            nowMs: 5999
+            pulseSeconds: 1
+        result: true
+      - params:
+          - finishedAtMs: 5000
+            nowMs: 6000
+            pulseSeconds: 1
+        result: false
+  resolveFinishedAtBySessionId:
+    terms:
+      # First snapshot (no previous sessions yet): an already idle session did not
+      # finish while the page watched, so nothing is recorded.
+      - params:
+          - currentSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: idle
+            finishedAtBySessionId: {}
+            nowMs: 1000
+            previousSessions: !undefined
+        result: {}
+      # The transition itself: busy becomes idle, so the finish is stamped with nowMs.
+      - params:
+          - currentSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: idle
+            finishedAtBySessionId: {}
+            nowMs: 1000
+            previousSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: busy
+        result:
+          sid-1: 1000
+      # Waiting for input is not finishing: no stamp.
+      - params:
+          - currentSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: idle
+            finishedAtBySessionId: {}
+            nowMs: 1000
+            previousSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: waiting
+        result: {}
+      # A later snapshot with no new transition keeps the original timestamp, so the
+      # pulse keeps decaying from when the session actually finished.
+      - params:
+          - currentSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: idle
+            finishedAtBySessionId:
+              sid-1: 1000
+            nowMs: 4000
+            previousSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: idle
+        result:
+          sid-1: 1000
+      # The session starts working again: the pulse is dropped right away.
+      - params:
+          - currentSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: busy
+            finishedAtBySessionId:
+              sid-1: 1000
+            nowMs: 4000
+            previousSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: idle
+        result: {}
+      # The session waits for input instead: not idle anymore, so no pulse either.
+      - params:
+          - currentSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: waiting
+            finishedAtBySessionId:
+              sid-1: 1000
+            nowMs: 4000
+            previousSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: idle
+        result: {}
+      # The session is gone from the snapshot: its timestamp goes with it.
+      - params:
+          - currentSessions: []
+            finishedAtBySessionId:
+              sid-1: 1000
+            nowMs: 4000
+            previousSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: idle
+        result: {}
+      # A second finish inside the pulse window overwrites the older timestamp,
+      # restarting the pulse at full brightness.
+      - params:
+          - currentSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: idle
+            finishedAtBySessionId:
+              sid-1: 1000
+            nowMs: 4000
+            previousSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: busy
+        result:
+          sid-1: 4000
+      # A mixed snapshot: sid-1 finishes now, sid-2 keeps its earlier stamp, sid-3
+      # loses its stamp by going busy, sid-4 never finished and sid-5 is gone.
+      - params:
+          - currentSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: idle
+              - cwd: /b
+                kind: claude
+                name: s2
+                pid: 2
+                sessionId: sid-2
+                startedAt: 0
+                status: idle
+              - cwd: /c
+                kind: claude
+                name: s3
+                pid: 3
+                sessionId: sid-3
+                startedAt: 0
+                status: busy
+              - cwd: /d
+                kind: claude
+                name: s4
+                pid: 4
+                sessionId: sid-4
+                startedAt: 0
+                status: waiting
+            finishedAtBySessionId:
+              sid-2: 2000
+              sid-3: 2000
+              sid-5: 2000
+            nowMs: 9000
+            previousSessions:
+              - cwd: /a
+                kind: claude
+                name: s1
+                pid: 1
+                sessionId: sid-1
+                startedAt: 0
+                status: busy
+              - cwd: /b
+                kind: claude
+                name: s2
+                pid: 2
+                sessionId: sid-2
+                startedAt: 0
+                status: idle
+              - cwd: /c
+                kind: claude
+                name: s3
+                pid: 3
+                sessionId: sid-3
+                startedAt: 0
+                status: idle
+              - cwd: /d
+                kind: claude
+                name: s4
+                pid: 4
+                sessionId: sid-4
+                startedAt: 0
+                status: busy
+              - cwd: /e
+                kind: claude
+                name: s5
+                pid: 5
+                sessionId: sid-5
+                startedAt: 0
+                status: idle
+        result:
+          sid-1: 9000
+          sid-2: 2000

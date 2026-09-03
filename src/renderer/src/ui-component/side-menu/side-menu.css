@@ -62,6 +62,12 @@
   background: var(--session-waiting);
 }
 
+.side-menu-brand-dot.is-peak {
+  --side-menu-brand-pulse: rgba(250, 178, 25, 0.45);
+
+  background: var(--meter-warning);
+}
+
 @keyframes side-menu-brand-pulse {
   0% {
     box-shadow: 0 0 0 0 var(--side-menu-brand-pulse);
@@ -160,6 +166,10 @@
 
 .side-menu-item-status-dot.is-waiting {
   background: var(--session-waiting);
+}
+
+.side-menu-item-status-dot.is-peak {
+  background: var(--meter-warning);
 }
 
 .side-menu-item-icon svg {

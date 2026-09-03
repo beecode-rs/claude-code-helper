@@ -357,6 +357,26 @@ body {
   outline: none;
 }
 
+.settings-group {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  min-width: 0;
+  padding: 12px 14px 14px;
+}
+
+.settings-group-title {
+  color: var(--ink-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0 6px;
+  text-transform: uppercase;
+}
+
 .settings-token-source-row {
   display: flex;
   gap: 16px;

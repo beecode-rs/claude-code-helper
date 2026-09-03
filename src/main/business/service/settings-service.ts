@@ -2,10 +2,11 @@ import { objectUtil } from '#src/main/util/object-util'
 import { PROVIDER_CATALOG } from '#src/shared/provider-catalog'
 import {
   ClaudeTokenSource,
-  DEFAULT_IDLE_SOUND_ID,
   DEFAULT_IS_SCHEDULING_ENABLED,
   DEFAULT_IS_SESSIONS_AUTO_REFRESH_PAUSED,
   DEFAULT_SESSIONS_REFRESH_INTERVAL_SECONDS,
+  DEFAULT_SESSION_FINISHED_PULSE_SECONDS,
+  DEFAULT_SESSION_FINISHED_SOUND_ID,
   DEFAULT_SOUND_VOLUME_PERCENT,
   DEFAULT_WAITING_SOUND_ID,
   type IAppSettings,
@@ -17,9 +18,11 @@ import {
   LEGACY_CLAUDE_TOKEN_SOURCE_SYSTEM,
   MAX_REFRESH_INTERVAL_SECONDS,
   MAX_SESSIONS_REFRESH_INTERVAL_SECONDS,
+  MAX_SESSION_FINISHED_PULSE_SECONDS,
   MAX_SOUND_VOLUME_PERCENT,
   MIN_REFRESH_INTERVAL_SECONDS,
   MIN_SESSIONS_REFRESH_INTERVAL_SECONDS,
+  MIN_SESSION_FINISHED_PULSE_SECONDS,
   MIN_SOUND_VOLUME_PERCENT,
   SESSION_SOUND_IDS,
   SessionSoundId,
@@ -38,9 +41,10 @@ import type { ProviderId } from '#src/shared/usage-model'
 export class SettingsService {
   createDefaultSettings(): IAppSettings {
     return {
-      idleSoundId: DEFAULT_IDLE_SOUND_ID,
       isSchedulingEnabled: DEFAULT_IS_SCHEDULING_ENABLED,
       isSessionsAutoRefreshPaused: DEFAULT_IS_SESSIONS_AUTO_REFRESH_PAUSED,
+      sessionFinishedPulseSeconds: DEFAULT_SESSION_FINISHED_PULSE_SECONDS,
+      sessionFinishedSoundId: DEFAULT_SESSION_FINISHED_SOUND_ID,
       sessionsRefreshIntervalSeconds: DEFAULT_SESSIONS_REFRESH_INTERVAL_SECONDS,
       soundVolumePercent: DEFAULT_SOUND_VOLUME_PERCENT,
       sshHosts: [],
@@ -61,11 +65,14 @@ export class SettingsService {
     const rawTriggers = rawRecord['triggers']
 
     return {
-      idleSoundId: this._resolveSessionSoundId({ fallback: DEFAULT_IDLE_SOUND_ID, value: rawRecord['idleSoundId'] }),
       isSchedulingEnabled: this._resolveIsSchedulingEnabled({ value: rawRecord['isSchedulingEnabled'] }),
       isSessionsAutoRefreshPaused: this._resolveIsSessionsAutoRefreshPaused({
         value: rawRecord['isSessionsAutoRefreshPaused'],
       }),
+      sessionFinishedPulseSeconds: this._resolveSessionFinishedPulseSeconds({
+        value: rawRecord['sessionFinishedPulseSeconds'],
+      }),
+      sessionFinishedSoundId: this._resolveSessionFinishedSoundId({ rawRecord }),
       sessionsRefreshIntervalSeconds: this._resolveSessionsRefreshIntervalSeconds({
         value: rawRecord['sessionsRefreshIntervalSeconds'],
       }),
@@ -139,14 +146,33 @@ export class SettingsService {
     return Math.round(clampedIntervalSeconds)
   }
 
-  protected _resolveSessionSoundId(params: { fallback: SessionSoundId; value: unknown }): SessionSoundId {
-    const soundId = this._resolveOptionalSessionSoundId({ value: params.value })
-
-    if (soundId === undefined) {
-      return params.fallback
+  protected _resolveSessionFinishedPulseSeconds(params: { value: unknown }): number {
+    if (typeof params.value !== 'number' || !Number.isFinite(params.value)) {
+      return DEFAULT_SESSION_FINISHED_PULSE_SECONDS
     }
 
-    return soundId
+    const clampedPulseSeconds = Math.min(
+      Math.max(params.value, MIN_SESSION_FINISHED_PULSE_SECONDS),
+      MAX_SESSION_FINISHED_PULSE_SECONDS,
+    )
+
+    return Math.round(clampedPulseSeconds)
+  }
+
+  protected _resolveSessionFinishedSoundId(params: { rawRecord: Record<string, unknown> }): SessionSoundId {
+    const soundId = this._resolveOptionalSessionSoundId({ value: params.rawRecord['sessionFinishedSoundId'] })
+
+    if (soundId !== undefined) {
+      return soundId
+    }
+
+    const legacySoundId = this._resolveOptionalSessionSoundId({ value: params.rawRecord['idleSoundId'] })
+
+    if (legacySoundId !== undefined) {
+      return legacySoundId
+    }
+
+    return DEFAULT_SESSION_FINISHED_SOUND_ID
   }
 
   protected _resolveOptionalSessionSoundId(params: { value: unknown }): SessionSoundId | undefined {

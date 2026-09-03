@@ -5,7 +5,9 @@
 # percent more than 45 points ahead of the elapsed-window percent, i.e. red pace step 3
 # or deeper). The sessions dot is
 # 'error' when loading failed or the snapshot carries an error message, else 'waiting'
-# when any session waits. The combined dot ranks error > warning > waiting.
+# when any session waits. The peak dot is 'peak' while any tracked z.ai provider sits
+# inside its 3x-credit peak window. The combined dot ranks
+# error > warning > waiting > peak.
 # All terms use now: 0 and windowMs: 3600000 unless stated, so resetAt encodes the
 # remaining share directly (resetAt 180000 is exactly the 5% expiry threshold).
 subject: menuStatusUtil
@@ -39,6 +41,18 @@ methods:
               - !undefined
               - waiting
         result: waiting
+      # Waiting outranks the informational peak dot.
+      - params:
+          - dots:
+              - peak
+              - waiting
+        result: waiting
+      # A lone peak dot passes through as the weakest rank.
+      - params:
+          - dots:
+              - !undefined
+              - peak
+        result: peak
       # Neither area produced a dot.
       - params:
           - dots:
@@ -182,6 +196,80 @@ methods:
             usedPercent: 50
             windowMs: 3600000
         result: false
+  resolvePeakStatusDot:
+    terms:
+      # z.ai peak hours are weekdays 14:00-18:00 UTC+8. Terms use the UTC+8 wall clock of
+      # Wednesday 2026-08-26 (peak 1787724000000-1787738400000) and of Saturday
+      # 2026-08-29 (1787990400000 is that day's 16:00 UTC+8).
+      #
+      # No snapshot at all (usage not loaded yet).
+      - params:
+          - now: 1787731200000
+        result: !undefined
+      # Snapshot with no providers.
+      - params:
+          - now: 1787731200000
+            snapshot:
+              providers: []
+        result: !undefined
+      # A z.ai tracker mid-peak flags peak, even while it is still loading.
+      - params:
+          - now: 1787731200000
+            snapshot:
+              providers:
+                - providerId: zai
+                  status: PENDING
+                  trackerId: t-zai
+                  trackerName: z.ai
+        result: peak
+      # A z.ai tracker among other providers flags peak.
+      - params:
+          - now: 1787731200000
+            snapshot:
+              providers:
+                - providerId: claude
+                  status: OK
+                  trackerId: t-claude
+                  trackerName: Claude
+                - providerId: zai
+                  status: OK
+                  trackerId: t-zai
+                  trackerName: z.ai
+        result: peak
+      # Peak hours belong to z.ai only: other providers never flag peak.
+      - params:
+          - now: 1787731200000
+            snapshot:
+              providers:
+                - providerId: claude
+                  status: OK
+                  trackerId: t-claude
+                  trackerName: Claude
+                - providerId: dummy
+                  status: OK
+                  trackerId: t-dummy
+                  trackerName: Dummy
+        result: !undefined
+      # An hour past the weekday peak window.
+      - params:
+          - now: 1787742000000
+            snapshot:
+              providers:
+                - providerId: zai
+                  status: OK
+                  trackerId: t-zai
+                  trackerName: z.ai
+        result: !undefined
+      # Saturday 16:00 UTC+8 is inside the daily hours but outside the weekday window.
+      - params:
+          - now: 1787990400000
+            snapshot:
+              providers:
+                - providerId: zai
+                  status: OK
+                  trackerId: t-zai
+                  trackerName: z.ai
+        result: !undefined
   resolveSessionsStatusDot:
     terms:
       # No snapshot at all (sessions view not loaded yet).

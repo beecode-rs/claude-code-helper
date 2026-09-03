@@ -18,8 +18,12 @@ const resolveSessionKey = (session: ISessionInfo): string => {
   return `${hostId}:${session.sessionId}:${String(session.pid)}`
 }
 
-export const DashboardPage = (props: { onNavigate: (viewId: 'sessions' | 'usage') => void }): ReactElement => {
-  const { onNavigate } = props
+export const DashboardPage = (props: {
+  finishedAtBySessionId: Record<string, number>
+  onNavigate: (viewId: 'sessions' | 'usage') => void
+  pulseSeconds: number
+}): ReactElement => {
+  const { finishedAtBySessionId, onNavigate, pulseSeconds } = props
 
   const [usageSnapshot, setUsageSnapshot] = useState<IUsageSnapshot | undefined>(undefined)
   const [sessionSnapshot, setSessionSnapshot] = useState<ISessionSnapshot | undefined>(undefined)
@@ -116,10 +120,12 @@ export const DashboardPage = (props: { onNavigate: (viewId: 'sessions' | 'usage'
         {sessions.map((session) => {
           return (
             <DashboardSessionBox
+              finishedAtMs={finishedAtBySessionId[session.sessionId]}
               key={resolveSessionKey(session)}
               onFocus={() => {
                 void focusSession({ cwd: session.cwd, pid: session.pid })
               }}
+              pulseSeconds={pulseSeconds}
               session={session}
             />
           )

@@ -2,9 +2,11 @@ import { type ReactElement } from 'react'
 
 import { ServerIcon } from '#src/renderer/src/ui-component/icon/server-icon'
 import { SessionExpandButton } from '#src/renderer/src/ui-component/sessions/session-expand-button'
+import { SessionFinishedPulse } from '#src/renderer/src/ui-component/sessions/session-finished-pulse'
 import { SessionFocusButton } from '#src/renderer/src/ui-component/sessions/session-focus-button'
 import { SessionOriginIcon } from '#src/renderer/src/ui-component/sessions/session-origin-icon'
 import { SessionTranscriptChips } from '#src/renderer/src/ui-component/sessions/session-transcript-chips'
+import { SessionWaitingPulse } from '#src/renderer/src/ui-component/sessions/session-waiting-pulse'
 import { dateUtil } from '#src/renderer/src/util/date-util'
 import { sessionPresentationUtil } from '#src/renderer/src/util/session-presentation-util'
 import { type ISessionInfo, type ISessionTranscriptStats, type SessionStatus } from '#src/shared/session-model'
@@ -132,13 +134,15 @@ const renderTranscriptDetails = (params: {
 }
 
 export const SessionCard = (props: {
+  finishedAtMs?: number
   isExpanded: boolean
   nowMs: number
   onFocus: () => void
   onToggle: () => void
+  pulseSeconds: number
   session: ISessionInfo
 }): ReactElement => {
-  const { isExpanded, nowMs, onFocus, onToggle, session } = props
+  const { finishedAtMs, isExpanded, nowMs, onFocus, onToggle, pulseSeconds, session } = props
   const transcript = session.transcript
   const sessionTitle = sessionPresentationUtil.resolveSessionTitle({ session })
   const sessionTitleParts = sessionPresentationUtil.resolveSessionTitleParts({ title: sessionTitle })
@@ -149,6 +153,8 @@ export const SessionCard = (props: {
       className={resolveCardClassName({ isRemote: session.hostId !== undefined, status: session.status })}
       title={session.cwd}
     >
+      <SessionFinishedPulse finishedAtMs={finishedAtMs} nowMs={nowMs} pulseSeconds={pulseSeconds} />
+      <SessionWaitingPulse isWaiting={session.status === 'waiting'} />
       <header className="session-card-header">
         <div className="session-card-heading">
           <span className="session-card-origin">

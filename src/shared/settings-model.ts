@@ -51,9 +51,10 @@ export enum SessionSoundId {
 export const SESSION_SOUND_IDS: SessionSoundId[] = Object.values(SessionSoundId)
 
 export interface IAppSettings {
-  idleSoundId: SessionSoundId
   isSchedulingEnabled: boolean
   isSessionsAutoRefreshPaused: boolean
+  sessionFinishedPulseSeconds: number
+  sessionFinishedSoundId: SessionSoundId
   sessionsRefreshIntervalSeconds: number
   soundVolumePercent: number
   sshHosts: ISshHostConfig[]
@@ -62,7 +63,9 @@ export interface IAppSettings {
   waitingSoundId: SessionSoundId
 }
 
-export const DEFAULT_IDLE_SOUND_ID: SessionSoundId = SessionSoundId.SUCCESS
+export const DEFAULT_SESSION_FINISHED_SOUND_ID: SessionSoundId = SessionSoundId.SUCCESS
+
+export const DEFAULT_SESSION_FINISHED_PULSE_SECONDS = 10
 
 export const DEFAULT_WAITING_SOUND_ID: SessionSoundId = SessionSoundId.CHIME
 
@@ -77,6 +80,10 @@ export const DEFAULT_SOUND_VOLUME_PERCENT = 40
 export const MIN_SESSIONS_REFRESH_INTERVAL_SECONDS = 2
 
 export const MAX_SESSIONS_REFRESH_INTERVAL_SECONDS = 300
+
+export const MIN_SESSION_FINISHED_PULSE_SECONDS = 0
+
+export const MAX_SESSION_FINISHED_PULSE_SECONDS = 60
 
 export const MIN_SOUND_VOLUME_PERCENT = 0
 

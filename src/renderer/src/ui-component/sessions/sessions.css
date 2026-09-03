@@ -103,6 +103,39 @@
   text-align: center;
 }
 
+@property --session-pulse-wave {
+  inherits: false;
+  initial-value: 0;
+  syntax: '<number>';
+}
+
+@property --session-pulse-decay {
+  inherits: true;
+  initial-value: 0;
+  syntax: '<number>';
+}
+
+@keyframes session-pulse-wave {
+  0%,
+  100% {
+    --session-pulse-wave: 0;
+  }
+
+  50% {
+    --session-pulse-wave: 1;
+  }
+}
+
+@keyframes session-pulse-decay {
+  0% {
+    --session-pulse-decay: 1;
+  }
+
+  100% {
+    --session-pulse-decay: 0;
+  }
+}
+
 .session-card {
   background: var(--surface);
   border: 1px solid var(--hairline);
@@ -112,6 +145,59 @@
   flex-direction: column;
   gap: 12px;
   padding: 16px;
+  position: relative;
+}
+
+.session-finished-pulse {
+  animation: session-pulse-decay 10s linear forwards;
+  bottom: -1px;
+  left: -3px;
+  pointer-events: none;
+  position: absolute;
+  right: -1px;
+  top: -1px;
+}
+
+.session-finished-pulse::after {
+  animation: session-pulse-wave 1.2s ease-in-out infinite;
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--ink-primary) calc(var(--session-pulse-wave) * var(--session-pulse-decay) * 100%),
+      transparent
+    );
+  border-left-width: 3px;
+  border-radius: 12px;
+  content: '';
+  inset: 0;
+  position: absolute;
+}
+
+.session-waiting-pulse {
+  animation: session-pulse-wave 1.2s ease-in-out infinite;
+  border: 1px solid color-mix(in srgb, var(--session-waiting) calc(var(--session-pulse-wave) * 100%), transparent);
+  border-left-width: 3px;
+  border-radius: 12px;
+  bottom: -1px;
+  left: -3px;
+  pointer-events: none;
+  position: absolute;
+  right: -1px;
+  top: -1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .session-finished-pulse::after {
+    --session-pulse-wave: 1;
+
+    animation: none;
+  }
+
+  .session-waiting-pulse {
+    --session-pulse-wave: 1;
+
+    animation: none;
+  }
 }
 
 .session-card.is-busy {

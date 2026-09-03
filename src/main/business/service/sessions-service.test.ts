@@ -12,6 +12,8 @@
 // - the macos Ghostty focus resolution: same-cwd agent sessions ranked by surface-host
 //   start time through the ps stub, the VS Code-hosted agent exclusion, and the
 //   tty-exact focus path when Ghostty exposes terminal ttys
+// - the macos Ghostty hidden-window outcome: the other-desktop rejection when the
+//   focused terminal never becomes the front window (no Space switch possible)
 // - the focus-support flow: the once-per-run xdotool presence check, the missing-tool
 //   status, and the install-then-refresh path (pkexec never runs; the harness stubs it)
 
@@ -440,8 +442,20 @@ describe.skipIf(process.platform === 'win32')('SessionsService [contract supplem
     await service.focusSession({ cwd: '/Users/user/project', pid: 4242 })
 
     expect(service.macOsBundleResolveCalls).toEqual([{ hopCount: 0, pid: 4242 }])
-    expect(service.macOsBundleActivateCalls).toEqual([{ bundlePath: '/Applications/Ghostty.app' }])
+    expect(service.macOsBundleActivateCalls).toEqual([])
     expect(service.macOsTabFocusCalls).toEqual([{ cwd: '/Users/user/project', matchRank: 0 }])
+  })
+
+  it('activates the Ghostty bundle only when no terminal matched the session', async () => {
+    const service = new SessionsServiceContractHarness({
+      focusPlatform: 'macos',
+      macOsBundlePath: '/Applications/Ghostty.app',
+    })
+    service.macOsGhosttyTabFocusOutcome = 'missing'
+    await service.focusSession({ cwd: '/Users/user/project', pid: 4242 })
+
+    expect(service.macOsTabFocusCalls).toEqual([{ cwd: '/Users/user/project', matchRank: 0 }])
+    expect(service.macOsBundleActivateCalls).toEqual([{ bundlePath: '/Applications/Ghostty.app' }])
   })
 
   it('focuses the Ghostty terminal whose tty matches the session surface host', async () => {
@@ -457,7 +471,7 @@ describe.skipIf(process.platform === 'win32')('SessionsService [contract supplem
       })
       service.macOsGhosttyTtySupport = true
       service.isMacOsGhosttySessionTtyStubbed = false
-      service.macOsGhosttyTtyFocusResult = true
+      service.macOsGhosttyTtyFocusOutcome = 'focused'
       await service.focusSession({ cwd: '/Users/user/project', pid: 4242 })
 
       expect(service.macOsTtyFocusCalls).toEqual([{ sessionTty: '/dev/ttys011' }])
@@ -482,6 +496,36 @@ describe.skipIf(process.platform === 'win32')('SessionsService [contract supplem
 
     expect(service.macOsTtyFocusCalls).toEqual([{ sessionTty: '/dev/ttys011' }])
     expect(service.macOsTabFocusCalls).toEqual([{ cwd: '/Users/user/project', matchRank: 1 }])
+  })
+
+  it('rejects with the other-desktop hint when the tty-focused terminal never reaches the front', async () => {
+    const service = new SessionsServiceContractHarness({
+      focusPlatform: 'macos',
+      macOsBundlePath: '/Applications/Ghostty.app',
+    })
+    service.macOsGhosttyTtySupport = true
+    service.macOsGhosttySessionTty = '/dev/ttys011'
+    service.macOsGhosttyTtyFocusOutcome = 'hidden'
+
+    await expect(service.focusSession({ cwd: '/Users/user/project', pid: 4242 })).rejects.toThrow(
+      'the terminal is on another desktop or minimized',
+    )
+
+    expect(service.macOsTabFocusCalls).toEqual([])
+  })
+
+  it('rejects with the other-desktop hint when the cwd-matched tab never reaches the front', async () => {
+    const service = new SessionsServiceContractHarness({
+      focusPlatform: 'macos',
+      macOsBundlePath: '/Applications/Ghostty.app',
+    })
+    service.macOsGhosttyTabFocusOutcome = 'hidden'
+
+    await expect(service.focusSession({ cwd: '/Users/user/project', pid: 4242 })).rejects.toThrow(
+      'the terminal is on another desktop or minimized',
+    )
+
+    expect(service.macOsTabFocusCalls).toEqual([{ cwd: '/Users/user/project', matchRank: 0 }])
   })
 
   it('ranks same-cwd Ghostty agent sessions by surface host age for the cwd fallback', async () => {

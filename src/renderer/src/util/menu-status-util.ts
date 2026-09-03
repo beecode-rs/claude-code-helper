@@ -1,5 +1,6 @@
 import { usagePaceUtil } from '#src/renderer/src/util/usage-pace-util'
 import { usageResetUtil } from '#src/renderer/src/util/usage-reset-util'
+import { zaiPeakUtil } from '#src/renderer/src/util/zai-peak-util'
 import type { ISessionSnapshot } from '#src/shared/session-model'
 import { FIVE_HOUR_WINDOW_MS, type IUsageSnapshot, UsageStatus } from '#src/shared/usage-model'
 
@@ -8,7 +9,7 @@ const MAX_ELAPSED_MINUTES = 300
 
 export const MONTH_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
 
-export type MenuStatusDot = 'error' | 'warning' | 'waiting'
+export type MenuStatusDot = 'error' | 'peak' | 'waiting' | 'warning'
 
 export const menuStatusUtil = {
   _resolveWindowResetAt: (params: { elapsedMinutes: number; now: number; windowMs: number }): number => {
@@ -28,6 +29,10 @@ export const menuStatusUtil = {
 
     if (params.dots.includes('waiting')) {
       return 'waiting'
+    }
+
+    if (params.dots.includes('peak')) {
+      return 'peak'
     }
 
     return undefined
@@ -108,6 +113,22 @@ export const menuStatusUtil = {
       usedPercent: params.usedPercent,
       windowMs,
     })
+  },
+
+  resolvePeakStatusDot: (params: { now: number; snapshot?: IUsageSnapshot }): MenuStatusDot | undefined => {
+    const providers = params.snapshot?.providers ?? []
+
+    const isAnyProviderInPeakHours = providers.some((provider) => {
+      const peakInfo = zaiPeakUtil.resolvePeakInfo({ nowMs: params.now, providerId: provider.providerId })
+
+      return peakInfo?.isPeakHour === true
+    })
+
+    if (isAnyProviderInPeakHours) {
+      return 'peak'
+    }
+
+    return undefined
   },
 
   resolveSessionsStatusDot: (params: {

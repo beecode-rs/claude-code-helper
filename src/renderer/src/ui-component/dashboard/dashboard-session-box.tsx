@@ -1,8 +1,10 @@
 import { type ReactElement, useEffect, useState } from 'react'
 
+import { SessionFinishedPulse } from '#src/renderer/src/ui-component/sessions/session-finished-pulse'
 import { SessionFocusButton } from '#src/renderer/src/ui-component/sessions/session-focus-button'
 import { SessionOriginIcon } from '#src/renderer/src/ui-component/sessions/session-origin-icon'
 import { SessionTranscriptChips } from '#src/renderer/src/ui-component/sessions/session-transcript-chips'
+import { SessionWaitingPulse } from '#src/renderer/src/ui-component/sessions/session-waiting-pulse'
 import { sessionPresentationUtil } from '#src/renderer/src/util/session-presentation-util'
 import { type ISessionInfo, type SessionStatus } from '#src/shared/session-model'
 
@@ -18,8 +20,13 @@ const resolveBoxClassName = (params: { isRemote: boolean; status: SessionStatus 
   return classNames.join(' ')
 }
 
-export const DashboardSessionBox = (props: { onFocus: () => void; session: ISessionInfo }): ReactElement => {
-  const { onFocus, session } = props
+export const DashboardSessionBox = (props: {
+  finishedAtMs?: number
+  onFocus: () => void
+  pulseSeconds: number
+  session: ISessionInfo
+}): ReactElement => {
+  const { finishedAtMs, onFocus, pulseSeconds, session } = props
   const [nowMs, setNowMs] = useState((): number => {
     return Date.now()
   })
@@ -43,6 +50,8 @@ export const DashboardSessionBox = (props: { onFocus: () => void; session: ISess
       className={resolveBoxClassName({ isRemote: session.hostId !== undefined, status: session.status })}
       title={session.cwd}
     >
+      <SessionFinishedPulse finishedAtMs={finishedAtMs} nowMs={nowMs} pulseSeconds={pulseSeconds} />
+      <SessionWaitingPulse isWaiting={session.status === 'waiting'} />
       <header className="dashboard-session-box-header">
         <div className="dashboard-session-box-heading">
           <span className="dashboard-session-box-origin">

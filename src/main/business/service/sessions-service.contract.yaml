@@ -190,6 +190,28 @@ methods:
           - peers: []
             pid: 4242
         result: 0
+  _parseGhosttyFocusOutcome:
+    terms:
+      # The focused outcome reports the terminal window ended up front.
+      - constructorParams: []
+        params:
+          - stdout: "focused\n"
+        result: focused
+      # The hidden outcome reports the window stayed off the front (another desktop, minimized).
+      - constructorParams: []
+        params:
+          - stdout: hidden
+        result: hidden
+      # The missing outcome reports no terminal matched.
+      - constructorParams: []
+        params:
+          - stdout: "missing\n"
+        result: missing
+      # Empty or unexpected stdout counts as no terminal matched.
+      - constructorParams: []
+        params:
+          - stdout: ""
+        result: missing
   _isVsCodeBundle:
     terms:
       # The stock VS Code bundle basename routes into the window-focus flow.

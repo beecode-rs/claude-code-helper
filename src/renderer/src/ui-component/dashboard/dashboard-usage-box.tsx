@@ -86,13 +86,20 @@ export const DashboardUsageBox = (props: { providerSnapshot: IProviderSnapshot }
       return undefined
     }
 
+    const tooltipText = [
+      `3× peak ends in ${peakRemainingText ?? 'under 1m'}.`,
+      'Premium models are billed at 3× credits during peak hours and 1× off-peak.',
+      `Peak hours are weekdays 14:00–18:00 (UTC+8) — ${peakInfo.peakWindowText} your time.`,
+    ].join('\n')
+
     return (
       <span
-        aria-label={`z.ai peak hours end in ${peakRemainingText ?? 'under 1m'}`}
+        aria-label={tooltipText}
         aria-valuemax={100}
         aria-valuemin={0}
         aria-valuenow={Math.round(peakRemainingPercent ?? 0)}
         className="dashboard-peak-pill"
+        data-tooltip={tooltipText}
         role="meter"
       >
         <span

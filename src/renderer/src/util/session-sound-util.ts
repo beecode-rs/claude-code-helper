@@ -134,4 +134,33 @@ export const sessionSoundUtil = {
 
     return (clampedVolumePercent / MAX_SOUND_VOLUME_PERCENT) * TONE_MAX_GAIN
   },
+
+  resolveStatusTransitionSessionIds: (params: {
+    currentSessions: ISessionInfo[]
+    fromStatus: SessionStatus
+    previousSessions?: ISessionInfo[]
+    toStatus: SessionStatus
+  }): string[] => {
+    if (params.previousSessions === undefined) {
+      return []
+    }
+
+    const fromStatusSessionIds = new Set(
+      params.previousSessions
+        .filter((session) => {
+          return session.status === params.fromStatus
+        })
+        .map((session) => {
+          return session.sessionId
+        }),
+    )
+
+    return params.currentSessions
+      .filter((session) => {
+        return session.status === params.toStatus && fromStatusSessionIds.has(session.sessionId)
+      })
+      .map((session) => {
+        return session.sessionId
+      })
+  },
 }

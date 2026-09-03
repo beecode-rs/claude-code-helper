@@ -14,11 +14,13 @@ import { UsageDashboard } from '#src/renderer/src/ui-component/usage-dashboard/u
 import { developmentPrefsUtil } from '#src/renderer/src/util/development-prefs-util'
 import { errorUtil } from '#src/renderer/src/util/error-util'
 import { type MenuStatusDot, menuStatusUtil } from '#src/renderer/src/util/menu-status-util'
+import { sessionFinishedPulseUtil } from '#src/renderer/src/util/session-finished-pulse-util'
 import { sessionSoundUtil } from '#src/renderer/src/util/session-sound-util'
 import { sideMenuPrefsUtil } from '#src/renderer/src/util/side-menu-prefs-util'
 import type { ISessionInfo, ISessionSnapshot } from '#src/shared/session-model'
 import {
-  DEFAULT_IDLE_SOUND_ID,
+  DEFAULT_SESSION_FINISHED_PULSE_SECONDS,
+  DEFAULT_SESSION_FINISHED_SOUND_ID,
   DEFAULT_SOUND_VOLUME_PERCENT,
   DEFAULT_WAITING_SOUND_ID,
   type IAppSettings,
@@ -30,6 +32,15 @@ type AppViewId = 'about' | 'dashboard' | 'development' | 'scheduling' | 'session
 const DEFAULT_ELAPSED_MINUTES = 60
 const DEFAULT_USED_PERCENT = 45
 const NOW_TICK_INTERVAL_MS = 30_000
+const PEAK_STATUS_DOT_TITLE = 'z.ai peak hours: premium models bill at 3× credits (weekdays 14:00–18:00 UTC+8)'
+
+const resolveStatusDotTitle = (params: { statusDot?: MenuStatusDot }): string | undefined => {
+  if (params.statusDot === 'peak') {
+    return PEAK_STATUS_DOT_TITLE
+  }
+
+  return undefined
+}
 
 const MENU_ICONS: Record<AppViewId, ReactElement> = {
   about: (
@@ -124,7 +135,13 @@ const resolveMenuItems = (params: {
   usageStatusDot: MenuStatusDot | undefined
 }): ISideMenuItem<AppViewId>[] => {
   return [
-    { icon: MENU_ICONS.dashboard, id: 'dashboard', label: 'Dashboard', statusDot: params.dashboardStatusDot },
+    {
+      icon: MENU_ICONS.dashboard,
+      id: 'dashboard',
+      label: 'Dashboard',
+      statusDot: params.dashboardStatusDot,
+      statusDotTitle: resolveStatusDotTitle({ statusDot: params.dashboardStatusDot }),
+    },
     {
       icon: MENU_ICONS.sessions,
       id: 'sessions',
@@ -138,6 +155,7 @@ const resolveMenuItems = (params: {
       isLive: params.isUsageLive,
       label: 'Usage',
       statusDot: params.usageStatusDot,
+      statusDotTitle: resolveStatusDotTitle({ statusDot: params.usageStatusDot }),
     },
     { icon: MENU_ICONS.scheduling, id: 'scheduling', isLive: params.isSchedulingLive, label: 'Scheduling' },
   ]
@@ -178,6 +196,7 @@ const resolveIsSessionsLive = (params: { settings?: IAppSettings }): boolean => 
 export const AppShell = (): ReactElement => {
   const [activeViewId, setActiveViewId] = useState<AppViewId>('dashboard')
   const [elapsedMinutes, setElapsedMinutes] = useState<number>(DEFAULT_ELAPSED_MINUTES)
+  const [finishedAtBySessionId, setFinishedAtBySessionId] = useState<Record<string, number>>({})
   const [isCollapsed, setIsCollapsed] = useState<boolean>(sideMenuPrefsUtil.loadIsCollapsed)
   const [isDevelopmentUnlocked, setIsDevelopmentUnlocked] = useState<boolean>(developmentPrefsUtil.loadIsUnlocked)
   const [nowMs, setNowMs] = useState<number>((): number => {
@@ -232,6 +251,49 @@ export const AppShell = (): ReactElement => {
   }, [])
 
   useEffect(() => {
+    const playSessionSounds = (params: { nextSnapshot: ISessionSnapshot; previousSessions?: ISessionInfo[] }): void => {
+      const newlyFinishedSessionIds = sessionSoundUtil.resolveStatusTransitionSessionIds({
+        currentSessions: params.nextSnapshot.sessions,
+        fromStatus: 'busy',
+        previousSessions: params.previousSessions,
+        toStatus: 'idle',
+      })
+      const newlyWaitingSessionIds = sessionSoundUtil.resolveNewlyStatusSessionIds({
+        currentSessions: params.nextSnapshot.sessions,
+        previousSessions: params.previousSessions,
+        status: 'waiting',
+      })
+      const soundVolumePercent = settingsRef.current?.soundVolumePercent ?? DEFAULT_SOUND_VOLUME_PERCENT
+
+      if (newlyWaitingSessionIds.length > 0) {
+        sessionSoundUtil.playSessionSound({
+          soundId: settingsRef.current?.waitingSoundId ?? DEFAULT_WAITING_SOUND_ID,
+          volumePercent: soundVolumePercent,
+        })
+      }
+
+      if (newlyFinishedSessionIds.length > 0) {
+        sessionSoundUtil.playSessionSound({
+          soundId: settingsRef.current?.sessionFinishedSoundId ?? DEFAULT_SESSION_FINISHED_SOUND_ID,
+          volumePercent: soundVolumePercent,
+        })
+      }
+    }
+
+    const trackFinishedSessions = (params: {
+      nextSnapshot: ISessionSnapshot
+      previousSessions?: ISessionInfo[]
+    }): void => {
+      setFinishedAtBySessionId((currentFinishedAtBySessionId) => {
+        return sessionFinishedPulseUtil.resolveFinishedAtBySessionId({
+          currentSessions: params.nextSnapshot.sessions,
+          finishedAtBySessionId: currentFinishedAtBySessionId,
+          nowMs: Date.now(),
+          previousSessions: params.previousSessions,
+        })
+      })
+    }
+
     const handleSessionsSnapshot = (nextSnapshot: ISessionSnapshot): void => {
       setSessionSnapshot(nextSnapshot)
       setSessionsErrorMessage('')
@@ -242,34 +304,11 @@ export const AppShell = (): ReactElement => {
         return
       }
 
-      const newlyIdleSessionIds = sessionSoundUtil.resolveNewlyStatusSessionIds({
-        currentSessions: nextSnapshot.sessions,
-        previousSessions: previousSessionsRef.current,
-        status: 'idle',
-      })
-      const newlyWaitingSessionIds = sessionSoundUtil.resolveNewlyStatusSessionIds({
-        currentSessions: nextSnapshot.sessions,
-        previousSessions: previousSessionsRef.current,
-        status: 'waiting',
-      })
+      const previousSessions = previousSessionsRef.current
 
       previousSessionsRef.current = nextSnapshot.sessions
-
-      const soundVolumePercent = settingsRef.current?.soundVolumePercent ?? DEFAULT_SOUND_VOLUME_PERCENT
-
-      if (newlyWaitingSessionIds.length > 0) {
-        sessionSoundUtil.playSessionSound({
-          soundId: settingsRef.current?.waitingSoundId ?? DEFAULT_WAITING_SOUND_ID,
-          volumePercent: soundVolumePercent,
-        })
-      }
-
-      if (newlyIdleSessionIds.length > 0) {
-        sessionSoundUtil.playSessionSound({
-          soundId: settingsRef.current?.idleSoundId ?? DEFAULT_IDLE_SOUND_ID,
-          volumePercent: soundVolumePercent,
-        })
-      }
+      trackFinishedSessions({ nextSnapshot, previousSessions })
+      playSessionSounds({ nextSnapshot, previousSessions })
     }
 
     const loadSessions = async (): Promise<void> => {
@@ -295,10 +334,14 @@ export const AppShell = (): ReactElement => {
     }
   }, [])
 
-  const usageStatusDot = menuStatusUtil.resolveUsageStatusDot({ now: nowMs, snapshot: usageSnapshot })
+  const finishedPulseSeconds = settings?.sessionFinishedPulseSeconds ?? DEFAULT_SESSION_FINISHED_PULSE_SECONDS
+  const peakStatusDot = menuStatusUtil.resolvePeakStatusDot({ now: nowMs, snapshot: usageSnapshot })
   const sessionsStatusDot = menuStatusUtil.resolveSessionsStatusDot({
     hasLoadError: sessionsErrorMessage !== '',
     snapshot: sessionSnapshot,
+  })
+  const usageStatusDot = menuStatusUtil.resolveCombinedStatusDot({
+    dots: [menuStatusUtil.resolveUsageStatusDot({ now: nowMs, snapshot: usageSnapshot }), peakStatusDot],
   })
   const dashboardStatusDot = menuStatusUtil.resolveCombinedStatusDot({
     dots: [usageStatusDot, sessionsStatusDot],
@@ -347,7 +390,13 @@ export const AppShell = (): ReactElement => {
       }
 
       case 'dashboard': {
-        return <DashboardPage onNavigate={handleSelectItem} />
+        return (
+          <DashboardPage
+            finishedAtBySessionId={finishedAtBySessionId}
+            onNavigate={handleSelectItem}
+            pulseSeconds={finishedPulseSeconds}
+          />
+        )
       }
 
       case 'development': {
@@ -366,7 +415,7 @@ export const AppShell = (): ReactElement => {
       }
 
       case 'sessions': {
-        return <SessionsPage />
+        return <SessionsPage finishedAtBySessionId={finishedAtBySessionId} pulseSeconds={finishedPulseSeconds} />
       }
 
       case 'usage': {
@@ -389,6 +438,7 @@ export const AppShell = (): ReactElement => {
         onSelectItem={handleSelectItem}
         onToggleCollapse={handleToggleCollapse}
         statusDot={brandStatusDot}
+        statusDotTitle={resolveStatusDotTitle({ statusDot: brandStatusDot })}
         title="Usage Pulse"
       />
       <div className="app-shell-main">

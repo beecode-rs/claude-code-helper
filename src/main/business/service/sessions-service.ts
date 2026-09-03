@@ -23,10 +23,27 @@ const GHOSTTY_AUTOMATION_DENIED_MESSAGE =
 
 const GHOSTTY_BUNDLE_ID = 'com.mitchellh.ghostty'
 
+const GHOSTTY_FRONT_WINDOW_POLL_COUNT = 20
+
+const GHOSTTY_FRONT_WINDOW_POLL_DELAY_SECONDS = 0.1
+
+const GHOSTTY_OTHER_DESKTOP_MESSAGE =
+  'the terminal is on another desktop or minimized; to let focus jump to it, enable "When switching to an application, switch to a Space with open windows for the application" in System Settings > Desktop & Dock'
+
+const GHOSTTY_FRONT_WINDOW_WAIT_SNIPPET = `    activate
+    repeat ${String(GHOSTTY_FRONT_WINDOW_POLL_COUNT)} times
+      delay ${String(GHOSTTY_FRONT_WINDOW_POLL_DELAY_SECONDS)}
+      if ((id of front window) as text) is targetWindowId then
+        return "focused"
+      end if
+    end repeat
+    return "hidden"`
+
 const GHOSTTY_TAB_FOCUS_SCRIPT = `on run argv
   set sessionCwd to item 1 of argv
   set matchRank to item 2 of argv as integer
   set matchIndex to 0
+  set targetWindowId to ""
   tell application id "${GHOSTTY_BUNDLE_ID}"
     repeat with ghosttyWindow in windows
       repeat with ghosttyTab in tabs of ghosttyWindow
@@ -34,36 +51,56 @@ const GHOSTTY_TAB_FOCUS_SCRIPT = `on run argv
           set terminalCwd to working directory of ghosttyTerminal
           if terminalCwd is sessionCwd or terminalCwd is sessionCwd & "/" then
             if matchIndex is matchRank then
+              set targetWindowId to (id of ghosttyWindow) as text
               select tab ghosttyTab
               focus ghosttyTerminal
-              activate window ghosttyWindow
-              return
+              exit repeat
             end if
             set matchIndex to matchIndex + 1
           end if
         end repeat
+        if targetWindowId is not "" then
+          exit repeat
+        end if
       end repeat
+      if targetWindowId is not "" then
+        exit repeat
+      end if
     end repeat
+    if targetWindowId is "" then
+      return "missing"
+    end if
+${GHOSTTY_FRONT_WINDOW_WAIT_SNIPPET}
   end tell
 end run`
 
 const GHOSTTY_TTY_FOCUS_SCRIPT = `on run argv
   set sessionTty to item 1 of argv
+  set targetWindowId to ""
   tell application id "${GHOSTTY_BUNDLE_ID}"
     repeat with ghosttyWindow in windows
       repeat with ghosttyTab in tabs of ghosttyWindow
         repeat with ghosttyTerminal in terminals of ghosttyTab
           if (tty of ghosttyTerminal) is sessionTty then
+            set targetWindowId to (id of ghosttyWindow) as text
             select tab ghosttyTab
             focus ghosttyTerminal
-            activate window ghosttyWindow
-            return "focused"
+            exit repeat
           end if
         end repeat
+        if targetWindowId is not "" then
+          exit repeat
+        end if
       end repeat
+      if targetWindowId is not "" then
+        exit repeat
+      end if
     end repeat
+    if targetWindowId is "" then
+      return "missing"
+    end if
+${GHOSTTY_FRONT_WINDOW_WAIT_SNIPPET}
   end tell
-  return "missing"
 end run`
 
 const GHOSTTY_TTY_SUPPORT_PROBE_SCRIPT = `tell application id "${GHOSTTY_BUNDLE_ID}"
@@ -135,6 +172,8 @@ export interface IGhosttyFocusPeer {
   hostStartedAtMs: number | undefined
   pid: number
 }
+
+export type IGhosttyFocusOutcome = 'focused' | 'hidden' | 'missing'
 
 export class SessionsService {
   protected _focusSupport: Promise<ISessionFocusSupport> | undefined
@@ -208,15 +247,13 @@ export class SessionsService {
   protected async _focusMacOsSession(params: { cwd: string; pid: number }): Promise<void> {
     const bundlePath = await this._resolveAppBundlePath({ hopCount: 0, pid: params.pid })
 
+    if (params.cwd !== '' && this._isGhosttyBundle({ bundlePath })) {
+      return this._focusGhosttySession({ bundlePath, cwd: params.cwd, pid: params.pid })
+    }
+
     await this._activateAppBundle({ bundlePath })
 
     if (params.cwd === '') {
-      return
-    }
-
-    if (this._isGhosttyBundle({ bundlePath })) {
-      await this._focusGhosttySession({ cwd: params.cwd, pid: params.pid })
-
       return
     }
 
@@ -225,20 +262,55 @@ export class SessionsService {
     }
   }
 
-  protected async _focusGhosttySession(params: { cwd: string; pid: number }): Promise<void> {
-    const sessionTty = await this._resolveGhosttySessionTty({ pid: params.pid })
+  protected async _focusGhosttySession(params: { bundlePath: string; cwd: string; pid: number }): Promise<void> {
+    const outcome = await this._resolveGhosttyFocusOutcome({ cwd: params.cwd, pid: params.pid })
 
-    if (sessionTty !== undefined) {
-      const isTtyFocusSucceeded = await this._focusGhosttyTerminalByTty({ sessionTty })
+    return this._applyGhosttyFocusOutcome({ bundlePath: params.bundlePath, outcome })
+  }
 
-      if (isTtyFocusSucceeded) {
+  protected async _applyGhosttyFocusOutcome(params: {
+    bundlePath: string
+    outcome: IGhosttyFocusOutcome
+  }): Promise<void> {
+    switch (params.outcome) {
+      case 'focused': {
         return
       }
+
+      case 'hidden': {
+        throw new Error(GHOSTTY_OTHER_DESKTOP_MESSAGE)
+      }
+
+      case 'missing': {
+        return this._activateAppBundle({ bundlePath: params.bundlePath })
+      }
+
+      default: {
+        throw new Error('focusing the Ghostty terminal reported an unsupported outcome')
+      }
+    }
+  }
+
+  protected async _resolveGhosttyFocusOutcome(params: { cwd: string; pid: number }): Promise<IGhosttyFocusOutcome> {
+    const ttyOutcome = await this._resolveGhosttyTtyFocusOutcome({ pid: params.pid })
+
+    if (ttyOutcome !== 'missing') {
+      return ttyOutcome
     }
 
     const matchRank = await this._resolveGhosttyMatchRank({ cwd: params.cwd, pid: params.pid })
 
-    await this._focusGhosttyTab({ cwd: params.cwd, matchRank })
+    return this._focusGhosttyTab({ cwd: params.cwd, matchRank })
+  }
+
+  protected async _resolveGhosttyTtyFocusOutcome(params: { pid: number }): Promise<IGhosttyFocusOutcome> {
+    const sessionTty = await this._resolveGhosttySessionTty({ pid: params.pid })
+
+    if (sessionTty === undefined) {
+      return 'missing'
+    }
+
+    return this._focusGhosttyTerminalByTty({ sessionTty })
   }
 
   protected async _resolveGhosttySessionTty(params: { pid: number }): Promise<string | undefined> {
@@ -669,13 +741,35 @@ export class SessionsService {
     return basename(params.bundlePath) === 'Ghostty.app'
   }
 
-  protected async _focusGhosttyTab(params: { cwd: string; matchRank: number }): Promise<void> {
+  protected async _focusGhosttyTab(params: { cwd: string; matchRank: number }): Promise<IGhosttyFocusOutcome> {
     try {
-      await execFileAsync('osascript', ['-e', GHOSTTY_TAB_FOCUS_SCRIPT, '--', params.cwd, String(params.matchRank)], {
-        timeout: OSASCRIPT_TIMEOUT_MS,
-      })
+      const { stdout } = await execFileAsync(
+        'osascript',
+        ['-e', GHOSTTY_TAB_FOCUS_SCRIPT, '--', params.cwd, String(params.matchRank)],
+        {
+          timeout: OSASCRIPT_TIMEOUT_MS,
+        },
+      )
+
+      return this._parseGhosttyFocusOutcome({ stdout })
     } catch (error) {
       throw new Error(this._resolveGhosttyFocusErrorMessage({ error }))
+    }
+  }
+
+  protected _parseGhosttyFocusOutcome(params: { stdout: string }): IGhosttyFocusOutcome {
+    switch (params.stdout.trim()) {
+      case 'focused': {
+        return 'focused'
+      }
+
+      case 'hidden': {
+        return 'hidden'
+      }
+
+      default: {
+        return 'missing'
+      }
     }
   }
 
@@ -687,13 +781,13 @@ export class SessionsService {
     return `focusing the Ghostty tab failed: ${this._resolveQueryErrorMessage(params.error)}`
   }
 
-  protected async _focusGhosttyTerminalByTty(params: { sessionTty: string }): Promise<boolean> {
+  protected async _focusGhosttyTerminalByTty(params: { sessionTty: string }): Promise<IGhosttyFocusOutcome> {
     try {
       const { stdout } = await execFileAsync('osascript', ['-e', GHOSTTY_TTY_FOCUS_SCRIPT, '--', params.sessionTty], {
         timeout: OSASCRIPT_TIMEOUT_MS,
       })
 
-      return stdout.trim() === 'focused'
+      return this._parseGhosttyFocusOutcome({ stdout })
     } catch (error) {
       throw new Error(this._resolveGhosttyFocusErrorMessage({ error }))
     }

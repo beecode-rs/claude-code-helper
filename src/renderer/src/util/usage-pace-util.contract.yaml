@@ -14,37 +14,36 @@ subjectType: function
 methods:
   resolveIsUsageOutpacingWindow:
     terms:
-      # Outpacing fires only from red pace step 3 upward: drift must exceed 45 points
-      # (the 5-point band plus two full 20-point steps), strictly, in the red direction.
-      # Drift +46 is the first point that counts.
+      # Outpacing fires when usage runs at least 10 points ahead of the elapsed window
+      # percent. 20% used at 10% elapsed is exactly drift +10 and counts.
       - params:
           - now: 0
-            resetAt: 3600000
-            usedPercent: 46
+            resetAt: 3240000
+            usedPercent: 20
             windowMs: 3600000
         result: true
-      # Deep in step 4: 90% used at 20% elapsed is drift +70.
+      # Drift +9, one point shy of the threshold, does not count.
+      - params:
+          - now: 0
+            resetAt: 3240000
+            usedPercent: 19
+            windowMs: 3600000
+        result: false
+      # Far ahead: 90% used at 20% elapsed is drift +70.
       - params:
           - now: 0
             resetAt: 2880000
             usedPercent: 90
             windowMs: 3600000
         result: true
-      # Drift +45 sits exactly on the step-3 threshold: strict > means not outpacing.
-      - params:
-          - now: 0
-            resetAt: 3600000
-            usedPercent: 45
-            windowMs: 3600000
-        result: false
-      # Drift +20 (40% used at 20% elapsed, red step 1) is no longer enough.
+      # Drift +20 (40% used at 20% elapsed) counts.
       - params:
           - now: 0
             resetAt: 2880000
             usedPercent: 40
             windowMs: 3600000
-        result: false
-      # Drift +6, the first point beyond the on-pace band, is no longer enough either.
+        result: true
+      # Drift +6, the first point beyond the on-pace band, is not enough.
       - params:
           - now: 0
             resetAt: 3600000

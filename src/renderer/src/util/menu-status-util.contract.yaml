@@ -1,15 +1,14 @@
 # Contract for menuStatusUtil.
 # Terms pin the side-menu status dots. The usage dot is 'error' when any provider
-# snapshot reports UsageStatus.ERROR, else 'warning' when any usage window is either
-# nearing expiry (remaining time <= 5% of windowMs) or outpacing the window (usage
-# percent more than 45 points ahead of the elapsed-window percent, i.e. red pace step 3
-# or deeper). The sessions dot is
+# snapshot reports UsageStatus.ERROR, else 'warning' when any usage window is
+# outpacing the window (usage percent at least 10 points ahead of the
+# elapsed-window percent); remaining time alone never warns. The sessions dot is
 # 'error' when loading failed or the snapshot carries an error message, else 'waiting'
 # when any session waits. The peak dot is 'peak' while any tracked z.ai provider sits
 # inside its 3x-credit peak window. The combined dot ranks
 # error > warning > waiting > peak.
 # All terms use now: 0 and windowMs: 3600000 unless stated, so resetAt encodes the
-# remaining share directly (resetAt 180000 is exactly the 5% expiry threshold).
+# remaining share directly (resetAt 1800000 leaves exactly half the window).
 subject: menuStatusUtil
 module: ./menu-status-util.js
 subjectType: function
@@ -71,22 +70,32 @@ methods:
       # provider is always OK, so 'error' is unreachable.
       # All terms use now: 0.
       #
-      # Step-3 pace warning: 85% used at 60 elapsed minutes is drift +65, into red pace
-      # step 3 where outpacing starts (drift beyond 45).
+      # Pace warning: 85% used at 60 elapsed minutes (20% elapsed) is drift +65, far
+      # past the +10 outpacing threshold.
       - params:
           - elapsedMinutes: 60
             now: 0
             usedPercent: 85
         result: warning
-      # Just below the outpacing threshold: 65% used at 60 elapsed minutes lands on
-      # exactly drift +45 and does not warn.
+      # 65% used at 60 elapsed minutes is drift +45: still past the +10 threshold.
       - params:
           - elapsedMinutes: 60
             now: 0
             usedPercent: 65
+        result: warning
+      # Boundary: 30% used at 20% elapsed is exactly drift +10 and warns.
+      - params:
+          - elapsedMinutes: 60
+            now: 0
+            usedPercent: 30
+        result: warning
+      # One point shy: 29% used at 20% elapsed is drift +9 and stays clean.
+      - params:
+          - elapsedMinutes: 60
+            now: 0
+            usedPercent: 29
         result: !undefined
-      # One minute above the 285-minute expiry threshold (5.33% remaining) with usage
-      # far under pace: just-above-expiry alone does not warn.
+      # Late window (284 of 300 minutes elapsed) with usage far under pace stays clean.
       - params:
           - elapsedMinutes: 284
             now: 0
@@ -104,14 +113,15 @@ methods:
             now: 0
             usedPercent: 66
         result: !undefined
-      # Expiry boundary: 285 elapsed minutes leaves exactly 5% remaining in BOTH windows
-      # (900000 of 18000000 and 129600000 of 2592000000), pinning the integer-exact
-      # multiply-before-divide resetAt derivation.
+      # 285 elapsed minutes leaves exactly 5% remaining in BOTH windows (900000 of
+      # 18000000 and 129600000 of 2592000000), pinning the integer-exact
+      # multiply-before-divide resetAt derivation — with usage far under pace it stays
+      # clean: nearing reset alone does not warn.
       - params:
           - elapsedMinutes: 285
             now: 0
             usedPercent: 10
-        result: warning
+        result: !undefined
       # Max dials: full quota on a fresh window warns via pace; empty fresh window is clean.
       - params:
           - elapsedMinutes: 0
@@ -123,43 +133,12 @@ methods:
             now: 0
             usedPercent: 0
         result: !undefined
-      # Fully elapsed window (300 minutes) warns via expiry even with zero usage.
+      # Fully elapsed window (300 minutes) with zero usage: elapsed alone never warns.
       - params:
           - elapsedMinutes: 300
             now: 0
             usedPercent: 0
-        result: warning
-  resolveIsWindowNearingExpiry:
-    terms:
-      # A window without a reset time never nears expiry.
-      - params:
-          - now: 0
-            windowMs: 3600000
-        result: false
-      # Remaining exactly at the 5% threshold (180000 of 3600000) counts as nearing.
-      - params:
-          - now: 0
-            resetAt: 180000
-            windowMs: 3600000
-        result: true
-      # One millisecond above the threshold is not nearing.
-      - params:
-          - now: 0
-            resetAt: 180001
-            windowMs: 3600000
-        result: false
-      # Half the window remaining is comfortably healthy.
-      - params:
-          - now: 0
-            resetAt: 1800000
-            windowMs: 3600000
-        result: false
-      # A window whose reset time already passed (no remaining time) still counts.
-      - params:
-          - now: 4000000
-            resetAt: 3600000
-            windowMs: 3600000
-        result: true
+        result: !undefined
   resolveIsWindowWarning:
     terms:
       # A window without a reset time never warns, however much of the quota is used.
@@ -174,19 +153,27 @@ methods:
             resetAt: 3600000
             usedPercent: 90
         result: false
-      # Warning via expiry: remaining exactly at the 5% threshold (180000 of 3600000).
+      # Nearing reset (5% remaining, resetAt 180000 of 3600000) with usage far under
+      # pace does not warn.
       - params:
           - now: 0
             resetAt: 180000
             usedPercent: 10
             windowMs: 3600000
-        result: true
-      # Warning via pace: 80% used at 20% elapsed is drift +60, into red pace step 3
-      # where outpacing starts (drift beyond 45).
+        result: false
+      # Warning via pace: 80% used at 20% elapsed is drift +60, far past the +10
+      # outpacing threshold.
       - params:
           - now: 0
             resetAt: 2880000
             usedPercent: 80
+            windowMs: 3600000
+        result: true
+      # Boundary: 20% used at 10% elapsed is exactly drift +10 and warns.
+      - params:
+          - now: 0
+            resetAt: 3240000
+            usedPercent: 20
             windowMs: 3600000
         result: true
       # Mid-window and on pace (drift 0) stays clean.
@@ -437,7 +424,8 @@ methods:
                       usedPercent: 50
                       windowMs: 3600000
         result: error
-      # Warning via expiry: remaining exactly at the 5% threshold on the second provider.
+      # Nearing reset (5% remaining) on the second provider with usage under pace does
+      # not warn.
       - params:
           - now: 0
             snapshot:
@@ -460,8 +448,8 @@ methods:
                       resetAt: 180000
                       usedPercent: 50
                       windowMs: 3600000
-        result: warning
-      # One millisecond above the threshold: healthy again (usage far under pace here).
+        result: !undefined
+      # One millisecond more remaining, still under pace: clean.
       - params:
           - now: 0
             snapshot:
@@ -476,8 +464,8 @@ methods:
                       usedPercent: 50
                       windowMs: 3600000
         result: !undefined
-      # Warning via pace: 80% used at 20% elapsed is drift +60, into red pace step 3
-      # where outpacing starts (drift beyond 45).
+      # Warning via pace: 80% used at 20% elapsed is drift +60, far past the +10
+      # outpacing threshold.
       - params:
           - now: 0
             snapshot:
@@ -492,7 +480,7 @@ methods:
                       usedPercent: 80
                       windowMs: 3600000
         result: warning
-      # Drift +20 (40% used at 20% elapsed, red pace step 1) is no longer enough to warn.
+      # Drift +20 (40% used at 20% elapsed) is past the +10 threshold and warns.
       - params:
           - now: 0
             snapshot:
@@ -506,7 +494,7 @@ methods:
                       resetAt: 2880000
                       usedPercent: 40
                       windowMs: 3600000
-        result: !undefined
+        result: warning
       # Drift +3 (23% used at 20% elapsed) stays inside the on-pace band.
       - params:
           - now: 0
@@ -565,7 +553,8 @@ methods:
                       resetAt: 3600000
                       usedPercent: 90
         result: !undefined
-      # A window already past its reset time (now after resetAt) still warns via expiry.
+      # A window already past its reset time (now after resetAt) with zero usage stays
+      # clean: elapsed alone never warns.
       - params:
           - now: 4000000
             snapshot:
@@ -579,4 +568,4 @@ methods:
                       resetAt: 3600000
                       usedPercent: 0
                       windowMs: 3600000
-        result: warning
+        result: !undefined

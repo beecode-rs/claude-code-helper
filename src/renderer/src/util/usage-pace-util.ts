@@ -1,6 +1,6 @@
 import { usageResetUtil } from '#src/renderer/src/util/usage-reset-util'
 
-const OUTPACING_MIN_PACE_STEP_COUNT = 3
+const OUTPACING_MIN_DRIFT_PERCENT = 10
 const PACE_ON_PACE_BAND_PERCENT = 5
 const PACE_STEP_MAX_COUNT = 5
 const PACE_STEP_PERCENT = 20
@@ -60,9 +60,7 @@ export const usagePaceUtil = {
       return false
     }
 
-    const minDriftPercent = PACE_ON_PACE_BAND_PERCENT + (OUTPACING_MIN_PACE_STEP_COUNT - 1) * PACE_STEP_PERCENT
-
-    return diffPercent > minDriftPercent
+    return diffPercent >= OUTPACING_MIN_DRIFT_PERCENT
   },
 
   resolvePaceColor: (params: {

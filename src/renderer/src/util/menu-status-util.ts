@@ -1,10 +1,8 @@
 import { usagePaceUtil } from '#src/renderer/src/util/usage-pace-util'
-import { usageResetUtil } from '#src/renderer/src/util/usage-reset-util'
 import { zaiPeakUtil } from '#src/renderer/src/util/zai-peak-util'
 import type { ISessionSnapshot } from '#src/shared/session-model'
 import { FIVE_HOUR_WINDOW_MS, type IUsageSnapshot, UsageStatus } from '#src/shared/usage-model'
 
-const EXPIRY_WARNING_WINDOW_FRACTION = 0.05
 const MAX_ELAPSED_MINUTES = 300
 
 export const MONTH_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
@@ -79,16 +77,6 @@ export const menuStatusUtil = {
     return menuStatusUtil.resolveUsageStatusDot({ now: params.now, snapshot })
   },
 
-  resolveIsWindowNearingExpiry: (params: { now: number; resetAt?: number; windowMs: number }): boolean => {
-    if (params.resetAt === undefined) {
-      return false
-    }
-
-    const remainingMs = usageResetUtil.resolveRemainingMs({ now: params.now, resetAt: params.resetAt })
-
-    return remainingMs <= params.windowMs * EXPIRY_WARNING_WINDOW_FRACTION
-  },
-
   resolveIsWindowWarning: (params: {
     now: number
     resetAt?: number
@@ -99,12 +87,6 @@ export const menuStatusUtil = {
 
     if (resetAt === undefined || windowMs === undefined) {
       return false
-    }
-
-    const isNearingExpiry = menuStatusUtil.resolveIsWindowNearingExpiry({ now: params.now, resetAt, windowMs })
-
-    if (isNearingExpiry) {
-      return true
     }
 
     return usagePaceUtil.resolveIsUsageOutpacingWindow({
